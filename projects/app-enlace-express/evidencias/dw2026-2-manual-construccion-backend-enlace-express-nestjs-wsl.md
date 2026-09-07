@@ -80,3 +80,34 @@ curl http://localhost:3000
 **Respuesta correcta**
 
 ![Servidor corriendo](imagenes/nestjs_run.PNG)
+
+## 5. Instalar dependencias del backend
+
+Usaremos Sequelize como ORM y `sequelize-typescript` para mapear modelos TypeScript. El motor se selecciona mediante `DB_DIALECT` en `.env`; el mismo backend puede trabajar con MySQL, PostgreSQL, Microsoft SQL Server u Oracle sin cambiar el dominio ni los casos de uso.
+
+```bash
+npm install @nestjs/config @nestjs/sequelize sequelize sequelize-typescript class-validator class-transformer
+npm install @nestjs/swagger swagger-ui-express helmet
+npm install @nestjs/jwt passport passport-jwt @nestjs/passport bcrypt
+npm install --save-dev @types/bcrypt @types/passport-jwt
+```
+
+Controlador según motor:
+
+```bash
+# MySQL
+npm install mysql2
+
+# PostgreSQL
+npm install pg
+
+# Microsoft SQL Server (conector usado por Sequelize)
+npm install tedious
+
+# Oracle
+npm install oracledb
+```
+
+Instala el controlador correspondiente al motor elegido; en una instalación real no es obligatorio instalar los cuatro. Para Oracle, `oracledb` puede requerir las bibliotecas cliente de Oracle en WSL según el modo de conexión.
+
+Registra en `docs/proceso.md` la opción escogida y justifica por qué corresponde al motor de la Semana 02.
