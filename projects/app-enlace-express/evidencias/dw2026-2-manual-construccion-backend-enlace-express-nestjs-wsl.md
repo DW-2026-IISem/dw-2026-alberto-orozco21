@@ -111,3 +111,46 @@ npm install oracledb
 Instala el controlador correspondiente al motor elegido; en una instalación real no es obligatorio instalar los cuatro. Para Oracle, `oracledb` puede requerir las bibliotecas cliente de Oracle en WSL según el modo de conexión.
 
 Registra en `docs/proceso.md` la opción escogida y justifica por qué corresponde al motor de la Semana 02.
+
+## 6. Configurar la conexión remota a la base de datos
+
+Crea `.env.example` y copia una versión local:
+
+```bash
+cat > .env.example <<'EOF'
+APP_PORT=3000
+DB_DIALECT=mysql
+DB_HOST=IP_DEL_HOST
+DB_PORT=3306
+DB_USERNAME=usuario_remoto
+DB_PASSWORD=CAMBIAR_LOCALMENTE
+DB_NAME=storelab
+DB_SCHEMA=
+DB_CONNECT_STRING=
+JWT_SECRET=CAMBIAR_LOCALMENTE
+JWT_EXPIRES_IN=15m
+EOF
+cp .env.example .env
+```
+
+Edita `.env` con la IP real del host, el motor y el puerto correspondiente. Valores válidos para `DB_DIALECT`: `mysql`, `postgres`, `mssql` u `oracle`. En Oracle, `DB_CONNECT_STRING` puede contener el servicio o connect descriptor requerido por el listener.
+
+```env
+# Selecciona un solo bloque según el motor asignado
+DB_DIALECT=mysql
+DB_PORT=3306
+# DB_DIALECT=postgres
+# DB_PORT=5432
+# DB_DIALECT=mssql
+# DB_PORT=1433
+# DB_DIALECT=oracle
+# DB_PORT=1521
+```
+
+No publiques `.env` ni escribas contraseñas en la bitácora:
+
+```bash
+printf '\n.env\n' >> .gitignore
+```
+
+Prueba la conectividad desde WSL con el cliente disponible para tu motor. Si falla, revisa primero IP, puerto, usuario remoto, firewall y configuración de red del contenedor. No cambies código NestJS para ocultar un problema de red.

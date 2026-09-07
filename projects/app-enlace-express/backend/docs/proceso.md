@@ -118,3 +118,20 @@ To address all issues possible (including breaking changes), run:
 Some issues need review, and may require choosing
 a different dependency.
 ```
+
+## Entrada 003 — Configuración de conexión a base de datos
+
+**Contexto:** **Fecha:** 06/09/2026 · **Autor:** Alberto Orozco · **Issue:** #05 · **REQ/AC:** REQ-S04-05 / AC-S04-05
+
+```bash
+# Ruta /home/alberto/ia-lab/services/motores-bd/postgres
+
+sudo docker compose up -d
+
+docker exec -it postgres-server psql -U alberto -d enlace_express
+```
+
+![Postgres](evidencias/conexion_postgres.PNG)
+
+Se crearon `.env.example` (con placeholders, commiteado) y `.env` (con valores reales, excluido vía .gitignore) con `DB_DIALECT=postgres`, `DB_PORT=5433`, `DB_NAME=enlace_express`. JWT_SECRET generado con `openssl rand -base64 32` y almacenado solo en `.env` local.
+
