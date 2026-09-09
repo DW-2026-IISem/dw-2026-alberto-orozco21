@@ -189,3 +189,14 @@ EOF_BACKEND
 ```
 
 ![alt text](imagenes/src_carpetas.PNG)
+
+### 3.2 — Recordatorio de responsabilidades
+
+| Carpeta | Responsabilidad |
+|---------|------------------|
+| `config/` | Cómo se configura la app (env, jwt, swagger) |
+| `common/` | Piezas transversales reutilizables |
+| `infrastructure/` | Detalles técnicos (Sequelize, bcrypt, JWT) |
+| `features/*` | Dominios (business/auth) con CA interna |
+
+**Error típico:** poner `@Table` de Sequelize dentro de `domain/entities`.
