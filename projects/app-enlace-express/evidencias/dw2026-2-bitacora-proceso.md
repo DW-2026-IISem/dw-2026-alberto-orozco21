@@ -34,3 +34,16 @@ cd backend
 ```
 
 ![alt text](imagenes/new_backend.PNG)
+
+### 1.4 — Crear `.env` mínimo (puerto)
+
+El puerto `3002` evita choques con el 3000. Más adelante el `.env` crecerá con BD.
+
+```bash
+cat > .env <<'EOF_BACKEND'
+PORT=3002
+NODE_ENV=development
+EOF_BACKEND
+```
+
+![alt text](imagenes/env.PNG)
