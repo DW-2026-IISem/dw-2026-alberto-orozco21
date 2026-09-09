@@ -200,3 +200,75 @@ EOF_BACKEND
 | `features/*` | Dominios (business/auth) con CA interna |
 
 **Error típico:** poner `@Table` de Sequelize dentro de `domain/entities`.
+
+-----------------------------------------------------------------------
+
+## FASE 4 — `03_BASE_ENTORNO_ENV`
+
+### 4.1 — Crear `.env.example` y actualizar `.env` completo
+
+El `.env` real NO se sube a Git. Usa BD dedicada `enlace_express`.
+
+**Contrato multi-base**
+
+- `DB_DIALECT` = `mysql` | `postgres` | `mssql` | `oracle` (elige qué motor corre).
+- MySQL: `DB_MYSQL_HOST`, `DB_MYSQL_PORT`, `DB_MYSQL_USERNAME`, `DB_MYSQL_PASSWORD`, `DB_MYSQL_NAME`.
+- PostgreSQL: `DB_POSTGRES_*` (puerto lab 5432).
+- SQL Server: `DB_MSSQL_*` (puerto lab 1433, usuario `sa`).
+- Oracle: `DB_ORACLE_*` + `DB_ORACLE_CONNECT_STRING` (puerto lab 1521).
+- Para cambiar de motor, cambia **solo** `DB_DIALECT`. No uses `DB_HOST` / `DB_USERNAME` genéricos.
+
+```bash
+cat > .env.example <<'EOF_BACKEND'
+# ==========================================
+# APP
+# ==========================================
+PORT=3002
+NODE_ENV=development
+
+# ==========================================
+# DATABASE
+# ==========================================
+# Selector del motor en ejecución (un solo valor):
+# mysql | postgres | mssql | oracle
+DB_DIALECT=mysql
+
+# --- MYSQL ---
+DB_MYSQL_HOST=localhost
+DB_MYSQL_PORT=3306
+DB_MYSQL_USERNAME=root
+DB_MYSQL_PASSWORD=root
+DB_MYSQL_NAME=tecnogua_ia
+
+# --- POSTGRES ---
+DB_POSTGRES_HOST=localhost
+DB_POSTGRES_PORT=5432
+DB_POSTGRES_USERNAME=postgres
+DB_POSTGRES_PASSWORD=postgres
+DB_POSTGRES_NAME=tecnogua_ia
+
+# --- MSSQL (SQL Server) ---
+DB_MSSQL_HOST=localhost
+DB_MSSQL_PORT=1433
+DB_MSSQL_USERNAME=sa
+DB_MSSQL_PASSWORD=YourStrong@Passw0rd
+DB_MSSQL_NAME=tecnogua_ia
+
+# --- ORACLE ---
+DB_ORACLE_HOST=localhost
+DB_ORACLE_PORT=1521
+DB_ORACLE_USERNAME=system
+DB_ORACLE_PASSWORD=oracle
+DB_ORACLE_NAME=tecnogua_ia
+DB_ORACLE_CONNECT_STRING=localhost:1521/XEPDB1
+
+EOF_BACKEND
+```
+
+```bash
+cp .env.example .env
+# Laboratorio: DB_DIALECT + un bloque por motor (MYSQL/POSTGRES/MSSQL/ORACLE).
+# Cambia solo el bloque del motor que uses. Mantén DB_*_NAME=tecnogua_ia
+```
+
+![alt text](imagenes/env_example.PNG)
