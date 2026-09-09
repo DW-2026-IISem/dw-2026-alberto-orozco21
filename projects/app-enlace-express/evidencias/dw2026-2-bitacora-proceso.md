@@ -48,6 +48,8 @@ EOF_BACKEND
 
 ![alt text](imagenes/env.PNG)
 
+---------------------------------------------------------------------------
+
 ## FASE 2 — `01_BASE_DEPS_Y_PUERTO`
 
 ### 2.1 — Dependencias de producción
@@ -160,3 +162,30 @@ curl -s http://localhost:3002 || true
 ```
 
 ![alt text](imagenes/hellowork.PNG)
+
+------------------------------------------------------------------------
+
+## FASE 3 — `02_BASE_ESTRUCTURA_CA`
+
+### 3.1 — Crear árbol base de carpetas
+
+Aún no hay código de dominio. Solo directorios y módulos vacíos de features para anclar imports futuros.
+
+```bash
+mkdir -p src/config/{app,database,environment,logger,swagger}
+mkdir -p src/common/{constants,decorators,enums,exceptions,filters,guards,interceptors,interfaces,pipes,types,utils,validators}
+mkdir -p src/infrastructure/database/{sequelize,migrations,seeders}
+mkdir -p src/infrastructure/logging
+mkdir -p src/features/shipping/{companies,contacts,addresses,shipments,packages,tracking-events,couriers,routes,rates,delivery-proofs,invoices}/{application/{dto,mappers,use-cases},domain/{entities,enums,exceptions,interfaces,services,validators},infrastructure/persistence/{models,repositories,migrations,seeders},presentation/http/{controllers,decorators,serializers,swagger},tests}
+cat > src/features/shipping/shipping.module.ts <<'EOF_BACKEND'
+import { Module } from '@nestjs/common';
+
+@Module({
+  imports: [],
+  exports: [],
+})
+export class ShippingModule {}
+EOF_BACKEND
+```
+
+![alt text](imagenes/src_carpetas.PNG)
