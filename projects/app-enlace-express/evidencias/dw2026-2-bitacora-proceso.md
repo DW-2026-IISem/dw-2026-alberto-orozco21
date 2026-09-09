@@ -272,3 +272,49 @@ cp .env.example .env
 ```
 
 ![alt text](imagenes/env_example.PNG)
+
+### 4.2 — Interface de entorno
+
+Tipos TypeScript de las variables de entorno (APP, DB) y enum de dialectos.
+
+**Archivo:** `src/config/environment/env.interface.ts`
+
+```bash
+mkdir -p src/config/environment
+cat > src/config/environment/env.interface.ts <<'EOF_BACKEND'
+export enum Environment {
+  Development = 'development',
+  Production = 'production',
+  Test = 'test',
+}
+
+export enum DatabaseDialect {
+  MySQL = 'mysql',
+  Postgres = 'postgres',
+  MSSQL = 'mssql',
+  Oracle = 'oracle',
+}
+
+export interface AppConfig {
+  port: number;
+  nodeEnv: Environment;
+}
+
+export interface DatabaseConfig {
+  dialect: DatabaseDialect;
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+  connectString?: string;
+}
+
+export interface EnvironmentConfig {
+  app: AppConfig;
+  database: DatabaseConfig;
+}
+EOF_BACKEND
+```
+
+![alt text](imagenes/environment.PNG)
