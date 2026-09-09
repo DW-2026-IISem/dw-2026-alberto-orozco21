@@ -61,3 +61,14 @@ npm install @nestjs/config @nestjs/swagger @nestjs/jwt @nestjs/passport @nestjs/
 ```
 
 ![alt text](imagenes/dependencias.PNG)
+
+### 2.2 — Dependencias de desarrollo
+
+Tipados y sequelize-cli para herramientas de BD.
+
+```bash
+npm install -D @types/bcrypt @types/passport-jwt sequelize-cli
+```
+
+![alt text](imagenes/dependencias_desarrollo.PNG)
+
