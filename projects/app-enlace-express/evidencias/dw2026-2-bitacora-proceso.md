@@ -47,3 +47,17 @@ EOF_BACKEND
 ```
 
 ![alt text](imagenes/env.PNG)
+
+## FASE 2 — `01_BASE_DEPS_Y_PUERTO`
+
+### 2.1 — Dependencias de producción
+
+Config, Swagger, JWT/Passport, Sequelize + drivers de 4 motores, validación, bcrypt y utilidades HTTP.
+
+```bash
+npm install @nestjs/config @nestjs/swagger @nestjs/jwt @nestjs/passport @nestjs/mapped-types \
+  passport passport-jwt sequelize sequelize-typescript mysql2 pg tedious oracledb \
+  class-validator class-transformer bcrypt reflect-metadata express compression helmet
+```
+
+![alt text](imagenes/dependencias.PNG)
