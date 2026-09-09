@@ -22,3 +22,15 @@ nest --version
 ```
 
 ![alt text](imagenes/nest_version.PNG)
+
+### 1.3 — Crear proyecto NestJS
+
+Usamos el nombre `backend` (workspace didáctico). Responde las preguntas del CLI (package manager: npm).
+
+```bash
+cd /home/alberto/ia-lab/dw-2026-alberto-orozco21/projects/app-enlace-express
+nest new backend
+cd backend
+```
+
+![alt text](imagenes/new_backend.PNG)
