@@ -670,3 +670,24 @@ EOF_BACKEND
 ```
 
 ![alt text](imagenes/database_constants.PNG)
+
+### 5.2 — Tipos auxiliares de database config
+
+Tipos auxiliares del bloque config/database (legado/compat).
+
+**Archivo:** `src/config/database/database.types.ts`
+
+```bash
+mkdir -p src/config/database
+cat > src/config/database/database.types.ts <<'EOF_BACKEND'
+import { Options as SequelizeOptions } from 'sequelize';
+
+export type DialectOptions =
+  | { dialect: 'mysql'; options?: SequelizeOptions }
+  | { dialect: 'postgres'; options?: SequelizeOptions }
+  | { dialect: 'mssql'; options?: SequelizeOptions }
+  | { dialect: 'oracle'; options?: SequelizeOptions };
+EOF_BACKEND
+```
+
+![alt text](imagenes/database_types.PNG)
