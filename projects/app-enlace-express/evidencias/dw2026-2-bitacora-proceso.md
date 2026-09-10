@@ -757,3 +757,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/database_module.PNG)
+
+### 5.5 — database.providers.ts
+
+Placeholder de providers de config/database.
+
+**Archivo:** `src/config/database/database.providers.ts`
+
+```bash
+mkdir -p src/config/database
+cat > src/config/database/database.providers.ts <<'EOF_BACKEND'
+export const DATABASE_PROVIDERS = [];
+EOF_BACKEND
+```
+
+![alt text](imagenes/database_provier.PNG)
