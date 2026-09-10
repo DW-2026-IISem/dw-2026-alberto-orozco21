@@ -944,3 +944,44 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/database_seeder.PNG)
+
+### 5.9 — Módulo global Sequelize
+
+Módulo `@Global()` que provee `SEQUELIZE_TOKEN` + ejecuta seeders.
+
+**Archivo:** `src/infrastructure/database/sequelize/sequelize.module.ts`
+
+```bash
+mkdir -p src/infrastructure/database/sequelize
+cat > src/infrastructure/database/sequelize/sequelize.module.ts <<'EOF_BACKEND_IA'
+import { Module, Global } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Sequelize } from 'sequelize-typescript';
+import { DatabaseDialect } from '../../../config/environment/env.interface';
+import { SEQUELIZE_TOKEN } from '../../../common/constants/database.constants';
+import { createSequelizeInstance } from './sequelize.factory';
+import { DatabaseSeederService } from '../seeders/database-seeder.service';
+
+@Global()
+@Module({
+  providers: [
+    {
+      provide: SEQUELIZE_TOKEN,
+      useFactory: async (configService: ConfigService): Promise<Sequelize> => {
+        const dialect = configService.get<DatabaseDialect>(
+          'environment.database.dialect',
+          DatabaseDialect.MySQL,
+        );
+        return createSequelizeInstance(dialect);
+      },
+      inject: [ConfigService],
+    },
+    DatabaseSeederService,
+  ],
+  exports: [SEQUELIZE_TOKEN],
+})
+export class SequelizeDatabaseModule {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/sequelize_module.PNG)
