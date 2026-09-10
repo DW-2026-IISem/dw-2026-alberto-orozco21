@@ -652,3 +652,21 @@ EOF_BACKEND
 
 ![alt text](imagenes/env_config.PNG)
 
+------------------------------------------------------------------------
+
+## FASE 5 — `04_BASE_DATABASE_SEQUELIZE`
+
+### 5.1 — Constante SEQUELIZE_TOKEN
+
+Token DI para inyectar la instancia Sequelize en repositorios.
+
+**Archivo:** `src/common/constants/database.constants.ts`
+
+```bash
+mkdir -p src/common/constants
+cat > src/common/constants/database.constants.ts <<'EOF_BACKEND'
+export const SEQUELIZE_TOKEN = 'SEQUELIZE';
+EOF_BACKEND
+```
+
+![alt text](imagenes/database_constants.PNG)
