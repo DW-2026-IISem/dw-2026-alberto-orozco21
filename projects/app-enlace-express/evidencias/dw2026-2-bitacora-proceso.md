@@ -734,3 +734,26 @@ EOF_BACKEND
 ```
 
 ![alt text](imagenes/database_config.PNG)
+
+### 5.4 — database.module.ts / providers
+
+Módulo de configuración de BD (forFeature). Los providers quedan vacíos a propósito.
+
+**Archivo:** `src/config/database/database.module.ts`
+
+```bash
+mkdir -p src/config/database
+cat > src/config/database/database.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { databaseConfig } from './database.config';
+
+@Module({
+  imports: [ConfigModule.forFeature(databaseConfig)],
+  exports: [ConfigModule],
+})
+export class DatabaseConfigModule {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/database_module.PNG)
