@@ -1,6 +1,6 @@
 import { Sequelize } from 'sequelize-typescript';
-import { DatabaseDialect } from '../../../config/environment/env.interface';
-import { getSequelizeOptions } from './sequelize.options';
+import { DatabaseDialect } from '../../../config/environment/env.interface.js';
+import { getSequelizeOptions } from './sequelize.options.js';
 
 
 export const ALL_MODELS = [
@@ -12,24 +12,31 @@ export async function createSequelizeInstance(
 ): Promise<Sequelize> {
   const options = getSequelizeOptions(dialect);
 
-  let dialectModule: any;
+  async function loadDialectModule(moduleName: string): Promise<any> {
+  const mod: any = await import(moduleName);
+  return mod.default ?? mod;
+}
 
-  switch (dialect) {
-    case DatabaseDialect.MySQL:
-      dialectModule = require('mysql2');
-      break;
-    case DatabaseDialect.Postgres:
-      dialectModule = require('pg');
-      break;
-    case DatabaseDialect.MSSQL:
-      dialectModule = require('tedious');
-      break;
-    case DatabaseDialect.Oracle:
-      dialectModule = require('oracledb');
-      break;
-    default:
-      throw new Error(`Dialecto no soportado: ${dialect}`);
-  }
+// ...dentro de createSequelizeInstance:
+
+let dialectModule: any;
+
+switch (dialect) {
+  case DatabaseDialect.MySQL:
+    dialectModule = await loadDialectModule('mysql2');
+    break;
+  case DatabaseDialect.Postgres:
+    dialectModule = await loadDialectModule('pg');
+    break;
+  case DatabaseDialect.MSSQL:
+    dialectModule = await loadDialectModule('tedious');
+    break;
+  case DatabaseDialect.Oracle:
+    dialectModule = await loadDialectModule('oracledb');
+    break;
+  default:
+    throw new Error(`Dialecto no soportado: ${dialect}`);
+}
 
   const sequelize = new Sequelize({
     ...options,

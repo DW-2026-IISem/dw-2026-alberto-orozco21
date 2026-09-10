@@ -985,3 +985,27 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/sequelize_module.PNG)
+
+### 5.10 — Verificar conexión a BD
+
+Crea la BD vacía `enlace_express` en el motor que indica `DB_DIALECT`. Aún no hay tablas de negocio. Si falla el authenticate, corrige el **bloque de ese motor** en `.env` (no el de otro).
+
+```bash
+npm run start:dev
+```
+
+**MYSQL**
+
+![alt text](imagenes/mysql_conexion.PNG)
+
+**POSTGRES**
+
+![alt text](imagenes/postgres_conexion.PNG)
+
+**MS SQL SERVER**
+
+![alt text](imagenes/mssql_conexion.PNG)
+
+**ORACLE**
+
+![alt text](imagenes/oracle_conexion.PNG)
