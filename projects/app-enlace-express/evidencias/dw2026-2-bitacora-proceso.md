@@ -1033,3 +1033,25 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/app_constants.PNG)
+
+### 6.2 — config/app/app.config.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/config/app/app.config.ts`
+
+```bash
+mkdir -p src/config/app
+cat > src/config/app/app.config.ts <<'EOF_BACKEND_IA'
+import { registerAs } from '@nestjs/config';
+import { APP_CONFIG_NAME, APP_DEFAULTS } from './app.constants';
+import { Environment } from '../environment/env.interface';
+
+export const appConfig = registerAs(APP_CONFIG_NAME, () => ({
+  port: parseInt(process.env.PORT || String(APP_DEFAULTS.PORT), 10),
+  nodeEnv: (process.env.NODE_ENV as Environment) || APP_DEFAULTS.NODE_ENV,
+}));
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/app_config.PNG)
