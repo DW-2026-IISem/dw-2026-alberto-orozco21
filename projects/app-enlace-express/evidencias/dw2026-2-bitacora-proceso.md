@@ -4417,3 +4417,32 @@ npm run start:dev
 **/api/contacts**
 
 ![alt text](imagenes/api_contacts.png)
+
+---------------------------------------------------------------
+
+## FASE 9 — `08_BUSINESS_ADDRESSES`
+
+### Business — Addresses / Direccion (patrón completo CA)
+
+> **Objetivo de la fase:** Tercera entidad de negocio de EnlaceExpress: Direccion, que también pertenece a una Empresa (`companyId`) y representa un punto físico de recogida/entrega. Orden lógico: dominio → infraestructura → aplicación → presentación → módulo → cableado → verificación.
+>
+> Sigue las mismas convenciones de fase 8: imports relativos con `.js`, y asociación real con `CompanyModel` (import estático + referencia diferida `() => Modelo`).
+
+### 9.1 — features/shipping/addresses/domain/enums/address-type.enum.ts
+
+Enum de dominio propio del feature (no va en `common/enums` porque solo aplica a Direccion).
+
+**Archivo:** `src/features/shipping/addresses/domain/enums/address-type.enum.ts`
+
+```bash
+mkdir -p src/features/shipping/addresses/domain/enums
+cat > src/features/shipping/addresses/domain/enums/address-type.enum.ts <<'EOF_BACKEND_IA'
+export enum AddressType {
+  PICKUP = 'recogida',
+  DELIVERY = 'entrega',
+  MIXED = 'mixta',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/address-type.enum.png)
