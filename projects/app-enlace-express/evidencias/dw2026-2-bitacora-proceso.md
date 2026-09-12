@@ -4399,3 +4399,21 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/database-seeder.service.png)
+
+### 8.28 — Verificar tabla física `contacts` y API
+
+`app.module.ts` **no necesita cambios**: ya importa `ShippingModule`, que ahora expone tanto `CompaniesModule` como `ContactsModule`.
+
+Arranca la app. Debe crear/sync tabla `contacts` (con FK a `companies`), correr seeder y exponer `/api/contacts`. Prueba list/create en Swagger o curl, y confirma que `GET /api/contacts?companyId=1` filtra correctamente.
+
+```bash
+npm run start:dev
+```
+
+**Consola**
+
+![alt text](imagenes/contact_consola.png)
+
+**/api/contacts**
+
+![alt text](imagenes/api_contacts.png)

@@ -3,16 +3,15 @@ import {
   Column,
   CreatedAt,
   DataType,
-  HasMany,
   Model,
   PrimaryKey,
   Table,
   UpdatedAt,
 } from 'sequelize-typescript';
-import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
 
 @Table({ tableName: 'companies' })
 export class CompanyModel extends Model {
+
   @PrimaryKey
   @AutoIncrement
   @Column(DataType.INTEGER)
@@ -32,9 +31,4 @@ export class CompanyModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
-
-  @HasMany(() => ContactModel)
-  declare contacts: ContactModel[];
-
-  // addresses, shipments, invoices se agregan en sus respectivas fases.
 }
