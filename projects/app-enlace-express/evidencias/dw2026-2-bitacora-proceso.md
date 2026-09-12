@@ -3295,3 +3295,21 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/contact-repository.interface.png)
+
+### 8.4 — features/shipping/contacts/domain/validators/contact-email.validator.ts
+
+Validador de dominio reutilizable (reglas independientes del framework HTTP).
+
+**Archivo:** `src/features/shipping/contacts/domain/validators/contact-email.validator.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts/domain/validators
+cat > src/features/shipping/contacts/domain/validators/contact-email.validator.ts <<'EOF_BACKEND_IA'
+export function isValidContactEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/ontact-email.validator.png)
