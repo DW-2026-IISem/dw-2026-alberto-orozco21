@@ -1907,3 +1907,42 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/main.ts_bootstrap.PNG)
+
+### 6.31 — Actualizar app.module.ts (base sin features ni security)
+
+Cablea Config + Sequelize + Logger. Business llega en fases posteriores.
+
+**Archivo:** `src/app.module.ts`
+
+```bash
+mkdir -p src
+cat > src/app.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { envConfig } from './config/environment/env.config';
+import { appConfig } from './config/app/app.config';
+import { LoggerModule } from './config/logger/logger.module';
+import { SequelizeDatabaseModule } from './infrastructure/database/sequelize/sequelize.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [envConfig, appConfig],
+      envFilePath: '.env',
+    }),
+    SequelizeDatabaseModule,
+    LoggerModule,
+  ],
+  controllers: [AppController],
+  providers: [
+    AppService,
+  ],
+})
+export class AppModule {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/app.module_actualizado.PNG)
