@@ -2145,3 +2145,22 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/company-repository.interface.png)
+
+### 7.5 — features/shipping/companies/domain/validators/company-nit.validator.ts
+
+Validador de dominio reutilizable (reglas independientes del framework HTTP).
+
+**Archivo:** `src/features/shipping/companies/domain/validators/company-nit.validator.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/domain/validators
+cat > src/features/shipping/companies/domain/validators/company-nit.validator.ts <<'EOF_BACKEND_IA'
+export function isValidNit(nit: string): boolean {
+  // Dígitos, con guion y dígito de verificación opcional (ej. 900123456-7)
+  const nitRegex = /^\d{5,15}(-\d)?$/;
+  return nitRegex.test(nit.trim());
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company-nit.validator.png)
