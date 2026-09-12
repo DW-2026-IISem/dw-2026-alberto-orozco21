@@ -5453,3 +5453,44 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/list-addresses.use-case.png)
+
+### 9.19 — features/shipping/addresses/application/use-cases/update-address.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/addresses/application/use-cases/update-address.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/addresses/application/use-cases
+cat > src/features/shipping/addresses/application/use-cases/update-address.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { AddressNotFoundException } from '../../domain/exceptions/address-not-found.exception.js';
+import {
+  ADDRESS_REPOSITORY,
+  type IAddressRepository,
+} from '../../domain/interfaces/address-repository.interface.js';
+import { UpdateAddressDto } from '../dto/update-address.dto.js';
+import { AddressMapper } from '../mappers/address.mapper.js';
+
+@Injectable()
+export class UpdateAddressUseCase {
+  constructor(
+    @Inject(ADDRESS_REPOSITORY)
+    private readonly addressRepository: IAddressRepository,
+  ) {}
+
+  async execute(id: number, dto: UpdateAddressDto) {
+    const address = await this.addressRepository.findById(id);
+    if (!address) {
+      throw new AddressNotFoundException(id);
+    }
+
+    address.update(dto);
+    const updated = await this.addressRepository.update(address);
+    return AddressMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/update-address.use-case.png)
