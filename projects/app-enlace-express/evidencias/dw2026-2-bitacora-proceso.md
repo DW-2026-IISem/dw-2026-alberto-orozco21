@@ -2468,3 +2468,21 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/create-company.dto.png)
+
+### 7.13 — features/shipping/companies/application/dto/update-company.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger.
+
+**Archivo:** `src/features/shipping/companies/application/dto/update-company.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/application/dto
+cat > src/features/shipping/companies/application/dto/update-company.dto.ts <<'EOF_BACKEND_IA'
+import { PartialType } from '@nestjs/mapped-types';
+import { CreateCompanyDto } from './create-company.dto';
+
+export class UpdateCompanyDto extends PartialType(CreateCompanyDto) {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/update-company.dto.png)
