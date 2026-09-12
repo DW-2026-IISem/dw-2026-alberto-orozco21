@@ -2619,3 +2619,41 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/delete-company.use-case.png)
+
+### 7.17 — features/shipping/companies/application/use-cases/get-company.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/companies/application/use-cases/get-company.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/application/use-cases
+cat > src/features/shipping/companies/application/use-cases/get-company.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { CompanyNotFoundException } from '../../domain/exceptions/company-not-found.exception';
+import {
+  COMPANY_REPOSITORY,
+  type ICompanyRepository,
+} from '../../domain/interfaces/company-repository.interface';
+import { CompanyMapper } from '../mappers/company.mapper';
+
+@Injectable()
+export class GetCompanyUseCase {
+  constructor(
+    @Inject(COMPANY_REPOSITORY)
+    private readonly companyRepository: ICompanyRepository,
+  ) {}
+
+  async execute(id: number) {
+    const company = await this.companyRepository.findById(id);
+    if (!company) {
+      throw new CompanyNotFoundException(id);
+    }
+
+    return CompanyMapper.toResponse(company);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/get-company.use-case.png)
