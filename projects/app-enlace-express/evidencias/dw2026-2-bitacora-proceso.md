@@ -1154,3 +1154,21 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/swagger_config.PNG)
+
+### 6.7 — common/enums/status.enum.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/enums/status.enum.ts`
+
+```bash
+mkdir -p src/common/enums
+cat > src/common/enums/status.enum.ts <<'EOF_BACKEND_IA'
+export enum Status {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/status_enum.PNG)
