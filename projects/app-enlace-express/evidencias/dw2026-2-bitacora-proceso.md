@@ -1211,3 +1211,19 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/sort-order_enum.PNG)
+
+### 6.10 — common/constants/app.constants.ts
+
+Archivo del feature en Clean Architecture. *(adaptado: `APP_NAME` al nombre del proyecto)*
+
+**Archivo:** `src/common/constants/app.constants.ts`
+
+```bash
+mkdir -p src/common/constants
+cat > src/common/constants/app.constants.ts <<'EOF_BACKEND_IA'
+export const APP_NAME = 'enlace_express_api';
+export const GLOBAL_PREFIX = 'api';
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/common_app_constants.PNG)
