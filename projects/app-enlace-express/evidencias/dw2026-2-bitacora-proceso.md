@@ -5183,3 +5183,23 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/create-address.dto.png)
+
+### 9.13 — features/shipping/addresses/application/dto/update-address.dto.ts
+
+DTO de actualización. `companyId` se excluye a propósito: una dirección no cambia de empresa.
+
+**Archivo:** `src/features/shipping/addresses/application/dto/update-address.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/addresses/application/dto
+cat > src/features/shipping/addresses/application/dto/update-address.dto.ts <<'EOF_BACKEND_IA'
+import { OmitType, PartialType } from '@nestjs/mapped-types';
+import { CreateAddressDto } from './create-address.dto.js';
+
+export class UpdateAddressDto extends PartialType(
+  OmitType(CreateAddressDto, ['companyId'] as const),
+) {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/update-address.dto.png)
