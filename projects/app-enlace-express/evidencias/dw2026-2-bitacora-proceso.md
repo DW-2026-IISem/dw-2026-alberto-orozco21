@@ -3052,3 +3052,44 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/atabase-seeder.service.png)
+
+### 7.27 — Actualizar app.module.ts
+
+Importa ShippingModule.
+
+**Archivo:** `src/app.module.ts`
+
+```bash
+mkdir -p src
+cat > src/app.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { envConfig } from './config/environment/env.config';
+import { appConfig } from './config/app/app.config';
+import { LoggerModule } from './config/logger/logger.module';
+import { SequelizeDatabaseModule } from './infrastructure/database/sequelize/sequelize.module';
+import { ShippingModule } from './features/shipping/shipping.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [envConfig, appConfig],
+      envFilePath: '.env',
+    }),
+    SequelizeDatabaseModule,
+    LoggerModule,
+    ShippingModule,
+  ],
+  controllers: [AppController],
+  providers: [
+    AppService,
+  ],
+})
+export class AppModule {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/ShippingModule.png)
