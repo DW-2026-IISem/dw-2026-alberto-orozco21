@@ -1270,3 +1270,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/application_exception.PNG)
+
+### 6.13 — common/exceptions/domain.exception.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/exceptions/domain.exception.ts`
+
+```bash
+mkdir -p src/common/exceptions
+cat > src/common/exceptions/domain.exception.ts <<'EOF_BACKEND_IA'
+import { ApplicationException } from './application.exception';
+
+export class DomainException extends ApplicationException {
+  constructor(message: string) {
+    super(message, 400);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/domain_exception.PNG)
