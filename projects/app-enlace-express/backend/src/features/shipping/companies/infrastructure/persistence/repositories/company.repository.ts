@@ -3,14 +3,14 @@ import { Op } from 'sequelize';
 import {
   buildPaginatedResult,
   normalizePagination,
-} from '../../../../../../common/utils/pagination.util';
-import { Company } from '../../../domain/entities/company.entity';
+} from '../../../../../../common/utils/pagination.util.js';
+import { Company } from '../../../domain/entities/company.entity.js';
 import {
   CompanyFindAllParams,
   ICompanyRepository,
-} from '../../../domain/interfaces/company-repository.interface';
-import { CompanyMapper } from '../../../application/mappers/company.mapper';
-import { CompanyModel } from '../models/company.model';
+} from '../../../domain/interfaces/company-repository.interface.js';
+import { CompanyMapper } from '../../../application/mappers/company.mapper.js';
+import { CompanyModel } from '../models/company.model.js';
 
 @Injectable()
 export class CompanyRepository implements ICompanyRepository {

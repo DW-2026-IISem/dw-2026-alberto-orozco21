@@ -2327,3 +2327,38 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/create-companies-table.migration.png)
+
+### 7.9 — features/shipping/companies/infrastructure/persistence/seeders/companies.seeder.ts
+
+Seeder de datos iniciales para desarrollo y verificación física en BD.
+
+**Archivo:** `src/features/shipping/companies/infrastructure/persistence/seeders/companies.seeder.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/infrastructure/persistence/seeders
+cat > src/features/shipping/companies/infrastructure/persistence/seeders/companies.seeder.ts <<'EOF_BACKEND_IA'
+import { CompanyModel } from '../models/company.model';
+
+export async function seedCompanies(): Promise<void> {
+  const count = await CompanyModel.count();
+  if (count > 0) {
+    return;
+  }
+
+  await CompanyModel.bulkCreate([
+    {
+      nit: '900123456-7',
+      razonSocial: 'Comercializadora Andina S.A.S.',
+      isActive: true,
+    },
+    {
+      nit: '901987654-3',
+      razonSocial: 'Distribuciones del Caribe Ltda.',
+      isActive: true,
+    },
+  ]);
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/companies.seeder.png)

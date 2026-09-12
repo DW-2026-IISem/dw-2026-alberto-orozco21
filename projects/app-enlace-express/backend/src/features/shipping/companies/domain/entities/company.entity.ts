@@ -1,4 +1,4 @@
-import { isValidNit } from '../validators/company-nit.validator';
+import { isValidNit } from '../validators/company-nit.validator.js';
 
 export interface CompanyProps {
   id?: number;

@@ -1,5 +1,5 @@
-import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface';
-import { Company } from '../entities/company.entity';
+import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface.js';
+import { Company } from '../entities/company.entity.js';
 
 export const COMPANY_REPOSITORY = 'COMPANY_REPOSITORY';
 
