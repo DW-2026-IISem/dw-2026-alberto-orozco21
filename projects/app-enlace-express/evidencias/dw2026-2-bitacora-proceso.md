@@ -1965,3 +1965,108 @@ npm run start:dev
 **http://localhost:3002/api/docs**
 
 ![alt text](imagenes/Verificar_bootstrap_api_docs.PNG)
+
+----------------------------------------------------------------------------------
+
+## FASE 7 — `06_BUSINESS_COMPANIES`
+
+### Business — Companies / Empresa (patrón completo CA)
+
+> **Objetivo de la fase:** Primera entidad de negocio de EnlaceExpress: Empresa. Orden lógico: dominio → infraestructura → aplicación → presentación → módulo → cableado → verificación.
+>
+> **Nota sobre asociaciones:** `Empresa` se relaciona `1:N` con `Contacto`, `Direccion`, `Envio` y `Factura`, pero esas entidades aún no existen. A diferencia de la plantilla original (que usaba `require()` diferido dentro de `@HasMany`, algo que no funciona en este proyecto ESM), aquí `CompanyModel` se crea **sin asociaciones**. Se agregarán con imports estáticos normales cuando se construyan esas entidades en fases posteriores.
+
+### 7.1 — features/shipping/companies/domain/entities/company.entity.ts
+
+Entidad de dominio (TypeScript puro). No extiende Sequelize `Model`. Aquí viven las reglas del negocio.
+
+**Archivo:** `src/features/shipping/companies/domain/entities/company.entity.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/domain/entities
+cat > src/features/shipping/companies/domain/entities/company.entity.ts <<'EOF_BACKEND_IA'
+import { isValidNit } from '../validators/company-nit.validator';
+
+export interface CompanyProps {
+  id?: number;
+  nit: string;
+  razonSocial: string;
+  isActive?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Company {
+  id?: number;
+  nit: string;
+  razonSocial: string;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+
+  private constructor(props: CompanyProps) {
+    this.id = props.id;
+    this.nit = props.nit;
+    this.razonSocial = props.razonSocial;
+    this.isActive = props.isActive ?? true;
+    this.createdAt = props.createdAt;
+    this.updatedAt = props.updatedAt;
+  }
+
+  static create(
+    props: Omit<CompanyProps, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>,
+  ): Company {
+    if (!props.nit?.trim()) {
+      throw new Error('El NIT de la empresa es requerido');
+    }
+
+    if (!isValidNit(props.nit)) {
+      throw new Error('El NIT de la empresa no es válido');
+    }
+
+    if (!props.razonSocial?.trim()) {
+      throw new Error('La razón social de la empresa es requerida');
+    }
+
+    return new Company(props);
+  }
+
+  static reconstitute(props: CompanyProps): Company {
+    return new Company(props);
+  }
+
+  update(
+    props: Partial<
+      Omit<CompanyProps, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>
+    >,
+  ): void {
+    if (props.nit !== undefined) {
+      if (!props.nit.trim()) {
+        throw new Error('El NIT de la empresa es requerido');
+      }
+      if (!isValidNit(props.nit)) {
+        throw new Error('El NIT de la empresa no es válido');
+      }
+      this.nit = props.nit;
+    }
+
+    if (props.razonSocial !== undefined) {
+      if (!props.razonSocial.trim()) {
+        throw new Error('La razón social de la empresa es requerida');
+      }
+      this.razonSocial = props.razonSocial;
+    }
+  }
+
+  deactivate(): void {
+    this.isActive = false;
+  }
+
+  activate(): void {
+    this.isActive = true;
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company.entity.png)
