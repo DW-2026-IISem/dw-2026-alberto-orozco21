@@ -3576,3 +3576,48 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/contacts.seeder.png)
+
+### 8.10 — features/shipping/contacts/application/dto/contact-filter.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger. Incluye filtro por `companyId`.
+
+**Archivo:** `src/features/shipping/contacts/application/dto/contact-filter.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts/application/dto
+cat > src/features/shipping/contacts/application/dto/contact-filter.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsPositive, IsString, Min } from 'class-validator';
+
+export class ContactFilterDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 'laura' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  companyId?: number;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/contact-filter.dto.png)
