@@ -2401,3 +2401,37 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/company-filter.dto.png)
 
+### 7.11 — features/shipping/companies/application/dto/company-response.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger.
+
+**Archivo:** `src/features/shipping/companies/application/dto/company-response.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/application/dto
+cat > src/features/shipping/companies/application/dto/company-response.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty } from '@nestjs/swagger';
+
+export class CompanyResponseDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: '900123456-7' })
+  nit: string;
+
+  @ApiProperty({ example: 'Comercializadora Andina S.A.S.' })
+  razonSocial: string;
+
+  @ApiProperty({ example: true })
+  isActive: boolean;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company-response.dto.png)
