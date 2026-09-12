@@ -1312,3 +1312,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/entity-not-found_exception.PNG)
+
+### 6.15 — common/exceptions/validation.exception.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/exceptions/validation.exception.ts`
+
+```bash
+mkdir -p src/common/exceptions
+cat > src/common/exceptions/validation.exception.ts <<'EOF_BACKEND_IA'
+import { ApplicationException } from './application.exception';
+
+export class ValidationException extends ApplicationException {
+  constructor(message: string = 'Error de validación') {
+    super(message, 422);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/validation_exception.PNG)
