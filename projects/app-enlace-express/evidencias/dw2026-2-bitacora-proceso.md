@@ -3908,3 +3908,78 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/delete-contact.use-case.png)
+
+### 8.17 — features/shipping/contacts/application/use-cases/get-contact.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/contacts/application/use-cases/get-contact.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts/application/use-cases
+cat > src/features/shipping/contacts/application/use-cases/get-contact.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ContactNotFoundException } from '../../domain/exceptions/contact-not-found.exception.js';
+import {
+  CONTACT_REPOSITORY,
+  type IContactRepository,
+} from '../../domain/interfaces/contact-repository.interface.js';
+import { ContactMapper } from '../mappers/contact.mapper.js';
+
+@Injectable()
+export class GetContactUseCase {
+  constructor(
+    @Inject(CONTACT_REPOSITORY)
+    private readonly contactRepository: IContactRepository,
+  ) {}
+
+  async execute(id: number) {
+    const contact = await this.contactRepository.findById(id);
+    if (!contact) {
+      throw new ContactNotFoundException(id);
+    }
+
+    return ContactMapper.toResponse(contact);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/get-contact.use-case.png)
+
+### 8.18 — features/shipping/contacts/application/use-cases/list-contacts.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/contacts/application/use-cases/list-contacts.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts/application/use-cases
+cat > src/features/shipping/contacts/application/use-cases/list-contacts.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  CONTACT_REPOSITORY,
+  type IContactRepository,
+} from '../../domain/interfaces/contact-repository.interface.js';
+import { ContactFilterDto } from '../dto/contact-filter.dto.js';
+import { ContactMapper } from '../mappers/contact.mapper.js';
+
+@Injectable()
+export class ListContactsUseCase {
+  constructor(
+    @Inject(CONTACT_REPOSITORY)
+    private readonly contactRepository: IContactRepository,
+  ) {}
+
+  async execute(filter: ContactFilterDto) {
+    const result = await this.contactRepository.findAll(filter);
+    return {
+      items: result.items.map((contact) => ContactMapper.toResponse(contact)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/list-contacts.use-case.png)
