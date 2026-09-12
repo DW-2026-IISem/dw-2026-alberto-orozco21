@@ -2164,3 +2164,53 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/company-nit.validator.png)
+
+### 7.6 — features/shipping/companies/infrastructure/persistence/models/company.model.ts
+
+Modelo Sequelize (`@Table`). Solo infraestructura: mapeo a tabla física. *(sin asociaciones todavía — ver nota al inicio de la fase)*
+
+**Archivo:** `src/features/shipping/companies/infrastructure/persistence/models/company.model.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/infrastructure/persistence/models
+cat > src/features/shipping/companies/infrastructure/persistence/models/company.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  Column,
+  CreatedAt,
+  DataType,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+
+@Table({ tableName: 'companies' })
+export class CompanyModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(20), allowNull: false, unique: true })
+  declare nit: string;
+
+  @Column({ type: DataType.STRING(200), allowNull: false })
+  declare razonSocial: string;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  // Asociaciones (contacts, addresses, shipments, invoices) se agregan
+  // en las fases donde se crean esas entidades, con import estático normal.
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company.model.png)
