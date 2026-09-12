@@ -2112,3 +2112,36 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/company-not-found.exception.png)
+
+### 7.4 — features/shipping/companies/domain/interfaces/company-repository.interface.ts
+
+Puerto (contrato) del repositorio. La aplicación depende de esta interface, no de Sequelize.
+
+**Archivo:** `src/features/shipping/companies/domain/interfaces/company-repository.interface.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/domain/interfaces
+cat > src/features/shipping/companies/domain/interfaces/company-repository.interface.ts <<'EOF_BACKEND_IA'
+import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface';
+import { Company } from '../entities/company.entity';
+
+export const COMPANY_REPOSITORY = 'COMPANY_REPOSITORY';
+
+export interface CompanyFindAllParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export interface ICompanyRepository {
+  create(company: Company): Promise<Company>;
+  update(company: Company): Promise<Company>;
+  delete(id: number): Promise<void>;
+  findById(id: number): Promise<Company | null>;
+  findByNit(nit: string): Promise<Company | null>;
+  findAll(params: CompanyFindAllParams): Promise<PaginatedResult<Company>>;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company-repository.interface.png)
