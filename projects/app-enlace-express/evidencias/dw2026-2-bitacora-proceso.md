@@ -1227,3 +1227,20 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/common_app_constants.PNG)
+
+### 6.11 — common/constants/pagination.constants.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/constants/pagination.constants.ts`
+
+```bash
+mkdir -p src/common/constants
+cat > src/common/constants/pagination.constants.ts <<'EOF_BACKEND_IA'
+export const DEFAULT_PAGE = 1;
+export const DEFAULT_LIMIT = 10;
+export const MAX_LIMIT = 100;
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/pagination_constants.PNG)
