@@ -3871,3 +3871,40 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/create-contact.use-case.png)
+
+### 8.16 — features/shipping/contacts/application/use-cases/delete-contact.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/contacts/application/use-cases/delete-contact.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts/application/use-cases
+cat > src/features/shipping/contacts/application/use-cases/delete-contact.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ContactNotFoundException } from '../../domain/exceptions/contact-not-found.exception.js';
+import {
+  CONTACT_REPOSITORY,
+  type IContactRepository,
+} from '../../domain/interfaces/contact-repository.interface.js';
+
+@Injectable()
+export class DeleteContactUseCase {
+  constructor(
+    @Inject(CONTACT_REPOSITORY)
+    private readonly contactRepository: IContactRepository,
+  ) {}
+
+  async execute(id: number): Promise<void> {
+    const contact = await this.contactRepository.findById(id);
+    if (!contact) {
+      throw new ContactNotFoundException(id);
+    }
+
+    await this.contactRepository.delete(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/delete-contact.use-case.png)
