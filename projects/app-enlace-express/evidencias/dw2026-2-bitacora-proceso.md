@@ -1657,3 +1657,28 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/parse-positive-int_pipe.PNG)
+
+### 6.23 — common/interfaces/pagination.interface.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/interfaces/pagination.interface.ts`
+
+```bash
+mkdir -p src/common/interfaces
+cat > src/common/interfaces/pagination.interface.ts <<'EOF_BACKEND_IA'
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  meta: PaginationMeta;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/pagination.interface.PNG)
