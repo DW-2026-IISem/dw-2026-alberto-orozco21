@@ -3,11 +3,13 @@ import {
   Column,
   CreatedAt,
   DataType,
+  HasMany,
   Model,
   PrimaryKey,
   Table,
   UpdatedAt,
 } from 'sequelize-typescript';
+import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
 
 @Table({ tableName: 'companies' })
 export class CompanyModel extends Model {
@@ -31,6 +33,8 @@ export class CompanyModel extends Model {
   @UpdatedAt
   declare updatedAt: Date;
 
-  // Asociaciones (contacts, addresses, shipments, invoices) se agregan
-  // en las fases donde se crean esas entidades, con import estático normal.
+  @HasMany(() => ContactModel)
+  declare contacts: ContactModel[];
+
+  // addresses, shipments, invoices se agregan en sus respectivas fases.
 }
