@@ -2486,3 +2486,53 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/update-company.dto.png)
+
+### 7.14 — features/shipping/companies/application/mappers/company.mapper.ts
+
+Mapper entre entidad de dominio y DTO de respuesta.
+
+**Archivo:** `src/features/shipping/companies/application/mappers/company.mapper.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/application/mappers
+cat > src/features/shipping/companies/application/mappers/company.mapper.ts <<'EOF_BACKEND_IA'
+import { Company } from '../../domain/entities/company.entity';
+import { CompanyResponseDto } from '../dto/company-response.dto';
+import { CompanyModel } from '../../infrastructure/persistence/models/company.model';
+
+export class CompanyMapper {
+  static toDomain(model: CompanyModel): Company {
+    return Company.reconstitute({
+      id: model.id,
+      nit: model.nit,
+      razonSocial: model.razonSocial,
+      isActive: model.isActive,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+    });
+  }
+
+  static toResponse(entity: Company): CompanyResponseDto {
+    return {
+      id: entity.id!,
+      nit: entity.nit,
+      razonSocial: entity.razonSocial,
+      isActive: entity.isActive,
+      createdAt: entity.createdAt!,
+      updatedAt: entity.updatedAt!,
+    };
+  }
+
+  static toPersistence(entity: Company): Partial<CompanyModel> {
+    return {
+      id: entity.id,
+      nit: entity.nit,
+      razonSocial: entity.razonSocial,
+      isActive: entity.isActive ?? true,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company.mapper.png)
