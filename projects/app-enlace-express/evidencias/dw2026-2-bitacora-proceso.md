@@ -1102,3 +1102,23 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/logger_module.PNG)
+
+### 6.5 — config/swagger/swagger.constants.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/config/swagger/swagger.constants.ts`
+
+```bash
+mkdir -p src/config/swagger
+cat > src/config/swagger/swagger.constants.ts <<'EOF_BACKEND_IA'
+export const SWAGGER_TITLE = 'EnlaceExpress API';
+export const SWAGGER_DESCRIPTION =
+  'API de mensajería corporativa EnlaceExpress: envíos, tracking, tarifas y facturación (Clean Architecture / DDD sobre NestJS + Sequelize, multi-motor)';
+export const SWAGGER_VERSION = '1.0';
+export const SWAGGER_PATH = 'api/docs';
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/swagger_constants.PNG)
+
