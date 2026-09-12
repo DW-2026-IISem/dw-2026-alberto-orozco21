@@ -5342,3 +5342,40 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/create-address.use-case.png)
+
+### 9.16 — features/shipping/addresses/application/use-cases/delete-address.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/addresses/application/use-cases/delete-address.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/addresses/application/use-cases
+cat > src/features/shipping/addresses/application/use-cases/delete-address.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { AddressNotFoundException } from '../../domain/exceptions/address-not-found.exception.js';
+import {
+  ADDRESS_REPOSITORY,
+  type IAddressRepository,
+} from '../../domain/interfaces/address-repository.interface.js';
+
+@Injectable()
+export class DeleteAddressUseCase {
+  constructor(
+    @Inject(ADDRESS_REPOSITORY)
+    private readonly addressRepository: IAddressRepository,
+  ) {}
+
+  async execute(id: number): Promise<void> {
+    const address = await this.addressRepository.findById(id);
+    if (!address) {
+      throw new AddressNotFoundException(id);
+    }
+
+    await this.addressRepository.delete(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/delete-address.use-case.png)
