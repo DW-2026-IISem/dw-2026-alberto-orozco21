@@ -1291,3 +1291,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/domain_exception.PNG)
+
+### 6.14 — common/exceptions/entity-not-found.exception.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/exceptions/entity-not-found.exception.ts`
+
+```bash
+mkdir -p src/common/exceptions
+cat > src/common/exceptions/entity-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { ApplicationException } from './application.exception';
+
+export class EntityNotFoundException extends ApplicationException {
+  constructor(entityName: string, identifier: string | number) {
+    super(`${entityName} con ID ${identifier} no encontrado`, 404);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/entity-not-found_exception.PNG)
