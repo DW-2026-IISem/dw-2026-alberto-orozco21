@@ -3621,3 +3621,50 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/contact-filter.dto.png)
+
+### 8.11 — features/shipping/contacts/application/dto/contact-response.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger.
+
+**Archivo:** `src/features/shipping/contacts/application/dto/contact-response.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts/application/dto
+cat > src/features/shipping/contacts/application/dto/contact-response.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class ContactResponseDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 1 })
+  companyId: number;
+
+  @ApiProperty({ example: 'Laura Gómez' })
+  name: string;
+
+  @ApiPropertyOptional({ example: 'Gerente de Logística' })
+  position?: string;
+
+  @ApiPropertyOptional({ example: '+57 301 2223344' })
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'laura.gomez@example.com' })
+  email?: string;
+
+  @ApiProperty({ example: true })
+  isPrimary: boolean;
+
+  @ApiProperty({ example: true })
+  isActive: boolean;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/ontact-response.dto.png)
