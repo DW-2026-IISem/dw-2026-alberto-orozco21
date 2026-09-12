@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { CompanyNitAlreadyExistsException } from '../../domain/exceptions/company-nit-already-exists.exception';
-import { CompanyNotFoundException } from '../../domain/exceptions/company-not-found.exception';
+import { CompanyNitAlreadyExistsException } from '../../domain/exceptions/company-nit-already-exists.exception.js';
+import { CompanyNotFoundException } from '../../domain/exceptions/company-not-found.exception.js';
 import {
   COMPANY_REPOSITORY,
   type ICompanyRepository,
-} from '../../domain/interfaces/company-repository.interface';
-import { UpdateCompanyDto } from '../dto/update-company.dto';
-import { CompanyMapper } from '../mappers/company.mapper';
+} from '../../domain/interfaces/company-repository.interface.js';
+import { UpdateCompanyDto } from '../dto/update-company.dto.js';
+import { CompanyMapper } from '../mappers/company.mapper.js';
 
 @Injectable()
 export class UpdateCompanyUseCase {

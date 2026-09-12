@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { CompanyNotFoundException } from '../../domain/exceptions/company-not-found.exception';
+import { CompanyNotFoundException } from '../../domain/exceptions/company-not-found.exception.js';
 import {
   COMPANY_REPOSITORY,
   type ICompanyRepository,
-} from '../../domain/interfaces/company-repository.interface';
-import { CompanyMapper } from '../mappers/company.mapper';
+} from '../../domain/interfaces/company-repository.interface.js';
+import { CompanyMapper } from '../mappers/company.mapper.js';
 
 @Injectable()
 export class GetCompanyUseCase {

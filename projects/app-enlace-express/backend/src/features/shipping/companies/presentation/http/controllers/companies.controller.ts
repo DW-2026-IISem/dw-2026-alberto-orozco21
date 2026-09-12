@@ -17,16 +17,16 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { ParsePositiveIntPipe } from '../../../../../../common/pipes/parse-positive-int.pipe';
-import { CreateCompanyDto } from '../../../application/dto/create-company.dto';
-import { UpdateCompanyDto } from '../../../application/dto/update-company.dto';
-import { CompanyFilterDto } from '../../../application/dto/company-filter.dto';
-import { CompanyResponseDto } from '../../../application/dto/company-response.dto';
-import { CreateCompanyUseCase } from '../../../application/use-cases/create-company.use-case';
-import { UpdateCompanyUseCase } from '../../../application/use-cases/update-company.use-case';
-import { DeleteCompanyUseCase } from '../../../application/use-cases/delete-company.use-case';
-import { GetCompanyUseCase } from '../../../application/use-cases/get-company.use-case';
-import { ListCompaniesUseCase } from '../../../application/use-cases/list-companies.use-case';
+import { ParsePositiveIntPipe } from '../../../../../../common/pipes/parse-positive-int.pipe.js';
+import { CreateCompanyDto } from '../../../application/dto/create-company.dto.js';
+import { UpdateCompanyDto } from '../../../application/dto/update-company.dto.js';
+import { CompanyFilterDto } from '../../../application/dto/company-filter.dto.js';
+import { CompanyResponseDto } from '../../../application/dto/company-response.dto.js';
+import { CreateCompanyUseCase } from '../../../application/use-cases/create-company.use-case.js';
+import { UpdateCompanyUseCase } from '../../../application/use-cases/update-company.use-case.js';
+import { DeleteCompanyUseCase } from '../../../application/use-cases/delete-company.use-case.js';
+import { GetCompanyUseCase } from '../../../application/use-cases/get-company.use-case.js';
+import { ListCompaniesUseCase } from '../../../application/use-cases/list-companies.use-case.js';
 
 @ApiTags('Companies')
 @Controller('companies')

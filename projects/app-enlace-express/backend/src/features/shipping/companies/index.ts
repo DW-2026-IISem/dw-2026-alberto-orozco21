@@ -1,1 +1,1 @@
-export { CompaniesModule } from './companies.module';
+export { CompaniesModule } from './companies.module.js';

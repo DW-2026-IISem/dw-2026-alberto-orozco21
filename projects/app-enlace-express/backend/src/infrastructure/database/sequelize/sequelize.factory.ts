@@ -1,8 +1,8 @@
 import { Sequelize } from 'sequelize-typescript';
-import { DatabaseDialect } from '../../../config/environment/env.interface';
-import { getSequelizeOptions } from './sequelize.options';
+import { DatabaseDialect } from '../../../config/environment/env.interface.js';
+import { getSequelizeOptions } from './sequelize.options.js';
 
-import { CompanyModel } from '../../../features/shipping/companies/infrastructure/persistence/models/company.model';
+import { CompanyModel } from '../../../features/shipping/companies/infrastructure/persistence/models/company.model.js';
 
 export const ALL_MODELS = [
   CompanyModel,

@@ -3093,3 +3093,19 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/ShippingModule.png)
+
+### 7.28 — Verificar tabla física `companies` y API
+
+Arranca la app. Debe crear/sync tabla `companies`, correr seeder y exponer `/api/companies`. Prueba list/create en Swagger o curl.
+
+```bash
+npm run start:dev
+```
+
+**Consola**
+
+![alt text](imagenes/companies_console.png)
+
+**/api/companies**
+
+![alt text](imagenes/api_companies.png)

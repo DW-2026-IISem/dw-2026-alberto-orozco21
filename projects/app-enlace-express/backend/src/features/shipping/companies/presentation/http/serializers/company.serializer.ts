@@ -1,6 +1,6 @@
-import { Company } from '../../../domain/entities/company.entity';
-import { CompanyResponseDto } from '../../../application/dto/company-response.dto';
-import { CompanyMapper } from '../../../application/mappers/company.mapper';
+import { Company } from '../../../domain/entities/company.entity.js';
+import { CompanyResponseDto } from '../../../application/dto/company-response.dto.js';
+import { CompanyMapper } from '../../../application/mappers/company.mapper.js';
 
 export class CompanySerializer {
   static serialize(entity: Company): CompanyResponseDto {

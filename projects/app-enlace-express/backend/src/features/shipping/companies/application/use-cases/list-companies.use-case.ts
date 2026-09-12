@@ -2,9 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   COMPANY_REPOSITORY,
   type ICompanyRepository,
-} from '../../domain/interfaces/company-repository.interface';
-import { CompanyFilterDto } from '../dto/company-filter.dto';
-import { CompanyMapper } from '../mappers/company.mapper';
+} from '../../domain/interfaces/company-repository.interface.js';
+import { CompanyFilterDto } from '../dto/company-filter.dto.js';
+import { CompanyMapper } from '../mappers/company.mapper.js';
 
 @Injectable()
 export class ListCompaniesUseCase {

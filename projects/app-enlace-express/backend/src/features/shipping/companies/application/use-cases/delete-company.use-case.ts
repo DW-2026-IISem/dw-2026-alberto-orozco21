@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { CompanyNotFoundException } from '../../domain/exceptions/company-not-found.exception';
+import { CompanyNotFoundException } from '../../domain/exceptions/company-not-found.exception.js';
 import {
   COMPANY_REPOSITORY,
   type ICompanyRepository,
-} from '../../domain/interfaces/company-repository.interface';
+} from '../../domain/interfaces/company-repository.interface.js';
 
 @Injectable()
 export class DeleteCompanyUseCase {
