@@ -1717,3 +1717,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/nullable.type.PNG)
+
+### 6.26 — common/types/optional.type.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/types/optional.type.ts`
+
+```bash
+mkdir -p src/common/types
+cat > src/common/types/optional.type.ts <<'EOF_BACKEND_IA'
+export type Optional<T> = T | undefined;
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/optional.type.PNG)
