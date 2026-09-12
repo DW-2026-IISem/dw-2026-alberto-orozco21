@@ -1194,4 +1194,20 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/http-method_enum.PNG)
 
+### 6.9 — common/enums/sort-order.enum.ts
 
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/enums/sort-order.enum.ts`
+
+```bash
+mkdir -p src/common/enums
+cat > src/common/enums/sort-order.enum.ts <<'EOF_BACKEND_IA'
+export enum SortOrder {
+  ASC = 'ASC',
+  DESC = 'DESC',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/sort-order_enum.PNG)
