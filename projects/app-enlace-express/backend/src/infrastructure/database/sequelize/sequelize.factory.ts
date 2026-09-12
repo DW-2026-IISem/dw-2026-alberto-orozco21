@@ -1,42 +1,42 @@
 import { Sequelize } from 'sequelize-typescript';
-import { DatabaseDialect } from '../../../config/environment/env.interface.js';
-import { getSequelizeOptions } from './sequelize.options.js';
+import { DatabaseDialect } from '../../../config/environment/env.interface';
+import { getSequelizeOptions } from './sequelize.options';
 
+import { CompanyModel } from '../../../features/shipping/companies/infrastructure/persistence/models/company.model';
 
 export const ALL_MODELS = [
-  // (aún sin modelos — se agregan por feature)
+  CompanyModel,
 ];
+
+async function loadDialectModule(moduleName: string): Promise<any> {
+  // Proyecto ESM: require() no existe como global, se usa import() dinámico.
+  const mod: any = await import(moduleName);
+  return mod.default ?? mod;
+}
 
 export async function createSequelizeInstance(
   dialect: DatabaseDialect,
 ): Promise<Sequelize> {
   const options = getSequelizeOptions(dialect);
 
-  async function loadDialectModule(moduleName: string): Promise<any> {
-  const mod: any = await import(moduleName);
-  return mod.default ?? mod;
-}
+  let dialectModule: any;
 
-// ...dentro de createSequelizeInstance:
-
-let dialectModule: any;
-
-switch (dialect) {
-  case DatabaseDialect.MySQL:
-    dialectModule = await loadDialectModule('mysql2');
-    break;
-  case DatabaseDialect.Postgres:
-    dialectModule = await loadDialectModule('pg');
-    break;
-  case DatabaseDialect.MSSQL:
-    dialectModule = await loadDialectModule('tedious');
-    break;
-  case DatabaseDialect.Oracle:
-    dialectModule = await loadDialectModule('oracledb');
-    break;
-  default:
-    throw new Error(`Dialecto no soportado: ${dialect}`);
-}
+  switch (dialect) {
+    case DatabaseDialect.MySQL:
+      dialectModule = await loadDialectModule('mysql2');
+      break;
+    case DatabaseDialect.Postgres:
+      dialectModule = await loadDialectModule('pg');
+      break;
+    case DatabaseDialect.MSSQL:
+      dialectModule = await loadDialectModule('tedious');
+      break;
+    case DatabaseDialect.Oracle:
+      dialectModule = await loadDialectModule('oracledb');
+      break;
+    default:
+      throw new Error(`Dialecto no soportado: ${dialect}`);
+  }
 
   const sequelize = new Sequelize({
     ...options,
