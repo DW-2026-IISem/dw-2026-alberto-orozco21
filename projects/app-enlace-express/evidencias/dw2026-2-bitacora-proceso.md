@@ -1682,3 +1682,23 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/pagination.interface.PNG)
+
+### 6.24 — common/interfaces/api-response.interface.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/interfaces/api-response.interface.ts`
+
+```bash
+mkdir -p src/common/interfaces
+cat > src/common/interfaces/api-response.interface.ts <<'EOF_BACKEND_IA'
+export interface ApiResponseBody<T> {
+  statusCode: number;
+  message: string;
+  data: T;
+  timestamp: string;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/api-response.interface.PNG)
