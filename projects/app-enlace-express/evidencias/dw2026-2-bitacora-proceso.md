@@ -1818,3 +1818,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/date.util.PNG)
+
+### 6.29 — common/utils/string.util.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/utils/string.util.ts`
+
+```bash
+mkdir -p src/common/utils
+cat > src/common/utils/string.util.ts <<'EOF_BACKEND_IA'
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+export function isBlank(value?: string | null): boolean {
+  return !value || value.trim().length === 0;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/string.util.PNG)
