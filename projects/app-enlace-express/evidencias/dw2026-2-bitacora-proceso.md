@@ -1946,3 +1946,22 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/app.module_actualizado.PNG)
+
+### 6.32 — Verificar bootstrap transversal
+
+La app debe arrancar, mostrar Swagger en `/api/docs` y conectar a BD. Todavía no hay endpoints de negocio.
+
+```bash
+npm run start:dev
+# Abre http://localhost:3002/api/docs
+# Ctrl+C
+```
+
+**Consola**
+
+![alt text](imagenes/Verificar_bootstrap_consola.PNG)
+
+
+**http://localhost:3002/api/docs**
+
+![alt text](imagenes/Verificar_bootstrap_api_docs.PNG)
