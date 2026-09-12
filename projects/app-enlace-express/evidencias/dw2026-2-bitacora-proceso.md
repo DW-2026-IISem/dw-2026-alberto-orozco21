@@ -2860,3 +2860,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/companies.controller.png)
+
+### 7.22 — features/shipping/companies/index.ts
+
+Barrel export del feature para imports limpios.
+
+**Archivo:** `src/features/shipping/companies/index.ts`
+
+```bash
+mkdir -p src/features/shipping/companies
+cat > src/features/shipping/companies/index.ts <<'EOF_BACKEND_IA'
+export { CompaniesModule } from './companies.module';
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/companies_index.png)
