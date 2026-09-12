@@ -1172,3 +1172,26 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/status_enum.PNG)
+
+### 6.8 — common/enums/http-method.enum.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/enums/http-method.enum.ts`
+
+```bash
+mkdir -p src/common/enums
+cat > src/common/enums/http-method.enum.ts <<'EOF_BACKEND_IA'
+export enum HttpMethod {
+  GET = 'GET',
+  POST = 'POST',
+  PUT = 'PUT',
+  PATCH = 'PATCH',
+  DELETE = 'DELETE',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/http-method_enum.PNG)
+
+
