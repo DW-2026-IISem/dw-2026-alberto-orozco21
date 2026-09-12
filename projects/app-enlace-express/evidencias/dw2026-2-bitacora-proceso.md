@@ -2091,3 +2091,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/company-nit-already-exists.exception.png)
+
+### 7.3 — features/shipping/companies/domain/exceptions/company-not-found.exception.ts
+
+Excepción de dominio. El caso de uso la lanza; el filter HTTP la traduce a status code.
+
+**Archivo:** `src/features/shipping/companies/domain/exceptions/company-not-found.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/domain/exceptions
+cat > src/features/shipping/companies/domain/exceptions/company-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception';
+
+export class CompanyNotFoundException extends EntityNotFoundException {
+  constructor(id: number) {
+    super('Empresa', id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company-not-found.exception.png)
