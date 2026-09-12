@@ -5494,3 +5494,26 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/update-address.use-case.png)
+
+### 9.20 — features/shipping/addresses/presentation/http/serializers/address.serializer.ts
+
+Serializer de presentación (forma estable de la respuesta HTTP).
+
+**Archivo:** `src/features/shipping/addresses/presentation/http/serializers/address.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/addresses/presentation/http/serializers
+cat > src/features/shipping/addresses/presentation/http/serializers/address.serializer.ts <<'EOF_BACKEND_IA'
+import { Address } from '../../../domain/entities/address.entity.js';
+import { AddressResponseDto } from '../../../application/dto/address-response.dto.js';
+import { AddressMapper } from '../../../application/mappers/address.mapper.js';
+
+export class AddressSerializer {
+  static serialize(entity: Address): AddressResponseDto {
+    return AddressMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/address.serializer.png)
