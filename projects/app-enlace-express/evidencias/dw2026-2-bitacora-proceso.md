@@ -4146,3 +4146,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/contacts.controller.png)
+
+### 8.22 — features/shipping/contacts/index.ts
+
+Barrel export del feature para imports limpios.
+
+**Archivo:** `src/features/shipping/contacts/index.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts
+cat > src/features/shipping/contacts/index.ts <<'EOF_BACKEND_IA'
+export { ContactsModule } from './contacts.module.js';
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/contac_index.png)
