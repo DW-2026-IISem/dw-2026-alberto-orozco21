@@ -2070,3 +2070,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/company.entity.png)
+
+### 7.2 — features/shipping/companies/domain/exceptions/company-nit-already-exists.exception.ts
+
+Excepción de dominio. El caso de uso la lanza; el filter HTTP la traduce a status code.
+
+**Archivo:** `src/features/shipping/companies/domain/exceptions/company-nit-already-exists.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/domain/exceptions
+cat > src/features/shipping/companies/domain/exceptions/company-nit-already-exists.exception.ts <<'EOF_BACKEND_IA'
+import { DomainException } from '../../../../../common/exceptions/domain.exception';
+
+export class CompanyNitAlreadyExistsException extends DomainException {
+  constructor(nit: string) {
+    super(`El NIT '${nit}' ya está registrado`);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company-nit-already-exists.exception.png)
