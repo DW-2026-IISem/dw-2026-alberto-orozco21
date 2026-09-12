@@ -5611,3 +5611,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/addresses.controller.png)
+
+### 9.22 — features/shipping/addresses/index.ts
+
+Barrel export del feature para imports limpios.
+
+**Archivo:** `src/features/shipping/addresses/index.ts`
+
+```bash
+mkdir -p src/features/shipping/addresses
+cat > src/features/shipping/addresses/index.ts <<'EOF_BACKEND_IA'
+export { AddressesModule } from './addresses.module.js';
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/addresses.index.png)
