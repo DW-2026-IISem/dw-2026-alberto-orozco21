@@ -2657,3 +2657,38 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/get-company.use-case.png)
+
+### 7.18 — features/shipping/companies/application/use-cases/list-companies.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/companies/application/use-cases/list-companies.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/application/use-cases
+cat > src/features/shipping/companies/application/use-cases/list-companies.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  COMPANY_REPOSITORY,
+  type ICompanyRepository,
+} from '../../domain/interfaces/company-repository.interface';
+import { CompanyFilterDto } from '../dto/company-filter.dto';
+import { CompanyMapper } from '../mappers/company.mapper';
+
+@Injectable()
+export class ListCompaniesUseCase {
+  constructor(
+    @Inject(COMPANY_REPOSITORY)
+    private readonly companyRepository: ICompanyRepository,
+  ) {}
+
+  async execute(filter: CompanyFilterDto) {
+    const result = await this.companyRepository.findAll(filter);
+    return {
+      items: result.items.map((company) => CompanyMapper.toResponse(company)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
