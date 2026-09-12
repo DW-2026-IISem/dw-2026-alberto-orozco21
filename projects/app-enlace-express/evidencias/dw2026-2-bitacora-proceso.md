@@ -3239,3 +3239,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/contact.entity.png)
+
+### 8.2 — features/shipping/contacts/domain/exceptions/contact-not-found.exception.ts
+
+Excepción de dominio. El caso de uso la lanza; el filter HTTP la traduce a status code.
+
+**Archivo:** `src/features/shipping/contacts/domain/exceptions/contact-not-found.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts/domain/exceptions
+cat > src/features/shipping/contacts/domain/exceptions/contact-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception.js';
+
+export class ContactNotFoundException extends EntityNotFoundException {
+  constructor(id: number) {
+    super('Contacto', id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/contact-not-found.exception.png)
