@@ -1702,3 +1702,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/api-response.interface.PNG)
+
+### 6.25 — common/types/nullable.type.ts
+
+Archivo del feature en Clean Architecture.
+
+**Archivo:** `src/common/types/nullable.type.ts`
+
+```bash
+mkdir -p src/common/types
+cat > src/common/types/nullable.type.ts <<'EOF_BACKEND_IA'
+export type Nullable<T> = T | null;
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/nullable.type.PNG)
