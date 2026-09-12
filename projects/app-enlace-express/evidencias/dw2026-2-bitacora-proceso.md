@@ -2741,3 +2741,28 @@ export class UpdateCompanyUseCase {
 }
 EOF_BACKEND_IA
 ```
+
+![alt text](imagenes/update-company.use-case.PNG)
+
+### 7.20 — features/shipping/companies/presentation/http/serializers/company.serializer.ts
+
+Serializer de presentación (forma estable de la respuesta HTTP).
+
+**Archivo:** `src/features/shipping/companies/presentation/http/serializers/company.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/presentation/http/serializers
+cat > src/features/shipping/companies/presentation/http/serializers/company.serializer.ts <<'EOF_BACKEND_IA'
+import { Company } from '../../../domain/entities/company.entity';
+import { CompanyResponseDto } from '../../../application/dto/company-response.dto';
+import { CompanyMapper } from '../../../application/mappers/company.mapper';
+
+export class CompanySerializer {
+  static serialize(entity: Company): CompanyResponseDto {
+    return CompanyMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company.serializer.png)
