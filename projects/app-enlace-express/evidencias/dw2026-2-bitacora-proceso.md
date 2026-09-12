@@ -2304,3 +2304,26 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/company.repository.png)
 
+### 7.8 — features/shipping/companies/infrastructure/persistence/migrations/create-companies-table.migration.ts
+
+Migración documental/auxiliar de la tabla. En dev el sync de Sequelize crea el esquema.
+
+**Archivo:** `src/features/shipping/companies/infrastructure/persistence/migrations/create-companies-table.migration.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/infrastructure/persistence/migrations
+cat > src/features/shipping/companies/infrastructure/persistence/migrations/create-companies-table.migration.ts <<'EOF_BACKEND_IA'
+export const createCompaniesTableMigration = {
+  name: 'create-companies-table',
+  async up(): Promise<void> {
+    // Sequelize sync handles table creation in development.
+    // Production: CREATE TABLE companies (id, nit, razonSocial, isActive, createdAt, updatedAt)
+  },
+  async down(): Promise<void> {
+    // Production: DROP TABLE companies
+  },
+};
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/create-companies-table.migration.png)
