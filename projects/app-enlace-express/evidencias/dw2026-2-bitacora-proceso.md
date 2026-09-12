@@ -4664,3 +4664,38 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/address-not-found.exception.png)
+
+### 9.5 — features/shipping/addresses/domain/interfaces/address-repository.interface.ts
+
+Puerto (contrato) del repositorio. La aplicación depende de esta interface, no de Sequelize.
+
+**Archivo:** `src/features/shipping/addresses/domain/interfaces/address-repository.interface.ts`
+
+```bash
+mkdir -p src/features/shipping/addresses/domain/interfaces
+cat > src/features/shipping/addresses/domain/interfaces/address-repository.interface.ts <<'EOF_BACKEND_IA'
+import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface.js';
+import { AddressType } from '../enums/address-type.enum.js';
+import { Address } from '../entities/address.entity.js';
+
+export const ADDRESS_REPOSITORY = 'ADDRESS_REPOSITORY';
+
+export interface AddressFindAllParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  companyId?: number;
+  type?: AddressType;
+}
+
+export interface IAddressRepository {
+  create(address: Address): Promise<Address>;
+  update(address: Address): Promise<Address>;
+  delete(id: number): Promise<void>;
+  findById(id: number): Promise<Address | null>;
+  findAll(params: AddressFindAllParams): Promise<PaginatedResult<Address>>;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/address-repository.interface.png)
