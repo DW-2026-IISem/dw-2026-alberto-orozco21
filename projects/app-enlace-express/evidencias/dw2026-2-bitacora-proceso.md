@@ -1122,3 +1122,35 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/swagger_constants.PNG)
 
+### 6.6 — config/swagger/swagger.config.ts
+
+Archivo del feature en Clean Architecture. *(adaptado: se quitó `.addBearerAuth(...)`, ya que el proyecto no maneja autenticación)*
+
+**Archivo:** `src/config/swagger/swagger.config.ts`
+
+```bash
+mkdir -p src/config/swagger
+cat > src/config/swagger/swagger.config.ts <<'EOF_BACKEND_IA'
+import { INestApplication } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import {
+  SWAGGER_DESCRIPTION,
+  SWAGGER_PATH,
+  SWAGGER_TITLE,
+  SWAGGER_VERSION,
+} from './swagger.constants';
+
+export function setupSwagger(app: INestApplication): void {
+  const config = new DocumentBuilder()
+    .setTitle(SWAGGER_TITLE)
+    .setDescription(SWAGGER_DESCRIPTION)
+    .setVersion(SWAGGER_VERSION)
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup(SWAGGER_PATH, app, document);
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/swagger_config.PNG)
