@@ -4358,3 +4358,44 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/shipping.module_contact.png)
+
+### 8.27 — Actualizar database-seeder.service.ts
+
+Ejecuta seeders en orden de dependencias: primero empresas, luego contactos.
+
+**Archivo:** `src/infrastructure/database/seeders/database-seeder.service.ts`
+
+```bash
+mkdir -p src/infrastructure/database/seeders
+cat > src/infrastructure/database/seeders/database-seeder.service.ts <<'EOF_BACKEND_IA'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { seedCompanies } from '../../../features/shipping/companies/infrastructure/persistence/seeders/companies.seeder.js';
+import { seedContacts } from '../../../features/shipping/contacts/infrastructure/persistence/seeders/contacts.seeder.js';
+
+/**
+ * Ejecuta seeders en orden de dependencias.
+ * Solo en entornos no productivos.
+ */
+@Injectable()
+export class DatabaseSeederService implements OnModuleInit {
+  private readonly logger = new Logger(DatabaseSeederService.name);
+
+  async onModuleInit(): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    try {
+      await seedCompanies();
+      await seedContacts();
+      this.logger.log('✅ Seeders ejecutados');
+    } catch (error: any) {
+      this.logger.error(`❌ Error en seeders: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/database-seeder.service.png)
