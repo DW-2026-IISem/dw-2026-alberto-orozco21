@@ -1,6 +1,6 @@
-import { Company } from '../../domain/entities/company.entity';
-import { CompanyResponseDto } from '../dto/company-response.dto';
-import { CompanyModel } from '../../infrastructure/persistence/models/company.model';
+import { Company } from '../../domain/entities/company.entity.js';
+import { CompanyResponseDto } from '../dto/company-response.dto.js';
+import { CompanyModel } from '../../infrastructure/persistence/models/company.model.js';
 
 export class CompanyMapper {
   static toDomain(model: CompanyModel): Company {

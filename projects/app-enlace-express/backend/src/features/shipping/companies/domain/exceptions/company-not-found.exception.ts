@@ -1,4 +1,4 @@
-import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception';
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception.js';
 
 export class CompanyNotFoundException extends EntityNotFoundException {
   constructor(id: number) {
