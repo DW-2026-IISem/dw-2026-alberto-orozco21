@@ -3729,3 +3729,23 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/create-contact.dto.png)
+
+### 8.13 — features/shipping/contacts/application/dto/update-contact.dto.ts
+
+DTO de actualización. `companyId` se excluye a propósito: un contacto no cambia de empresa.
+
+**Archivo:** `src/features/shipping/contacts/application/dto/update-contact.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts/application/dto
+cat > src/features/shipping/contacts/application/dto/update-contact.dto.ts <<'EOF_BACKEND_IA'
+import { OmitType, PartialType } from '@nestjs/mapped-types';
+import { CreateContactDto } from './create-contact.dto.js';
+
+export class UpdateContactDto extends PartialType(
+  OmitType(CreateContactDto, ['companyId'] as const),
+) {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/update-contact.dto.png)
