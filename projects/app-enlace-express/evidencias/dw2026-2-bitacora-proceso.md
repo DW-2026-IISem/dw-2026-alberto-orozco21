@@ -2362,3 +2362,42 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/companies.seeder.png)
+
+### 7.10 — features/shipping/companies/application/dto/company-filter.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger.
+
+**Archivo:** `src/features/shipping/companies/application/dto/company-filter.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/application/dto
+cat > src/features/shipping/companies/application/dto/company-filter.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsPositive, IsString, Min } from 'class-validator';
+
+export class CompanyFilterDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 'andina' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company-filter.dto.png)
+
