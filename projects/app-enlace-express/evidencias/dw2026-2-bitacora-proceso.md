@@ -4446,3 +4446,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/address-type.enum.png)
+
+### 9.2 — features/shipping/addresses/domain/validators/address-coordinates.validator.ts
+
+Validador de dominio reutilizable: rangos válidos de latitud/longitud.
+
+**Archivo:** `src/features/shipping/addresses/domain/validators/address-coordinates.validator.ts`
+
+```bash
+mkdir -p src/features/shipping/addresses/domain/validators
+cat > src/features/shipping/addresses/domain/validators/address-coordinates.validator.ts <<'EOF_BACKEND_IA'
+export function isValidLatitude(latitude: number): boolean {
+  return latitude >= -90 && latitude <= 90;
+}
+
+export function isValidLongitude(longitude: number): boolean {
+  return longitude >= -180 && longitude <= 180;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/address-coordinates.validator.png)
