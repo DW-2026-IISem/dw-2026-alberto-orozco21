@@ -3493,3 +3493,28 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/contact.repository.png)
+
+### 8.8 — features/shipping/contacts/infrastructure/persistence/migrations/create-contacts-table.migration.ts
+
+Migración documental/auxiliar de la tabla. En dev el sync de Sequelize crea el esquema.
+
+**Archivo:** `src/features/shipping/contacts/infrastructure/persistence/migrations/create-contacts-table.migration.ts`
+
+```bash
+mkdir -p src/features/shipping/contacts/infrastructure/persistence/migrations
+cat > src/features/shipping/contacts/infrastructure/persistence/migrations/create-contacts-table.migration.ts <<'EOF_BACKEND_IA'
+export const createContactsTableMigration = {
+  name: 'create-contacts-table',
+  async up(): Promise<void> {
+    // Sequelize sync handles table creation in development.
+    // Production: CREATE TABLE contacts (id, companyId FK->companies, name, position,
+    //   phone, email, isPrimary, isActive, createdAt, updatedAt)
+  },
+  async down(): Promise<void> {
+    // Production: DROP TABLE contacts
+  },
+};
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/create-contacts-table.migration.png)
