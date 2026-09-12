@@ -4878,3 +4878,29 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/address.repository.png)
+
+### 9.8 — features/shipping/addresses/infrastructure/persistence/migrations/create-addresses-table.migration.ts
+
+Migración documental/auxiliar de la tabla. En dev el sync de Sequelize crea el esquema.
+
+**Archivo:** `src/features/shipping/addresses/infrastructure/persistence/migrations/create-addresses-table.migration.ts`
+
+```bash
+mkdir -p src/features/shipping/addresses/infrastructure/persistence/migrations
+cat > src/features/shipping/addresses/infrastructure/persistence/migrations/create-addresses-table.migration.ts <<'EOF_BACKEND_IA'
+export const createAddressesTableMigration = {
+  name: 'create-addresses-table',
+  async up(): Promise<void> {
+    // Sequelize sync handles table creation in development.
+    // Production: CREATE TABLE addresses (id, companyId FK->companies, alias, addressLine1,
+    //   addressLine2, city, state, country, postalCode, latitude, longitude, type,
+    //   isActive, createdAt, updatedAt)
+  },
+  async down(): Promise<void> {
+    // Production: DROP TABLE addresses
+  },
+};
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/create-addresses-table.migration.png)
