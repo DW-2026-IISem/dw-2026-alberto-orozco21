@@ -2991,3 +2991,25 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/sequelize.factory.png)
+
+### 7.25 — Actualizar shipping.module.ts
+
+Agrega el feature module de negocio recién terminado.
+
+**Archivo:** `src/features/shipping/shipping.module.ts`
+
+```bash
+mkdir -p src/features/shipping
+cat > src/features/shipping/shipping.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { CompaniesModule } from './companies/companies.module';
+
+@Module({
+  imports: [CompaniesModule],
+  exports: [CompaniesModule],
+})
+export class ShippingModule {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/shipping.module.png)
