@@ -6797,3 +6797,26 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/update-rate.use-case.png)
+
+### 10.19 — features/shipping/rates/presentation/http/serializers/rate.serializer.ts
+
+Serializer de presentación (forma estable de la respuesta HTTP).
+
+**Archivo:** `src/features/shipping/rates/presentation/http/serializers/rate.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/rates/presentation/http/serializers
+cat > src/features/shipping/rates/presentation/http/serializers/rate.serializer.ts <<'EOF_BACKEND_IA'
+import { Rate } from '../../../domain/entities/rate.entity.js';
+import { RateResponseDto } from '../../../application/dto/rate-response.dto.js';
+import { RateMapper } from '../../../application/mappers/rate.mapper.js';
+
+export class RateSerializer {
+  static serialize(entity: Rate): RateResponseDto {
+    return RateMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/rate.serializer.png)
