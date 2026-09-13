@@ -7121,3 +7121,22 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/database-seeder.service_rate.png)
+
+### 10.26 — Verificar tabla física `rates` y API
+
+`app.module.ts` no necesita cambios: `ShippingModule` ya expone `RatesModule`.
+
+Arranca la app. Debe crear/sync tabla `rates`, correr seeder y exponer `/api/rates`. Prueba list/create en Swagger o curl, y confirma que `GET /api/rates?calculationRule=por_zona` filtra correctamente.
+
+```bash
+npm run start:dev
+```
+
+**Consola**
+
+![alt text](imagenes/rate_consola.png)
+
+
+**/api/rates**
+
+![alt text](imagenes/api_rates.png)
