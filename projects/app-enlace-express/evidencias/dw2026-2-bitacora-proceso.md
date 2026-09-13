@@ -7693,3 +7693,51 @@ export class CourierFilterDto {
 }
 EOF_BACKEND_IA
 ```
+
+### 11.12 — features/shipping/couriers/application/dto/courier-response.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger.
+
+**Archivo:** `src/features/shipping/couriers/application/dto/courier-response.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/application/dto
+cat > src/features/shipping/couriers/application/dto/courier-response.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { VehicleType } from '../../domain/enums/vehicle-type.enum.js';
+
+export class CourierResponseDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 'Jorge Martínez' })
+  name: string;
+
+  @ApiProperty({ example: '1042567890' })
+  documentId: string;
+
+  @ApiPropertyOptional({ example: '+57 300 1112233' })
+  phone?: string;
+
+  @ApiProperty({ enum: VehicleType, example: VehicleType.MOTORCYCLE })
+  vehicleType: VehicleType;
+
+  @ApiPropertyOptional({ example: 'ABC12D' })
+  licensePlate?: string;
+
+  @ApiPropertyOptional({ example: 'Barranquilla Norte' })
+  assignedZone?: string;
+
+  @ApiProperty({ example: true })
+  isActive: boolean;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/courier-response.dto.png)
