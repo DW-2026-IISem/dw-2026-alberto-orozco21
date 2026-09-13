@@ -10883,12 +10883,7 @@ export class UpdateInvoiceUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case update-invoice.use-case.ts"
-```
+![alt text](imagenes/update-invoice.use-case.png)
 
 #### 13.21 — features/shipping/invoices/application/use-cases/mark-invoice-paid.use-case.ts
 
