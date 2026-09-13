@@ -7800,3 +7800,23 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/create-courier.dto.png)
+
+### 11.14 — features/shipping/couriers/application/dto/update-courier.dto.ts
+
+DTO de actualización. `documentId` se excluye a propósito: el documento de identidad no cambia.
+
+**Archivo:** `src/features/shipping/couriers/application/dto/update-courier.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/application/dto
+cat > src/features/shipping/couriers/application/dto/update-courier.dto.ts <<'EOF_BACKEND_IA'
+import { OmitType, PartialType } from '@nestjs/mapped-types';
+import { CreateCourierDto } from './create-courier.dto.js';
+
+export class UpdateCourierDto extends PartialType(
+  OmitType(CreateCourierDto, ['documentId'] as const),
+) {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/update-courier.dto.png)
