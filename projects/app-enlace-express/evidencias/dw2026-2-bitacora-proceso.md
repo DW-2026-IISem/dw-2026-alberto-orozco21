@@ -7472,7 +7472,7 @@ export class CourierModel extends Model {
 EOF_BACKEND_IA
 ```
 
-[text](dw2026-2-bitacora-proceso.md)
+![alt text](imagenes/courier.model.png)
 
 ### 11.8 — features/shipping/couriers/infrastructure/persistence/repositories/courier.repository.ts
 
@@ -7570,3 +7570,28 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/courier.repository.png)
+
+#### 11.9 — features/shipping/couriers/infrastructure/persistence/migrations/create-couriers-table.migration.ts
+
+Migración documental/auxiliar de la tabla. En dev el sync de Sequelize crea el esquema.
+
+**Archivo:** `src/features/shipping/couriers/infrastructure/persistence/migrations/create-couriers-table.migration.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/infrastructure/persistence/migrations
+cat > src/features/shipping/couriers/infrastructure/persistence/migrations/create-couriers-table.migration.ts <<'EOF_BACKEND_IA'
+export const createCouriersTableMigration = {
+  name: 'create-couriers-table',
+  async up(): Promise<void> {
+    // Sequelize sync handles table creation in development.
+    // Production: CREATE TABLE couriers (id, name, documentId UQ, phone, vehicleType,
+    //   licensePlate, assignedZone, isActive, createdAt, updatedAt)
+  },
+  async down(): Promise<void> {
+    // Production: DROP TABLE couriers
+  },
+};
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/create-couriers-table.migration.png)
