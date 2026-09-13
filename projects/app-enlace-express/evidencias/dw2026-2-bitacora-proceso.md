@@ -10366,3 +10366,234 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/invoices.seeder.png)
+
+### 13.10 — features/shipping/invoices/application/dto/invoice-filter.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger. Incluye filtro por `companyId` y `status`.
+
+**Archivo:** `src/features/shipping/invoices/application/dto/invoice-filter.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/dto
+cat > src/features/shipping/invoices/application/dto/invoice-filter.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Min,
+} from 'class-validator';
+import { InvoiceStatus } from '../../domain/enums/invoice-status.enum.js';
+
+export class InvoiceFilterDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 'FAC-2026' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  companyId?: number;
+
+  @ApiPropertyOptional({ enum: InvoiceStatus, example: InvoiceStatus.PENDING })
+  @IsOptional()
+  @IsEnum(InvoiceStatus)
+  status?: InvoiceStatus;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/invoice-filter.dto.png)
+
+### 13.11 — features/shipping/invoices/application/dto/invoice-response.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger.
+
+**Archivo:** `src/features/shipping/invoices/application/dto/invoice-response.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/dto
+cat > src/features/shipping/invoices/application/dto/invoice-response.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { InvoiceStatus } from '../../domain/enums/invoice-status.enum.js';
+
+export class InvoiceResponseDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 1 })
+  companyId: number;
+
+  @ApiProperty({ example: 'FAC-2026-0001' })
+  number: string;
+
+  @ApiProperty({ example: '2026-08-01' })
+  periodStart: Date;
+
+  @ApiProperty({ example: '2026-08-31' })
+  periodEnd: Date;
+
+  @ApiProperty({ example: '2026-09-01' })
+  issueDate: Date;
+
+  @ApiProperty({ example: 450000 })
+  subtotal: number;
+
+  @ApiProperty({ example: 85500 })
+  taxes: number;
+
+  @ApiProperty({ example: 535500 })
+  total: number;
+
+  @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.PENDING })
+  status: InvoiceStatus;
+
+  @ApiPropertyOptional({ example: '2026-09-10T15:00:00Z' })
+  paymentDate?: Date;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/invoice-response.dto.png)
+
+#### 13.12 — features/shipping/invoices/application/dto/create-invoice.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger. Nota: no incluye `total` (se calcula) ni `status` (siempre nace `pendiente`).
+
+**Archivo:** `src/features/shipping/invoices/application/dto/create-invoice.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/dto
+cat > src/features/shipping/invoices/application/dto/create-invoice.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsDateString,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsPositive,
+  IsString,
+  Min,
+} from 'class-validator';
+
+export class CreateInvoiceDto {
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  companyId: number;
+
+  @ApiProperty({ example: 'FAC-2026-0001' })
+  @IsString()
+  @IsNotEmpty()
+  number: string;
+
+  @ApiProperty({ example: '2026-08-01' })
+  @IsDateString()
+  periodStart: string;
+
+  @ApiProperty({ example: '2026-08-31' })
+  @IsDateString()
+  periodEnd: string;
+
+  @ApiProperty({ example: '2026-09-01' })
+  @IsDateString()
+  issueDate: string;
+
+  @ApiProperty({ example: 450000 })
+  @IsNumber()
+  @Min(0)
+  subtotal: number;
+
+  @ApiProperty({ example: 85500 })
+  @IsNumber()
+  @Min(0)
+  taxes: number;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto create-invoice.dto.ts"
+```
+
+#### 13.13 — features/shipping/invoices/application/dto/update-invoice.dto.ts
+
+DTO de actualización. `companyId` y `number` se excluyen: no cambian de empresa ni de número una vez creada la factura.
+
+**Archivo:** `src/features/shipping/invoices/application/dto/update-invoice.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/dto
+cat > src/features/shipping/invoices/application/dto/update-invoice.dto.ts <<'EOF_BACKEND_IA'
+import { OmitType, PartialType } from '@nestjs/mapped-types';
+import { CreateInvoiceDto } from './create-invoice.dto.js';
+
+export class UpdateInvoiceDto extends PartialType(
+  OmitType(CreateInvoiceDto, ['companyId', 'number'] as const),
+) {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto update-invoice.dto.ts"
+```
+
+#### 13.14 — features/shipping/invoices/application/dto/mark-invoice-paid.dto.ts
+
+DTO para la transición de pago. `paymentDate` es opcional (si no se envía, se usa la fecha actual).
+
+**Archivo:** `src/features/shipping/invoices/application/dto/mark-invoice-paid.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/dto
+cat > src/features/shipping/invoices/application/dto/mark-invoice-paid.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsDateString, IsOptional } from 'class-validator';
+
+export class MarkInvoicePaidDto {
+  @ApiPropertyOptional({ example: '2026-09-10T15:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  paymentDate?: string;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto mark-invoice-paid.dto.ts"
+```
