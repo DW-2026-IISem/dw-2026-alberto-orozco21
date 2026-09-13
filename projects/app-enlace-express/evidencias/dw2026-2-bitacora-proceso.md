@@ -7971,3 +7971,41 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/delete-courier.use-case.png)
+
+### 11.18 — features/shipping/couriers/application/use-cases/get-courier.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/couriers/application/use-cases/get-courier.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/application/use-cases
+cat > src/features/shipping/couriers/application/use-cases/get-courier.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { CourierNotFoundException } from '../../domain/exceptions/courier-not-found.exception.js';
+import {
+  COURIER_REPOSITORY,
+  type ICourierRepository,
+} from '../../domain/interfaces/courier-repository.interface.js';
+import { CourierMapper } from '../mappers/courier.mapper.js';
+
+@Injectable()
+export class GetCourierUseCase {
+  constructor(
+    @Inject(COURIER_REPOSITORY)
+    private readonly courierRepository: ICourierRepository,
+  ) {}
+
+  async execute(id: number) {
+    const courier = await this.courierRepository.findById(id);
+    if (!courier) {
+      throw new CourierNotFoundException(id);
+    }
+
+    return CourierMapper.toResponse(courier);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/get-courier.use-case.png)
