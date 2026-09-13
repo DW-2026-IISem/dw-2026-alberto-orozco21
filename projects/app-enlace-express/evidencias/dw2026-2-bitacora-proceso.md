@@ -10966,12 +10966,7 @@ export class VoidInvoiceUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case void-invoice.use-case.ts"
-```
+![alt text](imagenes/void-invoice.use-case.png)
 
 #### 13.23 — features/shipping/invoices/presentation/http/serializers/invoice.serializer.ts
 
