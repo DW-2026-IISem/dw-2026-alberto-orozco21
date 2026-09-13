@@ -7170,3 +7170,21 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/vehicle-type.enum.png)
+
+### 11.2 — features/shipping/couriers/domain/validators/courier-phone.validator.ts
+
+Validador de dominio reutilizable (reglas independientes del framework HTTP).
+
+**Archivo:** `src/features/shipping/couriers/domain/validators/courier-phone.validator.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/domain/validators
+cat > src/features/shipping/couriers/domain/validators/courier-phone.validator.ts <<'EOF_BACKEND_IA'
+export function isValidCourierPhone(phone: string): boolean {
+  const phoneRegex = /^[+]?[\d\s()-]{7,20}$/;
+  return phoneRegex.test(phone);
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/courier-phone.validator.png)
