@@ -8449,3 +8449,30 @@ npm run start:dev
 **/api/couriers**
 
 ![alt text](imagenes/api_couriers.png)
+
+-------------------------------------------------------------
+
+## FASE 12 — `11_BUSINESS_ROUTES`
+
+### Business — Routes / Ruta (patrón completo CA)
+
+> **Objetivo de la fase:** Sexta entidad de negocio de EnlaceExpress: Ruta, que pertenece a un Mensajero (`courierId`). Mismo patrón que Contacto/Direccion → Empresa: asociación real con `@BelongsTo(() => CourierModel)` + import estático, y se vuelve a `courier.model.ts` para agregar `@HasMany(() => RouteModel)`. Orden lógico: dominio → infraestructura → aplicación → presentación → módulo → cableado → verificación.
+
+#### 12.1 — features/shipping/routes/domain/enums/route-status.enum.ts
+
+Enum de dominio propio del feature.
+
+**Archivo:** `src/features/shipping/routes/domain/enums/route-status.enum.ts`
+
+```bash
+mkdir -p src/features/shipping/routes/domain/enums
+cat > src/features/shipping/routes/domain/enums/route-status.enum.ts <<'EOF_BACKEND_IA'
+export enum RouteStatus {
+  PLANNED = 'planificada',
+  IN_PROGRESS = 'en_curso',
+  FINISHED = 'finalizada',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/route-status.enum.png)
