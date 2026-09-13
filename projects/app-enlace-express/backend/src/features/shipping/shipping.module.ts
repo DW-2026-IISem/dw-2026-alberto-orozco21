@@ -3,9 +3,22 @@ import { CompaniesModule } from './companies/companies.module.js';
 import { ContactsModule } from './contacts/contacts.module.js';
 import { AddressesModule } from './addresses/addresses.module.js';
 import { RatesModule } from './rates/rates.module.js';
+import { CouriersModule } from './couriers/couriers.module.js';
 
 @Module({
-  imports: [CompaniesModule, ContactsModule, AddressesModule, RatesModule],
-  exports: [CompaniesModule, ContactsModule, AddressesModule, RatesModule],
+  imports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+  ],
+  exports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+  ],
 })
 export class ShippingModule {}
