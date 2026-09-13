@@ -10559,12 +10559,8 @@ export class UpdateInvoiceDto extends PartialType(
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/update-invoice.dto.png)
 
-```bash
-git add .
-git commit -m "feat: add dto update-invoice.dto.ts"
-```
 
 #### 13.14 — features/shipping/invoices/application/dto/mark-invoice-paid.dto.ts
 
