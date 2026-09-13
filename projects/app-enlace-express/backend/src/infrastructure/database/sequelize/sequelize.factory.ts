@@ -4,10 +4,12 @@ import { getSequelizeOptions } from './sequelize.options.js';
 
 import { CompanyModel } from '../../../features/shipping/companies/infrastructure/persistence/models/company.model.js';
 import { ContactModel } from '../../../features/shipping/contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../features/shipping/addresses/infrastructure/persistence/models/address.model.js';
 
 export const ALL_MODELS = [
   CompanyModel,
   ContactModel,
+  AddressModel,
 ];
 
 async function loadDialectModule(moduleName: string): Promise<any> {
