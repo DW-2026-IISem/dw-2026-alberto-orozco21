@@ -10538,12 +10538,8 @@ export class CreateInvoiceDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/create-invoice.dto.png)
 
-```bash
-git add .
-git commit -m "feat: add dto create-invoice.dto.ts"
-```
 
 #### 13.13 — features/shipping/invoices/application/dto/update-invoice.dto.ts
 
