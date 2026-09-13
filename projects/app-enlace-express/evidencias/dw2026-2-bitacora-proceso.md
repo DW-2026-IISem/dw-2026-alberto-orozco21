@@ -9388,3 +9388,26 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/update-route.use-case.png)
+
+### 12.19 — features/shipping/routes/presentation/http/serializers/route.serializer.ts
+
+Serializer de presentación (forma estable de la respuesta HTTP).
+
+**Archivo:** `src/features/shipping/routes/presentation/http/serializers/route.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/routes/presentation/http/serializers
+cat > src/features/shipping/routes/presentation/http/serializers/route.serializer.ts <<'EOF_BACKEND_IA'
+import { Route } from '../../../domain/entities/route.entity.js';
+import { RouteResponseDto } from '../../../application/dto/route-response.dto.js';
+import { RouteMapper } from '../../../application/mappers/route.mapper.js';
+
+export class RouteSerializer {
+  static serialize(entity: Route): RouteResponseDto {
+    return RouteMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/route.serializer.png)
