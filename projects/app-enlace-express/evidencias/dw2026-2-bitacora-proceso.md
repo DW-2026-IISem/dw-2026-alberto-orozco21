@@ -10021,3 +10021,45 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/invoice.entity.png)
+
+### 13.3 — features/shipping/invoices/domain/exceptions/invoice-number-already-exists.exception.ts
+
+Excepción de dominio. El caso de uso la lanza; el filter HTTP la traduce a status code.
+
+**Archivo:** `src/features/shipping/invoices/domain/exceptions/invoice-number-already-exists.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/domain/exceptions
+cat > src/features/shipping/invoices/domain/exceptions/invoice-number-already-exists.exception.ts <<'EOF_BACKEND_IA'
+import { DomainException } from '../../../../../common/exceptions/domain.exception.js';
+
+export class InvoiceNumberAlreadyExistsException extends DomainException {
+  constructor(number: string) {
+    super(`El número de factura '${number}' ya está registrado`);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/invoice-number-already-exists.exception.png)
+
+#### 13.4 — features/shipping/invoices/domain/exceptions/invoice-not-found.exception.ts
+
+Excepción de dominio. El caso de uso la lanza; el filter HTTP la traduce a status code.
+
+**Archivo:** `src/features/shipping/invoices/domain/exceptions/invoice-not-found.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/domain/exceptions
+cat > src/features/shipping/invoices/domain/exceptions/invoice-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception.js';
+
+export class InvoiceNotFoundException extends EntityNotFoundException {
+  constructor(id: number) {
+    super('Factura', id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/invoice-not-found.exception.png)
