@@ -6007,3 +6007,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/ate-calculation-rule.png)
+
+### 10.3 — features/shipping/rates/domain/exceptions/rate-not-found.exception.ts
+
+Excepción de dominio. El caso de uso la lanza; el filter HTTP la traduce a status code.
+
+**Archivo:** `src/features/shipping/rates/domain/exceptions/rate-not-found.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/rates/domain/exceptions
+cat > src/features/shipping/rates/domain/exceptions/rate-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception.js';
+
+export class RateNotFoundException extends EntityNotFoundException {
+  constructor(id: number) {
+    super('Tarifa', id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/rate-not-found.exception.png)
