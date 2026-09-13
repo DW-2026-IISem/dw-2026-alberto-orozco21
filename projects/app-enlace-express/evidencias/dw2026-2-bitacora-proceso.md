@@ -8428,3 +8428,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/database-seeder.service_courier.png)
+
+### 11.28 — Verificar tabla física `couriers` y API
+
+`app.module.ts` no necesita cambios: `ShippingModule` ya expone `CouriersModule`.
+
+Arranca la app. Debe crear/sync tabla `couriers`, correr seeder y exponer `/api/couriers`. Prueba:
+- Crear un mensajero con `vehicleType: "moto"` sin `licensePlate` → debe fallar (400) por la regla de dominio.
+- Crear uno con `vehicleType: "bicicleta"` y `licensePlate` → debe fallar también.
+- Crear uno con `documentId` repetido → debe fallar (409, vía `CourierDocumentAlreadyExistsException`).
+
+```bash
+npm run start:dev
+```
+
+**Consola**
+
+![alt text](imagenes/courier_consola.png)
+
+**/api/couriers**
+
+![alt text](imagenes/api_couriers.png)
