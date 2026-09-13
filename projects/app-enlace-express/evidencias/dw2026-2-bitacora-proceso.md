@@ -7372,3 +7372,39 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/courier-not-found.exception.png)
+
+### 11.6 — features/shipping/couriers/domain/interfaces/courier-repository.interface.ts
+
+Puerto (contrato) del repositorio. La aplicación depende de esta interface, no de Sequelize.
+
+**Archivo:** `src/features/shipping/couriers/domain/interfaces/courier-repository.interface.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/domain/interfaces
+cat > src/features/shipping/couriers/domain/interfaces/courier-repository.interface.ts <<'EOF_BACKEND_IA'
+import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface.js';
+import { VehicleType } from '../enums/vehicle-type.enum.js';
+import { Courier } from '../entities/courier.entity.js';
+
+export const COURIER_REPOSITORY = 'COURIER_REPOSITORY';
+
+export interface CourierFindAllParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  vehicleType?: VehicleType;
+  assignedZone?: string;
+}
+
+export interface ICourierRepository {
+  create(courier: Courier): Promise<Courier>;
+  update(courier: Courier): Promise<Courier>;
+  delete(id: number): Promise<void>;
+  findById(id: number): Promise<Courier | null>;
+  findByDocumentId(documentId: string): Promise<Courier | null>;
+  findAll(params: CourierFindAllParams): Promise<PaginatedResult<Courier>>;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/courier-repository.interface.png)
