@@ -6634,3 +6634,40 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/create-rate.use-case.png)
+
+### 10.15 — features/shipping/rates/application/use-cases/delete-rate.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/rates/application/use-cases/delete-rate.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/rates/application/use-cases
+cat > src/features/shipping/rates/application/use-cases/delete-rate.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { RateNotFoundException } from '../../domain/exceptions/rate-not-found.exception.js';
+import {
+  RATE_REPOSITORY,
+  type IRateRepository,
+} from '../../domain/interfaces/rate-repository.interface.js';
+
+@Injectable()
+export class DeleteRateUseCase {
+  constructor(
+    @Inject(RATE_REPOSITORY)
+    private readonly rateRepository: IRateRepository,
+  ) {}
+
+  async execute(id: number): Promise<void> {
+    const rate = await this.rateRepository.findById(id);
+    if (!rate) {
+      throw new RateNotFoundException(id);
+    }
+
+    await this.rateRepository.delete(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/delete-rate.use-case.png)
