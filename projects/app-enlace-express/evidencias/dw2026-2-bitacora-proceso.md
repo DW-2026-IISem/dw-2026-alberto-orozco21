@@ -8609,3 +8609,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/route.entity.png)
+
+### 12.3 — features/shipping/routes/domain/exceptions/route-not-found.exception.ts
+
+Excepción de dominio. El caso de uso la lanza; el filter HTTP la traduce a status code.
+
+**Archivo:** `src/features/shipping/routes/domain/exceptions/route-not-found.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/routes/domain/exceptions
+cat > src/features/shipping/routes/domain/exceptions/route-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception.js';
+
+export class RouteNotFoundException extends EntityNotFoundException {
+  constructor(id: number) {
+    super('Ruta', id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/route-not-found.exception.png)
