@@ -10760,12 +10760,8 @@ export class DeleteInvoiceUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/delete-invoice.use-case.png)
 
-```bash
-git add .
-git commit -m "feat: add use case delete-invoice.use-case.ts"
-```
 
 #### 13.18 — features/shipping/invoices/application/use-cases/get-invoice.use-case.ts
 
