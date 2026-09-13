@@ -7639,3 +7639,57 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/couriers.seeder.png)
+
+### 11.11 — features/shipping/couriers/application/dto/courier-filter.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger.
+
+**Archivo:** `src/features/shipping/couriers/application/dto/courier-filter.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/application/dto
+cat > src/features/shipping/couriers/application/dto/courier-filter.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Min,
+} from 'class-validator';
+import { VehicleType } from '../../domain/enums/vehicle-type.enum.js';
+
+export class CourierFilterDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 'jorge' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ enum: VehicleType, example: VehicleType.MOTORCYCLE })
+  @IsOptional()
+  @IsEnum(VehicleType)
+  vehicleType?: VehicleType;
+
+  @ApiPropertyOptional({ example: 'Barranquilla Norte' })
+  @IsOptional()
+  @IsString()
+  assignedZone?: string;
+}
+EOF_BACKEND_IA
+```
