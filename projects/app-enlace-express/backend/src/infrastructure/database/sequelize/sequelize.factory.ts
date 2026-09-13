@@ -6,12 +6,14 @@ import { CompanyModel } from '../../../features/shipping/companies/infrastructur
 import { ContactModel } from '../../../features/shipping/contacts/infrastructure/persistence/models/contact.model.js';
 import { AddressModel } from '../../../features/shipping/addresses/infrastructure/persistence/models/address.model.js';
 import { RateModel } from '../../../features/shipping/rates/infrastructure/persistence/models/rate.model.js';
+import { CourierModel } from '../../../features/shipping/couriers/infrastructure/persistence/models/courier.model.js';
 
 export const ALL_MODELS = [
   CompanyModel,
   ContactModel,
   AddressModel,
   RateModel,
+  CourierModel,
 ];
 
 async function loadDialectModule(moduleName: string): Promise<any> {
