@@ -7351,3 +7351,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/courier-document-already-exists.exception.png)
+
+### 11.5 — features/shipping/couriers/domain/exceptions/courier-not-found.exception.ts
+
+Excepción de dominio. El caso de uso la lanza; el filter HTTP la traduce a status code.
+
+**Archivo:** `src/features/shipping/couriers/domain/exceptions/courier-not-found.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/domain/exceptions
+cat > src/features/shipping/couriers/domain/exceptions/courier-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception.js';
+
+export class CourierNotFoundException extends EntityNotFoundException {
+  constructor(id: number) {
+    super('Mensajero', id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/courier-not-found.exception.png)
