@@ -5815,3 +5815,21 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/database-seeder.service_address.png)
+
+### 9.28 — Verificar tabla física `addresses` y API
+
+`app.module.ts` **no necesita cambios**: ya importa `ShippingModule`, que ahora expone `CompaniesModule`, `ContactsModule` y `AddressesModule`.
+
+Arranca la app. Debe crear/sync tabla `addresses` (con FK a `companies`), correr seeder y exponer `/api/addresses`. Prueba list/create en Swagger o curl, y confirma que `GET /api/addresses?companyId=1&type=recogida` filtra correctamente.
+
+```bash
+npm run start:dev
+```
+
+**Consola**
+
+![alt text](imagenes/address_consola.png)
+
+**/api/addresses**
+
+![alt text](imagenes/api_addresses.png)
