@@ -10063,3 +10063,119 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/invoice-not-found.exception.png)
+
+### 13.5 — features/shipping/invoices/domain/interfaces/invoice-repository.interface.ts
+
+Puerto (contrato) del repositorio. La aplicación depende de esta interface, no de Sequelize.
+
+**Archivo:** `src/features/shipping/invoices/domain/interfaces/invoice-repository.interface.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/domain/interfaces
+cat > src/features/shipping/invoices/domain/interfaces/invoice-repository.interface.ts <<'EOF_BACKEND_IA'
+import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface.js';
+import { InvoiceStatus } from '../enums/invoice-status.enum.js';
+import { Invoice } from '../entities/invoice.entity.js';
+
+export const INVOICE_REPOSITORY = 'INVOICE_REPOSITORY';
+
+export interface InvoiceFindAllParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  companyId?: number;
+  status?: InvoiceStatus;
+}
+
+export interface IInvoiceRepository {
+  create(invoice: Invoice): Promise<Invoice>;
+  update(invoice: Invoice): Promise<Invoice>;
+  delete(id: number): Promise<void>;
+  findById(id: number): Promise<Invoice | null>;
+  findByNumber(number: string): Promise<Invoice | null>;
+  findAll(params: InvoiceFindAllParams): Promise<PaginatedResult<Invoice>>;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/invoice-repository.interface.png)
+
+### 13.6 — features/shipping/invoices/infrastructure/persistence/models/invoice.model.ts
+
+Modelo Sequelize (`@Table`). Incluye la FK real y `@BelongsTo(() => CompanyModel)`.
+
+**Archivo:** `src/features/shipping/invoices/infrastructure/persistence/models/invoice.model.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/infrastructure/persistence/models
+cat > src/features/shipping/invoices/infrastructure/persistence/models/invoice.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  BelongsTo,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { CompanyModel } from '../../../../companies/infrastructure/persistence/models/company.model.js';
+import { InvoiceStatus } from '../../../domain/enums/invoice-status.enum.js';
+
+@Table({ tableName: 'invoices' })
+export class InvoiceModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @ForeignKey(() => CompanyModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare companyId: number;
+
+  @BelongsTo(() => CompanyModel)
+  declare company: CompanyModel;
+
+  @Column({ type: DataType.STRING(30), allowNull: false, unique: true })
+  declare number: string;
+
+  @Column({ type: DataType.DATEONLY, allowNull: false })
+  declare periodStart: string;
+
+  @Column({ type: DataType.DATEONLY, allowNull: false })
+  declare periodEnd: string;
+
+  @Column({ type: DataType.DATEONLY, allowNull: false })
+  declare issueDate: string;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare subtotal: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare taxes: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare total: number;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(InvoiceStatus)),
+    allowNull: false,
+    defaultValue: InvoiceStatus.PENDING,
+  })
+  declare status: InvoiceStatus;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare paymentDate: Date | null;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/invoice.model.png)
