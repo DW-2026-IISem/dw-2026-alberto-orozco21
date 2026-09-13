@@ -7408,3 +7408,68 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/courier-repository.interface.png)
+
+### 11.7 — features/shipping/couriers/infrastructure/persistence/models/courier.model.ts
+
+Modelo Sequelize (`@Table`). Sin asociaciones propias todavía: `Ruta` (fase 12) es la que va a apuntar hacia acá.
+
+**Archivo:** `src/features/shipping/couriers/infrastructure/persistence/models/courier.model.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/infrastructure/persistence/models
+cat > src/features/shipping/couriers/infrastructure/persistence/models/courier.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  Column,
+  CreatedAt,
+  DataType,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { VehicleType } from '../../../domain/enums/vehicle-type.enum.js';
+
+@Table({ tableName: 'couriers' })
+export class CourierModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(150), allowNull: false })
+  declare name: string;
+
+  @Column({ type: DataType.STRING(30), allowNull: false, unique: true })
+  declare documentId: string;
+
+  @Column({ type: DataType.STRING(30), allowNull: true })
+  declare phone: string | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(VehicleType)),
+    allowNull: false,
+  })
+  declare vehicleType: VehicleType;
+
+  @Column({ type: DataType.STRING(15), allowNull: true })
+  declare licensePlate: string | null;
+
+  @Column({ type: DataType.STRING(100), allowNull: true })
+  declare assignedZone: string | null;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  // routes se agrega en fase 12 (Ruta), con import estático normal.
+}
+EOF_BACKEND_IA
+```
+
+[text](dw2026-2-bitacora-proceso.md)
