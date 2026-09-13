@@ -8087,3 +8087,26 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/update-courier.use-case.png)
+
+### 11.21 — features/shipping/couriers/presentation/http/serializers/courier.serializer.ts
+
+Serializer de presentación (forma estable de la respuesta HTTP).
+
+**Archivo:** `src/features/shipping/couriers/presentation/http/serializers/courier.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/presentation/http/serializers
+cat > src/features/shipping/couriers/presentation/http/serializers/courier.serializer.ts <<'EOF_BACKEND_IA'
+import { Courier } from '../../../domain/entities/courier.entity.js';
+import { CourierResponseDto } from '../../../application/dto/courier-response.dto.js';
+import { CourierMapper } from '../../../application/mappers/courier.mapper.js';
+
+export class CourierSerializer {
+  static serialize(entity: Courier): CourierResponseDto {
+    return CourierMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/courier.serializer.png)
