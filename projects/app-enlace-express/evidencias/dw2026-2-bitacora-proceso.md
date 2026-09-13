@@ -10989,9 +10989,4 @@ export class InvoiceSerializer {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add serializer invoice.serializer.ts"
-```
+![alt text](imagenes/invoice.serializer.png)
