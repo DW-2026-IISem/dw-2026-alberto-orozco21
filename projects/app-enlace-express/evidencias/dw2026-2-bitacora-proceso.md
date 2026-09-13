@@ -8630,3 +8630,38 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/route-not-found.exception.png)
+
+### 12.4 — features/shipping/routes/domain/interfaces/route-repository.interface.ts
+
+Puerto (contrato) del repositorio. La aplicación depende de esta interface, no de Sequelize.
+
+**Archivo:** `src/features/shipping/routes/domain/interfaces/route-repository.interface.ts`
+
+```bash
+mkdir -p src/features/shipping/routes/domain/interfaces
+cat > src/features/shipping/routes/domain/interfaces/route-repository.interface.ts <<'EOF_BACKEND_IA'
+import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface.js';
+import { RouteStatus } from '../enums/route-status.enum.js';
+import { Route } from '../entities/route.entity.js';
+
+export const ROUTE_REPOSITORY = 'ROUTE_REPOSITORY';
+
+export interface RouteFindAllParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  courierId?: number;
+  status?: RouteStatus;
+}
+
+export interface IRouteRepository {
+  create(route: Route): Promise<Route>;
+  update(route: Route): Promise<Route>;
+  delete(id: number): Promise<void>;
+  findById(id: number): Promise<Route | null>;
+  findAll(params: RouteFindAllParams): Promise<PaginatedResult<Route>>;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/route-repository.interface.png)
