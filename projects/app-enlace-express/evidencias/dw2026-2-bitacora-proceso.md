@@ -6500,3 +6500,21 @@ export class CreateRateDto {
 }
 EOF_BACKEND_IA
 ```
+
+### 10.12 — features/shipping/rates/application/dto/update-rate.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger.
+
+**Archivo:** `src/features/shipping/rates/application/dto/update-rate.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/rates/application/dto
+cat > src/features/shipping/rates/application/dto/update-rate.dto.ts <<'EOF_BACKEND_IA'
+import { PartialType } from '@nestjs/mapped-types';
+import { CreateRateDto } from './create-rate.dto.js';
+
+export class UpdateRateDto extends PartialType(CreateRateDto) {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/update-rate.dto.png)
