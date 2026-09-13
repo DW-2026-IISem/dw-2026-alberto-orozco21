@@ -7330,3 +7330,24 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/courier.entity.png)
+
+### 11.4 — features/shipping/couriers/domain/exceptions/courier-document-already-exists.exception.ts
+
+Excepción de dominio. El caso de uso la lanza; el filter HTTP la traduce a status code.
+
+**Archivo:** `src/features/shipping/couriers/domain/exceptions/courier-document-already-exists.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/domain/exceptions
+cat > src/features/shipping/couriers/domain/exceptions/courier-document-already-exists.exception.ts <<'EOF_BACKEND_IA'
+import { DomainException } from '../../../../../common/exceptions/domain.exception.js';
+
+export class CourierDocumentAlreadyExistsException extends DomainException {
+  constructor(documentId: string) {
+    super(`El documento de identidad '${documentId}' ya está registrado`);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/courier-document-already-exists.exception.png)
