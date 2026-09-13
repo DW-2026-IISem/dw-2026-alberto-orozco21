@@ -5834,6 +5834,8 @@ npm run start:dev
 
 ![alt text](imagenes/api_addresses.png)
 
+---------------------------------------------------------------
+
 ## FASE 10 — `09_BUSINESS_RATES`
 
 ### Business — Rates / Tarifa (patrón completo CA)
@@ -7140,3 +7142,31 @@ npm run start:dev
 **/api/rates**
 
 ![alt text](imagenes/api_rates.png)
+
+---------------------------------------------------------------
+
+## FASE 11 — `10_BUSINESS_COURIERS`
+
+### Business — Couriers / Mensajero (patrón completo CA)
+
+> **Objetivo de la fase:** Quinta entidad de negocio de EnlaceExpress: Mensajero. Igual que Tarifa, **es independiente** — no tiene FK hacia otra entidad — pero sí introduce dos reglas de negocio nuevas: `documentoIdentidad` único (como el `nit` de Empresa) y `placaVehiculo` obligatoria solo si el vehículo es moto o carro. Orden lógico: dominio → infraestructura → aplicación → presentación → módulo → cableado → verificación.
+
+#### 11.1 — features/shipping/couriers/domain/enums/vehicle-type.enum.ts
+
+Enum de dominio propio del feature.
+
+**Archivo:** `src/features/shipping/couriers/domain/enums/vehicle-type.enum.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/domain/enums
+cat > src/features/shipping/couriers/domain/enums/vehicle-type.enum.ts <<'EOF_BACKEND_IA'
+export enum VehicleType {
+  MOTORCYCLE = 'moto',
+  CAR = 'carro',
+  BICYCLE = 'bicicleta',
+  ON_FOOT = 'a_pie',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/vehicle-type.enum.png)
