@@ -6065,3 +6065,72 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/rate-repository.interface.png)
+
+### 10.5 — features/shipping/rates/infrastructure/persistence/models/rate.model.ts
+
+Modelo Sequelize (`@Table`). Sin asociaciones: Tarifa es independiente.
+
+**Archivo:** `src/features/shipping/rates/infrastructure/persistence/models/rate.model.ts`
+
+```bash
+mkdir -p src/features/shipping/rates/infrastructure/persistence/models
+cat > src/features/shipping/rates/infrastructure/persistence/models/rate.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  Column,
+  CreatedAt,
+  DataType,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { RateCalculationRule } from '../../../domain/enums/rate-calculation-rule.enum.js';
+
+@Table({ tableName: 'rates' })
+export class RateModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(150), allowNull: false })
+  declare name: string;
+
+  @Column({ type: DataType.STRING(100), allowNull: true })
+  declare zone: string | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(RateCalculationRule)),
+    allowNull: false,
+  })
+  declare calculationRule: RateCalculationRule;
+
+  @Column({ type: DataType.DECIMAL(12, 2), allowNull: false })
+  declare baseValue: number;
+
+  @Column({ type: DataType.DECIMAL(12, 2), allowNull: false, defaultValue: 0 })
+  declare additionalValuePerKg: number;
+
+  @Column({ type: DataType.DECIMAL(5, 2), allowNull: false, defaultValue: 0 })
+  declare urgentSurchargePct: number;
+
+  @Column({ type: DataType.DATEONLY, allowNull: false })
+  declare validFrom: string;
+
+  @Column({ type: DataType.DATEONLY, allowNull: true })
+  declare validUntil: string | null;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/rate.model.png)
