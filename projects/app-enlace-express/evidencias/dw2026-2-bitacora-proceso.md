@@ -8204,3 +8204,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/couriers.controller.png)
+
+### 11.23 — features/shipping/couriers/index.ts
+
+Barrel export del feature para imports limpios.
+
+**Archivo:** `src/features/shipping/couriers/index.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers
+cat > src/features/shipping/couriers/index.ts <<'EOF_BACKEND_IA'
+export { CouriersModule } from './couriers.module.js';
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/couriers_index.png)
