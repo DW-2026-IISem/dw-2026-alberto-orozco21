@@ -9804,3 +9804,21 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/seeder.service.png)
+
+### 12.27 — Verificar tabla física `routes` y API
+
+`app.module.ts` no necesita cambios: `ShippingModule` ya expone `RoutesModule`.
+
+Arranca la app. Debe crear/sync tabla `routes` (con FK a `couriers`), correr seeder y exponer `/api/routes`. Prueba list/create en Swagger o curl, y confirma que `GET /api/routes?courierId=1&status=planificada` filtra correctamente, y que crear una ruta con `endTime` anterior a `startTime` falla (400).
+
+```bash
+npm run start:dev
+```
+
+**Consola**
+
+![alt text](imagenes/route_consola.png)
+
+**/api/routes**
+
+![alt text](imagenes/api_routes.png)
