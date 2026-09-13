@@ -10583,9 +10583,4 @@ export class MarkInvoicePaidDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto mark-invoice-paid.dto.ts"
-```
+![alt text](imagenes/mark-invoice-paid.dto.png)
