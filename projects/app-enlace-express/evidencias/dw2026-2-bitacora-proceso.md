@@ -9505,3 +9505,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/routes.controller.png)
+
+### 12.21 — features/shipping/routes/index.ts
+
+Barrel export del feature para imports limpios.
+
+**Archivo:** `src/features/shipping/routes/index.ts`
+
+```bash
+mkdir -p src/features/shipping/routes
+cat > src/features/shipping/routes/index.ts <<'EOF_BACKEND_IA'
+export { RoutesModule } from './routes.module.js';
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/routes_index.png)
