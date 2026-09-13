@@ -10762,7 +10762,6 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/delete-invoice.use-case.png)
 
-
 #### 13.18 — features/shipping/invoices/application/use-cases/get-invoice.use-case.ts
 
 Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
@@ -10799,12 +10798,7 @@ export class GetInvoiceUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case get-invoice.use-case.ts"
-```
+![alt text](imagenes/get-invoice.use-case.png)
 
 #### 13.19 — features/shipping/invoices/application/use-cases/list-invoices.use-case.ts
 
