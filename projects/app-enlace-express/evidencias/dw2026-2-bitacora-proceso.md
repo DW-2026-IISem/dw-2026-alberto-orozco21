@@ -6914,3 +6914,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/rates.controller.png)
+
+### 10.21 — features/shipping/rates/index.ts
+
+Barrel export del feature para imports limpios.
+
+**Archivo:** `src/features/shipping/rates/index.ts`
+
+```bash
+mkdir -p src/features/shipping/rates
+cat > src/features/shipping/rates/index.ts <<'EOF_BACKEND_IA'
+export { RatesModule } from './rates.module.js';
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/rate_index.png)
