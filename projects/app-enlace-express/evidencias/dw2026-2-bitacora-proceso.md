@@ -10655,3 +10655,373 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/invoice.mapper.png)
+
+### 13.16 — features/shipping/invoices/application/use-cases/create-invoice.use-case.ts
+
+Caso de uso. Verifica que la empresa exista y que el número de factura no esté repetido.
+
+**Archivo:** `src/features/shipping/invoices/application/use-cases/create-invoice.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/use-cases
+cat > src/features/shipping/invoices/application/use-cases/create-invoice.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { CompanyNotFoundException } from '../../../companies/domain/exceptions/company-not-found.exception.js';
+import {
+  COMPANY_REPOSITORY,
+  type ICompanyRepository,
+} from '../../../companies/domain/interfaces/company-repository.interface.js';
+import { InvoiceNumberAlreadyExistsException } from '../../domain/exceptions/invoice-number-already-exists.exception.js';
+import { Invoice } from '../../domain/entities/invoice.entity.js';
+import {
+  INVOICE_REPOSITORY,
+  type IInvoiceRepository,
+} from '../../domain/interfaces/invoice-repository.interface.js';
+import { CreateInvoiceDto } from '../dto/create-invoice.dto.js';
+import { InvoiceMapper } from '../mappers/invoice.mapper.js';
+
+@Injectable()
+export class CreateInvoiceUseCase {
+  constructor(
+    @Inject(INVOICE_REPOSITORY)
+    private readonly invoiceRepository: IInvoiceRepository,
+    @Inject(COMPANY_REPOSITORY)
+    private readonly companyRepository: ICompanyRepository,
+  ) {}
+
+  async execute(dto: CreateInvoiceDto) {
+    const company = await this.companyRepository.findById(dto.companyId);
+    if (!company) {
+      throw new CompanyNotFoundException(dto.companyId);
+    }
+
+    const existing = await this.invoiceRepository.findByNumber(dto.number);
+    if (existing) {
+      throw new InvoiceNumberAlreadyExistsException(dto.number);
+    }
+
+    const invoice = Invoice.create({
+      companyId: dto.companyId,
+      number: dto.number,
+      periodStart: new Date(dto.periodStart),
+      periodEnd: new Date(dto.periodEnd),
+      issueDate: new Date(dto.issueDate),
+      subtotal: dto.subtotal,
+      taxes: dto.taxes,
+    });
+
+    const created = await this.invoiceRepository.create(invoice);
+    return InvoiceMapper.toResponse(created);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/create-invoice.use-case.png)
+
+
+#### 13.17 — features/shipping/invoices/application/use-cases/delete-invoice.use-case.ts
+
+Caso de uso. No permite eliminar una factura ya pagada.
+
+**Archivo:** `src/features/shipping/invoices/application/use-cases/delete-invoice.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/use-cases
+cat > src/features/shipping/invoices/application/use-cases/delete-invoice.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { InvoiceStatus } from '../../domain/enums/invoice-status.enum.js';
+import { InvoiceNotFoundException } from '../../domain/exceptions/invoice-not-found.exception.js';
+import {
+  INVOICE_REPOSITORY,
+  type IInvoiceRepository,
+} from '../../domain/interfaces/invoice-repository.interface.js';
+
+@Injectable()
+export class DeleteInvoiceUseCase {
+  constructor(
+    @Inject(INVOICE_REPOSITORY)
+    private readonly invoiceRepository: IInvoiceRepository,
+  ) {}
+
+  async execute(id: number): Promise<void> {
+    const invoice = await this.invoiceRepository.findById(id);
+    if (!invoice) {
+      throw new InvoiceNotFoundException(id);
+    }
+
+    if (invoice.status === InvoiceStatus.PAID) {
+      throw new Error('No se puede eliminar una factura ya pagada');
+    }
+
+    await this.invoiceRepository.delete(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case delete-invoice.use-case.ts"
+```
+
+#### 13.18 — features/shipping/invoices/application/use-cases/get-invoice.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/invoices/application/use-cases/get-invoice.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/use-cases
+cat > src/features/shipping/invoices/application/use-cases/get-invoice.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { InvoiceNotFoundException } from '../../domain/exceptions/invoice-not-found.exception.js';
+import {
+  INVOICE_REPOSITORY,
+  type IInvoiceRepository,
+} from '../../domain/interfaces/invoice-repository.interface.js';
+import { InvoiceMapper } from '../mappers/invoice.mapper.js';
+
+@Injectable()
+export class GetInvoiceUseCase {
+  constructor(
+    @Inject(INVOICE_REPOSITORY)
+    private readonly invoiceRepository: IInvoiceRepository,
+  ) {}
+
+  async execute(id: number) {
+    const invoice = await this.invoiceRepository.findById(id);
+    if (!invoice) {
+      throw new InvoiceNotFoundException(id);
+    }
+
+    return InvoiceMapper.toResponse(invoice);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case get-invoice.use-case.ts"
+```
+
+#### 13.19 — features/shipping/invoices/application/use-cases/list-invoices.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/invoices/application/use-cases/list-invoices.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/use-cases
+cat > src/features/shipping/invoices/application/use-cases/list-invoices.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  INVOICE_REPOSITORY,
+  type IInvoiceRepository,
+} from '../../domain/interfaces/invoice-repository.interface.js';
+import { InvoiceFilterDto } from '../dto/invoice-filter.dto.js';
+import { InvoiceMapper } from '../mappers/invoice.mapper.js';
+
+@Injectable()
+export class ListInvoicesUseCase {
+  constructor(
+    @Inject(INVOICE_REPOSITORY)
+    private readonly invoiceRepository: IInvoiceRepository,
+  ) {}
+
+  async execute(filter: InvoiceFilterDto) {
+    const result = await this.invoiceRepository.findAll(filter);
+    return {
+      items: result.items.map((invoice) => InvoiceMapper.toResponse(invoice)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case list-invoices.use-case.ts"
+```
+
+#### 13.20 — features/shipping/invoices/application/use-cases/update-invoice.use-case.ts
+
+Caso de uso. Delega en `Invoice.update`, que rechaza cambios si la factura no está `pendiente`.
+
+**Archivo:** `src/features/shipping/invoices/application/use-cases/update-invoice.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/use-cases
+cat > src/features/shipping/invoices/application/use-cases/update-invoice.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { InvoiceNotFoundException } from '../../domain/exceptions/invoice-not-found.exception.js';
+import {
+  INVOICE_REPOSITORY,
+  type IInvoiceRepository,
+} from '../../domain/interfaces/invoice-repository.interface.js';
+import { UpdateInvoiceDto } from '../dto/update-invoice.dto.js';
+import { InvoiceMapper } from '../mappers/invoice.mapper.js';
+
+@Injectable()
+export class UpdateInvoiceUseCase {
+  constructor(
+    @Inject(INVOICE_REPOSITORY)
+    private readonly invoiceRepository: IInvoiceRepository,
+  ) {}
+
+  async execute(id: number, dto: UpdateInvoiceDto) {
+    const invoice = await this.invoiceRepository.findById(id);
+    if (!invoice) {
+      throw new InvoiceNotFoundException(id);
+    }
+
+    invoice.update({
+      periodStart: dto.periodStart ? new Date(dto.periodStart) : undefined,
+      periodEnd: dto.periodEnd ? new Date(dto.periodEnd) : undefined,
+      issueDate: dto.issueDate ? new Date(dto.issueDate) : undefined,
+      subtotal: dto.subtotal,
+      taxes: dto.taxes,
+    });
+
+    const updated = await this.invoiceRepository.update(invoice);
+    return InvoiceMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case update-invoice.use-case.ts"
+```
+
+#### 13.21 — features/shipping/invoices/application/use-cases/mark-invoice-paid.use-case.ts
+
+Caso de uso dedicado a la transición de pago (no es un `update` genérico).
+
+**Archivo:** `src/features/shipping/invoices/application/use-cases/mark-invoice-paid.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/use-cases
+cat > src/features/shipping/invoices/application/use-cases/mark-invoice-paid.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { InvoiceNotFoundException } from '../../domain/exceptions/invoice-not-found.exception.js';
+import {
+  INVOICE_REPOSITORY,
+  type IInvoiceRepository,
+} from '../../domain/interfaces/invoice-repository.interface.js';
+import { MarkInvoicePaidDto } from '../dto/mark-invoice-paid.dto.js';
+import { InvoiceMapper } from '../mappers/invoice.mapper.js';
+
+@Injectable()
+export class MarkInvoicePaidUseCase {
+  constructor(
+    @Inject(INVOICE_REPOSITORY)
+    private readonly invoiceRepository: IInvoiceRepository,
+  ) {}
+
+  async execute(id: number, dto: MarkInvoicePaidDto) {
+    const invoice = await this.invoiceRepository.findById(id);
+    if (!invoice) {
+      throw new InvoiceNotFoundException(id);
+    }
+
+    invoice.markAsPaid(dto.paymentDate ? new Date(dto.paymentDate) : undefined);
+
+    const updated = await this.invoiceRepository.update(invoice);
+    return InvoiceMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case mark-invoice-paid.use-case.ts"
+```
+
+#### 13.22 — features/shipping/invoices/application/use-cases/void-invoice.use-case.ts
+
+Caso de uso dedicado a la anulación (no es un `update` genérico).
+
+**Archivo:** `src/features/shipping/invoices/application/use-cases/void-invoice.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/application/use-cases
+cat > src/features/shipping/invoices/application/use-cases/void-invoice.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { InvoiceNotFoundException } from '../../domain/exceptions/invoice-not-found.exception.js';
+import {
+  INVOICE_REPOSITORY,
+  type IInvoiceRepository,
+} from '../../domain/interfaces/invoice-repository.interface.js';
+import { InvoiceMapper } from '../mappers/invoice.mapper.js';
+
+@Injectable()
+export class VoidInvoiceUseCase {
+  constructor(
+    @Inject(INVOICE_REPOSITORY)
+    private readonly invoiceRepository: IInvoiceRepository,
+  ) {}
+
+  async execute(id: number) {
+    const invoice = await this.invoiceRepository.findById(id);
+    if (!invoice) {
+      throw new InvoiceNotFoundException(id);
+    }
+
+    invoice.void();
+
+    const updated = await this.invoiceRepository.update(invoice);
+    return InvoiceMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case void-invoice.use-case.ts"
+```
+
+#### 13.23 — features/shipping/invoices/presentation/http/serializers/invoice.serializer.ts
+
+Serializer de presentación (forma estable de la respuesta HTTP).
+
+**Archivo:** `src/features/shipping/invoices/presentation/http/serializers/invoice.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices/presentation/http/serializers
+cat > src/features/shipping/invoices/presentation/http/serializers/invoice.serializer.ts <<'EOF_BACKEND_IA'
+import { Invoice } from '../../../domain/entities/invoice.entity.js';
+import { InvoiceResponseDto } from '../../../application/dto/invoice-response.dto.js';
+import { InvoiceMapper } from '../../../application/mappers/invoice.mapper.js';
+
+export class InvoiceSerializer {
+  static serialize(entity: Invoice): InvoiceResponseDto {
+    return InvoiceMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add serializer invoice.serializer.ts"
+```
