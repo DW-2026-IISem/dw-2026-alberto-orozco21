@@ -5833,3 +5833,28 @@ npm run start:dev
 **/api/addresses**
 
 ![alt text](imagenes/api_addresses.png)
+
+## FASE 10 — `09_BUSINESS_RATES`
+
+### Business — Rates / Tarifa (patrón completo CA)
+
+> **Objetivo de la fase:** Cuarta entidad de negocio de EnlaceExpress: Tarifa. A diferencia de Contacto/Direccion, **Tarifa es independiente** — no tiene FK hacia Empresa ni ninguna otra entidad — así que este feature no importa ningún otro módulo. Orden lógico: dominio → infraestructura → aplicación → presentación → módulo → cableado → verificación.
+
+### 10.1 — features/shipping/rates/domain/enums/rate-calculation-rule.enum.ts
+
+Enum de dominio propio del feature.
+
+**Archivo:** `src/features/shipping/rates/domain/enums/rate-calculation-rule.enum.ts`
+
+```bash
+mkdir -p src/features/shipping/rates/domain/enums
+cat > src/features/shipping/rates/domain/enums/rate-calculation-rule.enum.ts <<'EOF_BACKEND_IA'
+export enum RateCalculationRule {
+  BY_WEIGHT = 'por_peso',
+  BY_ZONE = 'por_zona',
+  FLAT = 'plana',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/rate-calculation-rule.png)
