@@ -8827,3 +8827,28 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/route.repository.png)
+
+### 12.7 — features/shipping/routes/infrastructure/persistence/migrations/create-routes-table.migration.ts
+
+Migración documental/auxiliar de la tabla. En dev el sync de Sequelize crea el esquema.
+
+**Archivo:** `src/features/shipping/routes/infrastructure/persistence/migrations/create-routes-table.migration.ts`
+
+```bash
+mkdir -p src/features/shipping/routes/infrastructure/persistence/migrations
+cat > src/features/shipping/routes/infrastructure/persistence/migrations/create-routes-table.migration.ts <<'EOF_BACKEND_IA'
+export const createRoutesTableMigration = {
+  name: 'create-routes-table',
+  async up(): Promise<void> {
+    // Sequelize sync handles table creation in development.
+    // Production: CREATE TABLE routes (id, courierId FK->couriers, name, coverageZone,
+    //   date, startTime, endTime, status, isActive, createdAt, updatedAt)
+  },
+  async down(): Promise<void> {
+    // Production: DROP TABLE routes
+  },
+};
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/create-routes-table.migration.png)
