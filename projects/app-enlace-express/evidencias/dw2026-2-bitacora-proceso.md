@@ -9302,3 +9302,40 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/get-route.use-case.png)
+
+### 12.17 — features/shipping/routes/application/use-cases/list-routes.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/routes/application/use-cases/list-routes.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/routes/application/use-cases
+cat > src/features/shipping/routes/application/use-cases/list-routes.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  ROUTE_REPOSITORY,
+  type IRouteRepository,
+} from '../../domain/interfaces/route-repository.interface.js';
+import { RouteFilterDto } from '../dto/route-filter.dto.js';
+import { RouteMapper } from '../mappers/route.mapper.js';
+
+@Injectable()
+export class ListRoutesUseCase {
+  constructor(
+    @Inject(ROUTE_REPOSITORY)
+    private readonly routeRepository: IRouteRepository,
+  ) {}
+
+  async execute(filter: RouteFilterDto) {
+    const result = await this.routeRepository.findAll(filter);
+    return {
+      items: result.items.map((route) => RouteMapper.toResponse(route)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/list-routes.use-case.png)
