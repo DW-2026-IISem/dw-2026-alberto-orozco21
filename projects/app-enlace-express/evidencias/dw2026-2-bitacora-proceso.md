@@ -9085,3 +9085,23 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/create-route.dto.png)
+
+### 12.12 — features/shipping/routes/application/dto/update-route.dto.ts
+
+DTO de actualización. `courierId` se excluye a propósito: una ruta no cambia de mensajero (se cancela y se crea otra).
+
+**Archivo:** `src/features/shipping/routes/application/dto/update-route.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/routes/application/dto
+cat > src/features/shipping/routes/application/dto/update-route.dto.ts <<'EOF_BACKEND_IA'
+import { OmitType, PartialType } from '@nestjs/mapped-types';
+import { CreateRouteDto } from './create-route.dto.js';
+
+export class UpdateRouteDto extends PartialType(
+  OmitType(CreateRouteDto, ['courierId'] as const),
+) {}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/update-route.dto.png)
