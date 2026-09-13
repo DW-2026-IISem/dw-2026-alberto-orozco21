@@ -6709,3 +6709,40 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/get-rate.use-case.png)
+
+### 10.17 — features/shipping/rates/application/use-cases/list-rates.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/rates/application/use-cases/list-rates.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/rates/application/use-cases
+cat > src/features/shipping/rates/application/use-cases/list-rates.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  RATE_REPOSITORY,
+  type IRateRepository,
+} from '../../domain/interfaces/rate-repository.interface.js';
+import { RateFilterDto } from '../dto/rate-filter.dto.js';
+import { RateMapper } from '../mappers/rate.mapper.js';
+
+@Injectable()
+export class ListRatesUseCase {
+  constructor(
+    @Inject(RATE_REPOSITORY)
+    private readonly rateRepository: IRateRepository,
+  ) {}
+
+  async execute(filter: RateFilterDto) {
+    const result = await this.rateRepository.findAll(filter);
+    return {
+      items: result.items.map((rate) => RateMapper.toResponse(rate)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/list-rates.use-case.png)
