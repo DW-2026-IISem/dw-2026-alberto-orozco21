@@ -8913,3 +8913,61 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/routes.seeder.png)
+
+### 12.9 — features/shipping/routes/application/dto/route-filter.dto.ts
+
+DTO de entrada/salida HTTP con `class-validator` / Swagger. Incluye filtro por `courierId` y `status`.
+
+**Archivo:** `src/features/shipping/routes/application/dto/route-filter.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/routes/application/dto
+cat > src/features/shipping/routes/application/dto/route-filter.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Min,
+} from 'class-validator';
+import { RouteStatus } from '../../domain/enums/route-status.enum.js';
+
+export class RouteFilterDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 'norte' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  courierId?: number;
+
+  @ApiPropertyOptional({ enum: RouteStatus, example: RouteStatus.PLANNED })
+  @IsOptional()
+  @IsEnum(RouteStatus)
+  status?: RouteStatus;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/route-filter.dto.png)
