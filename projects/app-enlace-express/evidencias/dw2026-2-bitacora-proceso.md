@@ -9560,3 +9560,69 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/routes.module.png)
+
+### 12.23 — Actualizar courier.model.ts (cerrar la asociación)
+
+Vuelve al modelo de Mensajero (fase 11) y agrega `@HasMany(() => RouteModel)` con import estático.
+
+**Archivo:** `src/features/shipping/couriers/infrastructure/persistence/models/courier.model.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/infrastructure/persistence/models
+cat > src/features/shipping/couriers/infrastructure/persistence/models/courier.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  Column,
+  CreatedAt,
+  DataType,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { VehicleType } from '../../../domain/enums/vehicle-type.enum.js';
+import { RouteModel } from '../../../../routes/infrastructure/persistence/models/route.model.js';
+
+@Table({ tableName: 'couriers' })
+export class CourierModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(150), allowNull: false })
+  declare name: string;
+
+  @Column({ type: DataType.STRING(30), allowNull: false, unique: true })
+  declare documentId: string;
+
+  @Column({ type: DataType.STRING(30), allowNull: true })
+  declare phone: string | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(VehicleType)),
+    allowNull: false,
+  })
+  declare vehicleType: VehicleType;
+
+  @Column({ type: DataType.STRING(15), allowNull: true })
+  declare licensePlate: string | null;
+
+  @Column({ type: DataType.STRING(100), allowNull: true })
+  declare assignedZone: string | null;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/courier.model_router.png)

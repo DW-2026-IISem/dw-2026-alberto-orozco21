@@ -3,12 +3,14 @@ import {
   Column,
   CreatedAt,
   DataType,
+  HasMany,
   Model,
   PrimaryKey,
   Table,
   UpdatedAt,
 } from 'sequelize-typescript';
 import { VehicleType } from '../../../domain/enums/vehicle-type.enum.js';
+import { RouteModel } from '../../../../routes/infrastructure/persistence/models/route.model.js';
 
 @Table({ tableName: 'couriers' })
 export class CourierModel extends Model {
@@ -47,5 +49,4 @@ export class CourierModel extends Model {
   @UpdatedAt
   declare updatedAt: Date;
 
-  // routes se agrega en fase 12 (Ruta), con import estático normal.
 }
