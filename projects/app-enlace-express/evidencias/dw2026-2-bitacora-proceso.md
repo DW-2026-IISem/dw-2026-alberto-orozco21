@@ -8009,3 +8009,40 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/get-courier.use-case.png)
+
+### 11.19 — features/shipping/couriers/application/use-cases/list-couriers.use-case.ts
+
+Caso de uso (aplicación). Orquesta dominio + repositorio. El controller solo lo invoca.
+
+**Archivo:** `src/features/shipping/couriers/application/use-cases/list-couriers.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/couriers/application/use-cases
+cat > src/features/shipping/couriers/application/use-cases/list-couriers.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  COURIER_REPOSITORY,
+  type ICourierRepository,
+} from '../../domain/interfaces/courier-repository.interface.js';
+import { CourierFilterDto } from '../dto/courier-filter.dto.js';
+import { CourierMapper } from '../mappers/courier.mapper.js';
+
+@Injectable()
+export class ListCouriersUseCase {
+  constructor(
+    @Inject(COURIER_REPOSITORY)
+    private readonly courierRepository: ICourierRepository,
+  ) {}
+
+  async execute(filter: CourierFilterDto) {
+    const result = await this.courierRepository.findAll(filter);
+    return {
+      items: result.items.map((courier) => CourierMapper.toResponse(courier)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/list-couriers.use-case.png)
