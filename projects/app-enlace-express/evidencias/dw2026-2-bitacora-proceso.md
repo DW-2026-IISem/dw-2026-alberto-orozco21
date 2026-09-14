@@ -14583,7 +14583,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/delete-package.use-case.png)
 
-#### 15.15 — features/shipping/packages/application/use-cases/get-package.use-case.ts
+### 15.15 — features/shipping/packages/application/use-cases/get-package.use-case.ts
 
 **Archivo:** `src/features/shipping/packages/application/use-cases/get-package.use-case.ts`
 
@@ -14614,12 +14614,7 @@ export class GetPackageUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case get-package.use-case.ts"
-```
+![alt text](imagenes/get-package.use-case.png)
 
 #### 15.16 — features/shipping/packages/application/use-cases/list-packages.use-case.ts
 
