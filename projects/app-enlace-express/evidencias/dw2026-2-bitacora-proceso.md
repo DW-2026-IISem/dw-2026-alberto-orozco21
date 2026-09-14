@@ -14705,7 +14705,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/update-package.use-case.png)
 
-#### 15.18 — features/shipping/packages/presentation/http/serializers/package.serializer.ts
+### 15.18 — features/shipping/packages/presentation/http/serializers/package.serializer.ts
 
 **Archivo:** `src/features/shipping/packages/presentation/http/serializers/package.serializer.ts`
 
@@ -14724,12 +14724,7 @@ export class PackageSerializer {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add serializer package.serializer.ts"
-```
+![alt text](imagenes/package.serializer.png)
 
 #### 15.19 — features/shipping/packages/presentation/http/controllers/packages.controller.ts
 
