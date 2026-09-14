@@ -14009,3 +14009,497 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/package-repository.interface.png)
 
+### 15.4 — features/shipping/packages/infrastructure/persistence/models/package.model.ts
+
+**Archivo:** `src/features/shipping/packages/infrastructure/persistence/models/package.model.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/infrastructure/persistence/models
+cat > src/features/shipping/packages/infrastructure/persistence/models/package.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  BelongsTo,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+
+@Table({ tableName: 'packages' })
+export class PackageModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @ForeignKey(() => ShipmentModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare shipmentId: number;
+
+  @BelongsTo(() => ShipmentModel)
+  declare shipment: ShipmentModel;
+
+  @Column({ type: DataType.STRING(255), allowNull: false })
+  declare contentDescription: string;
+
+  @Column({ type: DataType.DECIMAL(8, 2), allowNull: false })
+  declare weightKg: number;
+
+  @Column({ type: DataType.DECIMAL(8, 2), allowNull: false })
+  declare heightCm: number;
+
+  @Column({ type: DataType.DECIMAL(8, 2), allowNull: false })
+  declare widthCm: number;
+
+  @Column({ type: DataType.DECIMAL(8, 2), allowNull: false })
+  declare lengthCm: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare declaredValue: number;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
+  declare isFragile: boolean;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/package.model.png)
+
+#### 15.5 — features/shipping/packages/infrastructure/persistence/repositories/package.repository.ts
+
+**Archivo:** `src/features/shipping/packages/infrastructure/persistence/repositories/package.repository.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/infrastructure/persistence/repositories
+cat > src/features/shipping/packages/infrastructure/persistence/repositories/package.repository.ts <<'EOF_BACKEND_IA'
+import { Injectable } from '@nestjs/common';
+import {
+  buildPaginatedResult,
+  normalizePagination,
+} from '../../../../../../common/utils/pagination.util.js';
+import { Package } from '../../../domain/entities/package.entity.js';
+import {
+  PackageFindAllParams,
+  IPackageRepository,
+} from '../../../domain/interfaces/package-repository.interface.js';
+import { PackageMapper } from '../../../application/mappers/package.mapper.js';
+import { PackageModel } from '../models/package.model.js';
+
+@Injectable()
+export class PackageRepository implements IPackageRepository {
+  async create(pkg: Package): Promise<Package> {
+    const model = await PackageModel.create(PackageMapper.toPersistence(pkg));
+    return PackageMapper.toDomain(model);
+  }
+
+  async update(pkg: Package): Promise<Package> {
+    await PackageModel.update(PackageMapper.toPersistence(pkg), {
+      where: { id: pkg.id },
+    });
+    const updated = await PackageModel.findByPk(pkg.id!);
+    return PackageMapper.toDomain(updated!);
+  }
+
+  async delete(id: number): Promise<void> {
+    await PackageModel.destroy({ where: { id } });
+  }
+
+  async findById(id: number): Promise<Package | null> {
+    const model = await PackageModel.findByPk(id);
+    return model ? PackageMapper.toDomain(model) : null;
+  }
+
+  async findAll(params: PackageFindAllParams) {
+    const { page, limit, offset } = normalizePagination(
+      params.page,
+      params.limit,
+    );
+
+    const where: Record<string, unknown> = {};
+    if (params.shipmentId) {
+      where.shipmentId = params.shipmentId;
+    }
+
+    const { rows, count } = await PackageModel.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+    });
+
+    return buildPaginatedResult(
+      rows.map((row) => PackageMapper.toDomain(row)),
+      count,
+      page,
+      limit,
+    );
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add sequelize repository package.repository.ts"
+```
+
+#### 15.6 — features/shipping/packages/infrastructure/persistence/migrations/create-packages-table.migration.ts
+
+**Archivo:** `src/features/shipping/packages/infrastructure/persistence/migrations/create-packages-table.migration.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/infrastructure/persistence/migrations
+cat > src/features/shipping/packages/infrastructure/persistence/migrations/create-packages-table.migration.ts <<'EOF_BACKEND_IA'
+export const createPackagesTableMigration = {
+  name: 'create-packages-table',
+  async up(): Promise<void> {
+    // Sequelize sync handles table creation in development.
+    // Production: CREATE TABLE packages (id, shipmentId FK->shipments,
+    //   contentDescription, weightKg, heightCm, widthCm, lengthCm, declaredValue,
+    //   isFragile, isActive, createdAt, updatedAt)
+  },
+  async down(): Promise<void> {
+    // Production: DROP TABLE packages
+  },
+};
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add migration create-packages-table.migration.ts"
+```
+
+#### 15.7 — features/shipping/packages/infrastructure/persistence/seeders/packages.seeder.ts
+
+Depende de que ya exista al menos un envío (fase 14).
+
+**Archivo:** `src/features/shipping/packages/infrastructure/persistence/seeders/packages.seeder.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/infrastructure/persistence/seeders
+cat > src/features/shipping/packages/infrastructure/persistence/seeders/packages.seeder.ts <<'EOF_BACKEND_IA'
+import { PackageModel } from '../models/package.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+
+export async function seedPackages(): Promise<void> {
+  const count = await PackageModel.count();
+  if (count > 0) {
+    return;
+  }
+
+  const shipment = await ShipmentModel.findOne({ order: [['id', 'ASC']] });
+  if (!shipment) {
+    return;
+  }
+
+  await PackageModel.bulkCreate([
+    {
+      shipmentId: shipment.id,
+      contentDescription: 'Repuestos electrónicos',
+      weightKg: 3.5,
+      heightCm: 20,
+      widthCm: 15,
+      lengthCm: 25,
+      declaredValue: 120000,
+      isFragile: true,
+      isActive: true,
+    },
+    {
+      shipmentId: shipment.id,
+      contentDescription: 'Documentos',
+      weightKg: 1.5,
+      heightCm: 5,
+      widthCm: 25,
+      lengthCm: 35,
+      declaredValue: 30000,
+      isFragile: false,
+      isActive: true,
+    },
+  ]);
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add seeder packages.seeder.ts"
+```
+
+#### 15.8 — features/shipping/packages/application/dto/package-filter.dto.ts
+
+**Archivo:** `src/features/shipping/packages/application/dto/package-filter.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/dto
+cat > src/features/shipping/packages/application/dto/package-filter.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsPositive, Min } from 'class-validator';
+
+export class PackageFilterDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  shipmentId?: number;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto package-filter.dto.ts"
+```
+
+#### 15.9 — features/shipping/packages/application/dto/package-response.dto.ts
+
+**Archivo:** `src/features/shipping/packages/application/dto/package-response.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/dto
+cat > src/features/shipping/packages/application/dto/package-response.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty } from '@nestjs/swagger';
+
+export class PackageResponseDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 1 })
+  shipmentId: number;
+
+  @ApiProperty({ example: 'Repuestos electrónicos' })
+  contentDescription: string;
+
+  @ApiProperty({ example: 3.5 })
+  weightKg: number;
+
+  @ApiProperty({ example: 20 })
+  heightCm: number;
+
+  @ApiProperty({ example: 15 })
+  widthCm: number;
+
+  @ApiProperty({ example: 25 })
+  lengthCm: number;
+
+  @ApiProperty({ example: 120000 })
+  declaredValue: number;
+
+  @ApiProperty({ example: true })
+  isFragile: boolean;
+
+  @ApiProperty({ example: true })
+  isActive: boolean;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto package-response.dto.ts"
+```
+
+#### 15.10 — features/shipping/packages/application/dto/create-package.dto.ts
+
+**Archivo:** `src/features/shipping/packages/application/dto/create-package.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/dto
+cat > src/features/shipping/packages/application/dto/create-package.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Min,
+} from 'class-validator';
+
+export class CreatePackageDto {
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  shipmentId: number;
+
+  @ApiProperty({ example: 'Repuestos electrónicos' })
+  @IsString()
+  @IsNotEmpty()
+  contentDescription: string;
+
+  @ApiProperty({ example: 3.5 })
+  @IsNumber()
+  @Min(0.01)
+  weightKg: number;
+
+  @ApiProperty({ example: 20 })
+  @IsNumber()
+  @Min(0.1)
+  heightCm: number;
+
+  @ApiProperty({ example: 15 })
+  @IsNumber()
+  @Min(0.1)
+  widthCm: number;
+
+  @ApiProperty({ example: 25 })
+  @IsNumber()
+  @Min(0.1)
+  lengthCm: number;
+
+  @ApiProperty({ example: 120000 })
+  @IsNumber()
+  @Min(0)
+  declaredValue: number;
+
+  @ApiPropertyOptional({ example: true, default: false })
+  @IsOptional()
+  @IsBoolean()
+  isFragile?: boolean;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto create-package.dto.ts"
+```
+
+#### 15.11 — features/shipping/packages/application/dto/update-package.dto.ts
+
+`shipmentId` se excluye: un paquete no cambia de envío.
+
+**Archivo:** `src/features/shipping/packages/application/dto/update-package.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/dto
+cat > src/features/shipping/packages/application/dto/update-package.dto.ts <<'EOF_BACKEND_IA'
+import { OmitType, PartialType } from '@nestjs/mapped-types';
+import { CreatePackageDto } from './create-package.dto.js';
+
+export class UpdatePackageDto extends PartialType(
+  OmitType(CreatePackageDto, ['shipmentId'] as const),
+) {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto update-package.dto.ts"
+```
+
+#### 15.12 — features/shipping/packages/application/mappers/package.mapper.ts
+
+**Archivo:** `src/features/shipping/packages/application/mappers/package.mapper.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/mappers
+cat > src/features/shipping/packages/application/mappers/package.mapper.ts <<'EOF_BACKEND_IA'
+import { Package } from '../../domain/entities/package.entity.js';
+import { PackageResponseDto } from '../dto/package-response.dto.js';
+import { PackageModel } from '../../infrastructure/persistence/models/package.model.js';
+
+export class PackageMapper {
+  static toDomain(model: PackageModel): Package {
+    return Package.reconstitute({
+      id: model.id,
+      shipmentId: model.shipmentId,
+      contentDescription: model.contentDescription,
+      weightKg: Number(model.weightKg),
+      heightCm: Number(model.heightCm),
+      widthCm: Number(model.widthCm),
+      lengthCm: Number(model.lengthCm),
+      declaredValue: Number(model.declaredValue),
+      isFragile: model.isFragile,
+      isActive: model.isActive,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+    });
+  }
+
+  static toResponse(entity: Package): PackageResponseDto {
+    return {
+      id: entity.id!,
+      shipmentId: entity.shipmentId,
+      contentDescription: entity.contentDescription,
+      weightKg: entity.weightKg,
+      heightCm: entity.heightCm,
+      widthCm: entity.widthCm,
+      lengthCm: entity.lengthCm,
+      declaredValue: entity.declaredValue,
+      isFragile: entity.isFragile,
+      isActive: entity.isActive,
+      createdAt: entity.createdAt!,
+      updatedAt: entity.updatedAt!,
+    };
+  }
+
+  static toPersistence(entity: Package): Partial<PackageModel> {
+    return {
+      id: entity.id,
+      shipmentId: entity.shipmentId,
+      contentDescription: entity.contentDescription,
+      weightKg: entity.weightKg,
+      heightCm: entity.heightCm,
+      widthCm: entity.widthCm,
+      lengthCm: entity.lengthCm,
+      declaredValue: entity.declaredValue,
+      isFragile: entity.isFragile ?? false,
+      isActive: entity.isActive ?? true,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
