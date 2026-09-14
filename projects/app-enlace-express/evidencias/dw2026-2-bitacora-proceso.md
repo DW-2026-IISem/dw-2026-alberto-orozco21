@@ -12706,14 +12706,9 @@ export class UpdateShipmentUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/update-shipment.use-case.png)
 
-```bash
-git add .
-git commit -m "feat: add use case update-shipment.use-case.ts"
-```
-
-#### 14.21 — features/shipping/shipments/application/use-cases/quote-shipment.use-case.ts
+### 14.21 — features/shipping/shipments/application/use-cases/quote-shipment.use-case.ts
 
 Calcula `calculatedCost` a partir de la `Tarifa` vinculada, el peso y la prioridad, y transiciona `creado → cotizado`.
 
