@@ -13691,14 +13691,9 @@ export async function createSequelizeInstance(
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/ShipmentModel.png)
 
-```bash
-git add .
-git commit -m "feat: register ShipmentModel in sequelize factory"
-```
-
-#### 14.34 — Actualizar shipping.module.ts
+### 14.34 — Actualizar shipping.module.ts
 
 **Archivo:** `src/features/shipping/shipping.module.ts`
 

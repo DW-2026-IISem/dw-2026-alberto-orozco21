@@ -9,6 +9,7 @@ import { RateModel } from '../../../features/shipping/rates/infrastructure/persi
 import { CourierModel } from '../../../features/shipping/couriers/infrastructure/persistence/models/courier.model.js';
 import { RouteModel } from '../../../features/shipping/routes/infrastructure/persistence/models/route.model.js';
 import { InvoiceModel } from '../../../features/shipping/invoices/infrastructure/persistence/models/invoice.model.js';
+import { ShipmentModel } from '../../../features/shipping/shipments/infrastructure/persistence/models/shipment.model.js';
 
 export const ALL_MODELS = [
   CompanyModel,
@@ -18,6 +19,7 @@ export const ALL_MODELS = [
   CourierModel,
   RouteModel,
   InvoiceModel,
+  ShipmentModel,
 ];
 
 async function loadDialectModule(moduleName: string): Promise<any> {
