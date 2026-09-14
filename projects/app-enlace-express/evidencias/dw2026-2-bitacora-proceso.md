@@ -12362,12 +12362,7 @@ export class UpdateShipmentDto extends PartialType(
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto update-shipment.dto.ts"
-```
+![alt text](imagenes/update-shipment.dto.png)
 
 #### 14.15 — features/shipping/shipments/application/dto/assign-shipment.dto.ts
 
