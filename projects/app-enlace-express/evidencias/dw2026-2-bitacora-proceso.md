@@ -13027,3 +13027,834 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/delete-shipment.use-case.png)
+
+### 14.28 — features/shipping/shipments/presentation/http/serializers/shipment.serializer.ts
+
+**Archivo:** `src/features/shipping/shipments/presentation/http/serializers/shipment.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/presentation/http/serializers
+cat > src/features/shipping/shipments/presentation/http/serializers/shipment.serializer.ts <<'EOF_BACKEND_IA'
+import { Shipment } from '../../../domain/entities/shipment.entity.js';
+import { ShipmentResponseDto } from '../../../application/dto/shipment-response.dto.js';
+import { ShipmentMapper } from '../../../application/mappers/shipment.mapper.js';
+
+export class ShipmentSerializer {
+  static serialize(entity: Shipment): ShipmentResponseDto {
+    return ShipmentMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/shipment.serializer.png)
+
+### 14.29 — features/shipping/shipments/presentation/http/controllers/shipments.controller.ts
+
+CRUD estándar más cinco rutas de transición: `/quote`, `/assign`, `/start-transit`, `/report-issue`, `/deliver`, `/cancel`.
+
+**Archivo:** `src/features/shipping/shipments/presentation/http/controllers/shipments.controller.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/presentation/http/controllers
+cat > src/features/shipping/shipments/presentation/http/controllers/shipments.controller.ts <<'EOF_BACKEND_IA'
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ParsePositiveIntPipe } from '../../../../../../common/pipes/parse-positive-int.pipe.js';
+import { CreateShipmentDto } from '../../../application/dto/create-shipment.dto.js';
+import { UpdateShipmentDto } from '../../../application/dto/update-shipment.dto.js';
+import { AssignShipmentDto } from '../../../application/dto/assign-shipment.dto.js';
+import { ShipmentFilterDto } from '../../../application/dto/shipment-filter.dto.js';
+import { ShipmentResponseDto } from '../../../application/dto/shipment-response.dto.js';
+import { CreateShipmentUseCase } from '../../../application/use-cases/create-shipment.use-case.js';
+import { UpdateShipmentUseCase } from '../../../application/use-cases/update-shipment.use-case.js';
+import { DeleteShipmentUseCase } from '../../../application/use-cases/delete-shipment.use-case.js';
+import { GetShipmentUseCase } from '../../../application/use-cases/get-shipment.use-case.js';
+import { ListShipmentsUseCase } from '../../../application/use-cases/list-shipments.use-case.js';
+import { QuoteShipmentUseCase } from '../../../application/use-cases/quote-shipment.use-case.js';
+import { AssignShipmentUseCase } from '../../../application/use-cases/assign-shipment.use-case.js';
+import { StartTransitShipmentUseCase } from '../../../application/use-cases/start-transit-shipment.use-case.js';
+import { ReportShipmentIssueUseCase } from '../../../application/use-cases/report-shipment-issue.use-case.js';
+import { DeliverShipmentUseCase } from '../../../application/use-cases/deliver-shipment.use-case.js';
+import { CancelShipmentUseCase } from '../../../application/use-cases/cancel-shipment.use-case.js';
+
+@ApiTags('Shipments')
+@Controller('shipments')
+export class ShipmentsController {
+  constructor(
+    private readonly createShipmentUseCase: CreateShipmentUseCase,
+    private readonly updateShipmentUseCase: UpdateShipmentUseCase,
+    private readonly deleteShipmentUseCase: DeleteShipmentUseCase,
+    private readonly getShipmentUseCase: GetShipmentUseCase,
+    private readonly listShipmentsUseCase: ListShipmentsUseCase,
+    private readonly quoteShipmentUseCase: QuoteShipmentUseCase,
+    private readonly assignShipmentUseCase: AssignShipmentUseCase,
+    private readonly startTransitShipmentUseCase: StartTransitShipmentUseCase,
+    private readonly reportShipmentIssueUseCase: ReportShipmentIssueUseCase,
+    private readonly deliverShipmentUseCase: DeliverShipmentUseCase,
+    private readonly cancelShipmentUseCase: CancelShipmentUseCase,
+  ) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Crear un envío' })
+  @ApiCreatedResponse({ type: ShipmentResponseDto })
+  create(@Body() dto: CreateShipmentDto) {
+    return this.createShipmentUseCase.execute(dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar envíos' })
+  @ApiOkResponse({ type: [ShipmentResponseDto] })
+  findAll(@Query() filter: ShipmentFilterDto) {
+    return this.listShipmentsUseCase.execute(filter);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener un envío por ID' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  findOne(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.getShipmentUseCase.execute(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar datos comerciales (solo si está creado)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  update(
+    @Param('id', ParsePositiveIntPipe) id: number,
+    @Body() dto: UpdateShipmentDto,
+  ) {
+    return this.updateShipmentUseCase.execute(id, dto);
+  }
+
+  @Patch(':id/quote')
+  @ApiOperation({ summary: 'Cotizar el envío (creado → cotizado)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  quote(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.quoteShipmentUseCase.execute(id);
+  }
+
+  @Patch(':id/assign')
+  @ApiOperation({ summary: 'Asignar mensajero y ruta (cotizado → asignado)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  assign(
+    @Param('id', ParsePositiveIntPipe) id: number,
+    @Body() dto: AssignShipmentDto,
+  ) {
+    return this.assignShipmentUseCase.execute(id, dto);
+  }
+
+  @Patch(':id/start-transit')
+  @ApiOperation({ summary: 'Poner en ruta (asignado/con_novedad → en_ruta)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  startTransit(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.startTransitShipmentUseCase.execute(id);
+  }
+
+  @Patch(':id/report-issue')
+  @ApiOperation({ summary: 'Reportar novedad (en_ruta → con_novedad)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  reportIssue(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.reportShipmentIssueUseCase.execute(id);
+  }
+
+  @Patch(':id/deliver')
+  @ApiOperation({ summary: 'Marcar como entregado (en_ruta → entregado)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  deliver(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.deliverShipmentUseCase.execute(id);
+  }
+
+  @Patch(':id/cancel')
+  @ApiOperation({ summary: 'Cancelar el envío' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  cancel(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.cancelShipmentUseCase.execute(id);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar un envío recién creado' })
+  @ApiNoContentResponse()
+  remove(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.deleteShipmentUseCase.execute(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add controller shipments.controller.ts with full state machine routes"
+```
+
+#### 14.30 — features/shipping/shipments/index.ts
+
+**Archivo:** `src/features/shipping/shipments/index.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments
+cat > src/features/shipping/shipments/index.ts <<'EOF_BACKEND_IA'
+export { ShipmentsModule } from './shipments.module.js';
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add barrel export shipments"
+```
+
+#### 14.31 — features/shipping/shipments/shipments.module.ts
+
+Importa seis módulos: Companies, Contacts, Addresses, Rates, Couriers y Routes — el precio de ser la entidad central.
+
+**Archivo:** `src/features/shipping/shipments/shipments.module.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments
+cat > src/features/shipping/shipments/shipments.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { CompaniesModule } from '../companies/companies.module.js';
+import { ContactsModule } from '../contacts/contacts.module.js';
+import { AddressesModule } from '../addresses/addresses.module.js';
+import { RatesModule } from '../rates/rates.module.js';
+import { CouriersModule } from '../couriers/couriers.module.js';
+import { RoutesModule } from '../routes/routes.module.js';
+import { SHIPMENT_REPOSITORY } from './domain/interfaces/shipment-repository.interface.js';
+import { ShipmentRepository } from './infrastructure/persistence/repositories/shipment.repository.js';
+import { CreateShipmentUseCase } from './application/use-cases/create-shipment.use-case.js';
+import { UpdateShipmentUseCase } from './application/use-cases/update-shipment.use-case.js';
+import { DeleteShipmentUseCase } from './application/use-cases/delete-shipment.use-case.js';
+import { GetShipmentUseCase } from './application/use-cases/get-shipment.use-case.js';
+import { ListShipmentsUseCase } from './application/use-cases/list-shipments.use-case.js';
+import { QuoteShipmentUseCase } from './application/use-cases/quote-shipment.use-case.js';
+import { AssignShipmentUseCase } from './application/use-cases/assign-shipment.use-case.js';
+import { StartTransitShipmentUseCase } from './application/use-cases/start-transit-shipment.use-case.js';
+import { ReportShipmentIssueUseCase } from './application/use-cases/report-shipment-issue.use-case.js';
+import { DeliverShipmentUseCase } from './application/use-cases/deliver-shipment.use-case.js';
+import { CancelShipmentUseCase } from './application/use-cases/cancel-shipment.use-case.js';
+import { ShipmentsController } from './presentation/http/controllers/shipments.controller.js';
+
+@Module({
+  imports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+  ],
+  controllers: [ShipmentsController],
+  providers: [
+    ShipmentRepository,
+    { provide: SHIPMENT_REPOSITORY, useExisting: ShipmentRepository },
+    CreateShipmentUseCase,
+    UpdateShipmentUseCase,
+    DeleteShipmentUseCase,
+    GetShipmentUseCase,
+    ListShipmentsUseCase,
+    QuoteShipmentUseCase,
+    AssignShipmentUseCase,
+    StartTransitShipmentUseCase,
+    ReportShipmentIssueUseCase,
+    DeliverShipmentUseCase,
+    CancelShipmentUseCase,
+  ],
+  exports: [SHIPMENT_REPOSITORY],
+})
+export class ShipmentsModule {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: wire nest module shipments.module.ts"
+```
+
+#### 14.32 — Actualizar company.model.ts, courier.model.ts, route.model.ts, rate.model.ts e invoice.model.ts
+
+Cierra las cinco asociaciones `1:N Envio` pendientes (`Empresa`, `Mensajero`, `Ruta`, `Tarifa`, `Factura`), todas con import estático hacia `ShipmentModel`.
+
+**Archivo:** `src/features/shipping/companies/infrastructure/persistence/models/company.model.ts`
+
+```bash
+cat > src/features/shipping/companies/infrastructure/persistence/models/company.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  Column,
+  CreatedAt,
+  DataType,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../../addresses/infrastructure/persistence/models/address.model.js';
+import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+
+@Table({ tableName: 'companies' })
+export class CompanyModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(20), allowNull: false, unique: true })
+  declare nit: string;
+
+  @Column({ type: DataType.STRING(200), allowNull: false })
+  declare razonSocial: string;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  @HasMany(() => ContactModel)
+  declare contacts: ContactModel[];
+
+  @HasMany(() => AddressModel)
+  declare addresses: AddressModel[];
+
+  @HasMany(() => InvoiceModel)
+  declare invoices: InvoiceModel[];
+
+  @HasMany(() => ShipmentModel)
+  declare shipments: ShipmentModel[];
+}
+EOF_BACKEND_IA
+```
+
+**Archivo:** `src/features/shipping/couriers/infrastructure/persistence/models/courier.model.ts`
+
+```bash
+cat > src/features/shipping/couriers/infrastructure/persistence/models/courier.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  Column,
+  CreatedAt,
+  DataType,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { VehicleType } from '../../../domain/enums/vehicle-type.enum.js';
+import { RouteModel } from '../../../../routes/infrastructure/persistence/models/route.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+
+@Table({ tableName: 'couriers' })
+export class CourierModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(150), allowNull: false })
+  declare name: string;
+
+  @Column({ type: DataType.STRING(30), allowNull: false, unique: true })
+  declare documentId: string;
+
+  @Column({ type: DataType.STRING(30), allowNull: true })
+  declare phone: string | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(VehicleType)),
+    allowNull: false,
+  })
+  declare vehicleType: VehicleType;
+
+  @Column({ type: DataType.STRING(15), allowNull: true })
+  declare licensePlate: string | null;
+
+  @Column({ type: DataType.STRING(100), allowNull: true })
+  declare assignedZone: string | null;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  @HasMany(() => RouteModel)
+  declare routes: RouteModel[];
+
+  @HasMany(() => ShipmentModel)
+  declare shipments: ShipmentModel[];
+}
+EOF_BACKEND_IA
+```
+
+**Archivo:** `src/features/shipping/routes/infrastructure/persistence/models/route.model.ts`
+
+```bash
+cat > src/features/shipping/routes/infrastructure/persistence/models/route.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  BelongsTo,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { CourierModel } from '../../../../couriers/infrastructure/persistence/models/courier.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+import { RouteStatus } from '../../../domain/enums/route-status.enum.js';
+
+@Table({ tableName: 'routes' })
+export class RouteModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @ForeignKey(() => CourierModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare courierId: number;
+
+  @BelongsTo(() => CourierModel)
+  declare courier: CourierModel;
+
+  @Column({ type: DataType.STRING(150), allowNull: false })
+  declare name: string;
+
+  @Column({ type: DataType.STRING(100), allowNull: true })
+  declare coverageZone: string | null;
+
+  @Column({ type: DataType.DATEONLY, allowNull: false })
+  declare date: string;
+
+  @Column({ type: DataType.DATE, allowNull: false })
+  declare startTime: Date;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare endTime: Date | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(RouteStatus)),
+    allowNull: false,
+    defaultValue: RouteStatus.PLANNED,
+  })
+  declare status: RouteStatus;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  @HasMany(() => ShipmentModel)
+  declare shipments: ShipmentModel[];
+}
+EOF_BACKEND_IA
+```
+
+**Archivo:** `src/features/shipping/rates/infrastructure/persistence/models/rate.model.ts`
+
+```bash
+cat > src/features/shipping/rates/infrastructure/persistence/models/rate.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  Column,
+  CreatedAt,
+  DataType,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { RateCalculationRule } from '../../../domain/enums/rate-calculation-rule.enum.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+
+@Table({ tableName: 'rates' })
+export class RateModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(150), allowNull: false })
+  declare name: string;
+
+  @Column({ type: DataType.STRING(100), allowNull: true })
+  declare zone: string | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(RateCalculationRule)),
+    allowNull: false,
+  })
+  declare calculationRule: RateCalculationRule;
+
+  @Column({ type: DataType.DECIMAL(12, 2), allowNull: false })
+  declare baseValue: number;
+
+  @Column({ type: DataType.DECIMAL(12, 2), allowNull: false, defaultValue: 0 })
+  declare additionalValuePerKg: number;
+
+  @Column({ type: DataType.DECIMAL(5, 2), allowNull: false, defaultValue: 0 })
+  declare urgentSurchargePct: number;
+
+  @Column({ type: DataType.DATEONLY, allowNull: false })
+  declare validFrom: string;
+
+  @Column({ type: DataType.DATEONLY, allowNull: true })
+  declare validUntil: string | null;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  @HasMany(() => ShipmentModel)
+  declare shipments: ShipmentModel[];
+}
+EOF_BACKEND_IA
+```
+
+**Archivo:** `src/features/shipping/invoices/infrastructure/persistence/models/invoice.model.ts`
+
+```bash
+cat > src/features/shipping/invoices/infrastructure/persistence/models/invoice.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  BelongsTo,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { CompanyModel } from '../../../../companies/infrastructure/persistence/models/company.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+import { InvoiceStatus } from '../../../domain/enums/invoice-status.enum.js';
+
+@Table({ tableName: 'invoices' })
+export class InvoiceModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @ForeignKey(() => CompanyModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare companyId: number;
+
+  @BelongsTo(() => CompanyModel)
+  declare company: CompanyModel;
+
+  @Column({ type: DataType.STRING(30), allowNull: false, unique: true })
+  declare number: string;
+
+  @Column({ type: DataType.DATEONLY, allowNull: false })
+  declare periodStart: string;
+
+  @Column({ type: DataType.DATEONLY, allowNull: false })
+  declare periodEnd: string;
+
+  @Column({ type: DataType.DATEONLY, allowNull: false })
+  declare issueDate: string;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare subtotal: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare taxes: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare total: number;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(InvoiceStatus)),
+    allowNull: false,
+    defaultValue: InvoiceStatus.PENDING,
+  })
+  declare status: InvoiceStatus;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare paymentDate: Date | null;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  @HasMany(() => ShipmentModel)
+  declare shipments: ShipmentModel[];
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: close shipments HasMany association on company, courier, route, rate and invoice models"
+```
+
+#### 14.33 — Actualizar sequelize.factory.ts (registrar ShipmentModel)
+
+**Archivo:** `src/infrastructure/database/sequelize/sequelize.factory.ts`
+
+```bash
+mkdir -p src/infrastructure/database/sequelize
+cat > src/infrastructure/database/sequelize/sequelize.factory.ts <<'EOF_BACKEND_IA'
+import { Sequelize } from 'sequelize-typescript';
+import { DatabaseDialect } from '../../../config/environment/env.interface.js';
+import { getSequelizeOptions } from './sequelize.options.js';
+
+import { CompanyModel } from '../../../features/shipping/companies/infrastructure/persistence/models/company.model.js';
+import { ContactModel } from '../../../features/shipping/contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../features/shipping/addresses/infrastructure/persistence/models/address.model.js';
+import { RateModel } from '../../../features/shipping/rates/infrastructure/persistence/models/rate.model.js';
+import { CourierModel } from '../../../features/shipping/couriers/infrastructure/persistence/models/courier.model.js';
+import { RouteModel } from '../../../features/shipping/routes/infrastructure/persistence/models/route.model.js';
+import { InvoiceModel } from '../../../features/shipping/invoices/infrastructure/persistence/models/invoice.model.js';
+import { ShipmentModel } from '../../../features/shipping/shipments/infrastructure/persistence/models/shipment.model.js';
+
+export const ALL_MODELS = [
+  CompanyModel,
+  ContactModel,
+  AddressModel,
+  RateModel,
+  CourierModel,
+  RouteModel,
+  InvoiceModel,
+  ShipmentModel,
+];
+
+async function loadDialectModule(moduleName: string): Promise<any> {
+  // Proyecto ESM: require() no existe como global, se usa import() dinámico.
+  const mod: any = await import(moduleName);
+  return mod.default ?? mod;
+}
+
+export async function createSequelizeInstance(
+  dialect: DatabaseDialect,
+): Promise<Sequelize> {
+  const options = getSequelizeOptions(dialect);
+
+  let dialectModule: any;
+
+  switch (dialect) {
+    case DatabaseDialect.MySQL:
+      dialectModule = await loadDialectModule('mysql2');
+      break;
+    case DatabaseDialect.Postgres:
+      dialectModule = await loadDialectModule('pg');
+      break;
+    case DatabaseDialect.MSSQL:
+      dialectModule = await loadDialectModule('tedious');
+      break;
+    case DatabaseDialect.Oracle:
+      dialectModule = await loadDialectModule('oracledb');
+      break;
+    default:
+      throw new Error(`Dialecto no soportado: ${dialect}`);
+  }
+
+  const sequelize = new Sequelize({
+    ...options,
+    dialectModule,
+    models: ALL_MODELS,
+  } as any);
+
+  try {
+    await sequelize.authenticate();
+    console.log(`✅ Conexión exitosa a ${dialect.toUpperCase()}`);
+  } catch (error: any) {
+    console.error(
+      `❌ Error conectando a ${dialect.toUpperCase()}:`,
+      error.message,
+    );
+    throw error;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    await sequelize.sync({ alter: false });
+    console.log('✅ Tablas sincronizadas');
+  }
+
+  return sequelize;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: register ShipmentModel in sequelize factory"
+```
+
+#### 14.34 — Actualizar shipping.module.ts
+
+**Archivo:** `src/features/shipping/shipping.module.ts`
+
+```bash
+mkdir -p src/features/shipping
+cat > src/features/shipping/shipping.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { CompaniesModule } from './companies/companies.module.js';
+import { ContactsModule } from './contacts/contacts.module.js';
+import { AddressesModule } from './addresses/addresses.module.js';
+import { RatesModule } from './rates/rates.module.js';
+import { CouriersModule } from './couriers/couriers.module.js';
+import { RoutesModule } from './routes/routes.module.js';
+import { InvoicesModule } from './invoices/invoices.module.js';
+import { ShipmentsModule } from './shipments/shipments.module.js';
+
+@Module({
+  imports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+    InvoicesModule,
+    ShipmentsModule,
+  ],
+  exports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+    InvoicesModule,
+    ShipmentsModule,
+  ],
+})
+export class ShippingModule {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: export ShipmentsModule from ShippingModule"
+```
+
+#### 14.35 — Actualizar database-seeder.service.ts y verificar tabla `shipments` + máquina de estados
+
+**Archivo:** `src/infrastructure/database/seeders/database-seeder.service.ts`
+
+```bash
+mkdir -p src/infrastructure/database/seeders
+cat > src/infrastructure/database/seeders/database-seeder.service.ts <<'EOF_BACKEND_IA'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { seedCompanies } from '../../../features/shipping/companies/infrastructure/persistence/seeders/companies.seeder.js';
+import { seedContacts } from '../../../features/shipping/contacts/infrastructure/persistence/seeders/contacts.seeder.js';
+import { seedAddresses } from '../../../features/shipping/addresses/infrastructure/persistence/seeders/addresses.seeder.js';
+import { seedRates } from '../../../features/shipping/rates/infrastructure/persistence/seeders/rates.seeder.js';
+import { seedCouriers } from '../../../features/shipping/couriers/infrastructure/persistence/seeders/couriers.seeder.js';
+import { seedRoutes } from '../../../features/shipping/routes/infrastructure/persistence/seeders/routes.seeder.js';
+import { seedInvoices } from '../../../features/shipping/invoices/infrastructure/persistence/seeders/invoices.seeder.js';
+import { seedShipments } from '../../../features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.js';
+
+/**
+ * Ejecuta seeders en orden de dependencias.
+ * Solo en entornos no productivos.
+ */
+@Injectable()
+export class DatabaseSeederService implements OnModuleInit {
+  private readonly logger = new Logger(DatabaseSeederService.name);
+
+  async onModuleInit(): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    try {
+      await seedCompanies();
+      await seedContacts();
+      await seedAddresses();
+      await seedRates();
+      await seedCouriers();
+      await seedRoutes();
+      await seedInvoices();
+      await seedShipments();
+      this.logger.log('✅ Seeders ejecutados');
+    } catch (error: any) {
+      this.logger.error(`❌ Error en seeders: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+}
+EOF_BACKEND_IA
+```
+
+`app.module.ts` no necesita cambios: `ShippingModule` ya expone `ShipmentsModule`.
+
+Arranca la app y recorre la máquina de estados completa contra un envío del seeder:
+
+```bash
+npm run start:dev
+```
+
+1. `PATCH /api/shipments/:id/quote` → `creado → cotizado`, revisa que `calculatedCost` se haya llenado.
+2. `PATCH /api/shipments/:id/assign` con `{courierId, routeId}` → `cotizado → asignado` (usa un mensajero y una ruta reales del seeder; prueba con una ruta de otro mensajero para confirmar que falla).
+3. `PATCH /api/shipments/:id/start-transit` → `asignado → en_ruta`.
+4. `PATCH /api/shipments/:id/report-issue` → `en_ruta → con_novedad`, luego `start-transit` de nuevo → `con_novedad → en_ruta`.
+5. `PATCH /api/shipments/:id/deliver` → `en_ruta → entregado`.
+6. Confirma que `PATCH /api/shipments/:id/cancel` sobre ese mismo envío ya entregado falla (400).
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: run seedShipments and verify full shipment state machine"
+```
