@@ -14829,12 +14829,7 @@ export { PackagesModule } from './packages.module.js';
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add barrel export packages"
-```
+![alt text](imagenes/packages-index.png)
 
 #### 15.21 — features/shipping/packages/packages.module.ts
 
