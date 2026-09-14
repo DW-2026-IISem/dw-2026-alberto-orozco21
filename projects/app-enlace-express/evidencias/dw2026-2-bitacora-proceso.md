@@ -13811,3 +13811,210 @@ npm run start:dev
 **/api/shipments/**
 
 ![alt text](imagenes/api_shipments.png)
+
+-------------------------------------------------------------------------------------------------
+
+## FASE 15 — `14_BUSINESS_PACKAGES`
+
+### Business — Packages / Paquete (patrón completo CA)
+
+> **Objetivo de la fase:** Novena entidad de negocio de EnlaceExpress: Paquete, que pertenece a un Envio (`shipmentId`). Regla de negocio: solo se pueden crear, editar o eliminar paquetes mientras el envío esté en estado `creado` — una vez cotizado, el peso total ya quedó "congelado" en el cálculo de la tarifa. Mismo patrón de asociación real que las fases anteriores. Orden lógico: dominio → infraestructura → aplicación → presentación → módulo → cableado → verificación.
+
+#### 15.1 — features/shipping/packages/domain/entities/package.entity.ts
+
+**Archivo:** `src/features/shipping/packages/domain/entities/package.entity.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/domain/entities
+cat > src/features/shipping/packages/domain/entities/package.entity.ts <<'EOF_BACKEND_IA'
+export interface PackageProps {
+  id?: number;
+  shipmentId: number;
+  contentDescription: string;
+  weightKg: number;
+  heightCm: number;
+  widthCm: number;
+  lengthCm: number;
+  declaredValue: number;
+  isFragile?: boolean;
+  isActive?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Package {
+  id?: number;
+  shipmentId: number;
+  contentDescription: string;
+  weightKg: number;
+  heightCm: number;
+  widthCm: number;
+  lengthCm: number;
+  declaredValue: number;
+  isFragile: boolean;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+
+  private constructor(props: PackageProps) {
+    this.id = props.id;
+    this.shipmentId = props.shipmentId;
+    this.contentDescription = props.contentDescription;
+    this.weightKg = props.weightKg;
+    this.heightCm = props.heightCm;
+    this.widthCm = props.widthCm;
+    this.lengthCm = props.lengthCm;
+    this.declaredValue = props.declaredValue;
+    this.isFragile = props.isFragile ?? false;
+    this.isActive = props.isActive ?? true;
+    this.createdAt = props.createdAt;
+    this.updatedAt = props.updatedAt;
+  }
+
+  private static validateDimensions(props: {
+    weightKg: number;
+    heightCm: number;
+    widthCm: number;
+    lengthCm: number;
+    declaredValue: number;
+  }): void {
+    if (!props.weightKg || props.weightKg <= 0) {
+      throw new Error('El peso del paquete debe ser mayor a cero');
+    }
+    if (!props.heightCm || props.heightCm <= 0) {
+      throw new Error('El alto del paquete debe ser mayor a cero');
+    }
+    if (!props.widthCm || props.widthCm <= 0) {
+      throw new Error('El ancho del paquete debe ser mayor a cero');
+    }
+    if (!props.lengthCm || props.lengthCm <= 0) {
+      throw new Error('El largo del paquete debe ser mayor a cero');
+    }
+    if (props.declaredValue === undefined || props.declaredValue < 0) {
+      throw new Error('El valor declarado no puede ser negativo');
+    }
+  }
+
+  static create(
+    props: Omit<PackageProps, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>,
+  ): Package {
+    if (!props.shipmentId) {
+      throw new Error('El paquete debe pertenecer a un envío');
+    }
+    if (!props.contentDescription?.trim()) {
+      throw new Error('La descripción del contenido es requerida');
+    }
+
+    Package.validateDimensions(props);
+
+    return new Package(props);
+  }
+
+  static reconstitute(props: PackageProps): Package {
+    return new Package(props);
+  }
+
+  update(
+    props: Partial<
+      Omit<PackageProps, 'id' | 'shipmentId' | 'isActive' | 'createdAt' | 'updatedAt'>
+    >,
+  ): void {
+    const next = {
+      weightKg: props.weightKg ?? this.weightKg,
+      heightCm: props.heightCm ?? this.heightCm,
+      widthCm: props.widthCm ?? this.widthCm,
+      lengthCm: props.lengthCm ?? this.lengthCm,
+      declaredValue: props.declaredValue ?? this.declaredValue,
+    };
+
+    if (props.contentDescription !== undefined && !props.contentDescription.trim()) {
+      throw new Error('La descripción del contenido es requerida');
+    }
+
+    Package.validateDimensions(next);
+
+    if (props.contentDescription !== undefined) {
+      this.contentDescription = props.contentDescription;
+    }
+    this.weightKg = next.weightKg;
+    this.heightCm = next.heightCm;
+    this.widthCm = next.widthCm;
+    this.lengthCm = next.lengthCm;
+    this.declaredValue = next.declaredValue;
+
+    if (props.isFragile !== undefined) {
+      this.isFragile = props.isFragile;
+    }
+  }
+
+  deactivate(): void {
+    this.isActive = false;
+  }
+
+  activate(): void {
+    this.isActive = true;
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/package.entity.png)
+
+### 15.2 — features/shipping/packages/domain/exceptions/package-not-found.exception.ts
+
+**Archivo:** `src/features/shipping/packages/domain/exceptions/package-not-found.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/domain/exceptions
+cat > src/features/shipping/packages/domain/exceptions/package-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception.js';
+
+export class PackageNotFoundException extends EntityNotFoundException {
+  constructor(id: number) {
+    super('Paquete', id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add domain exception package-not-found.exception.ts"
+```
+
+#### 15.3 — features/shipping/packages/domain/interfaces/package-repository.interface.ts
+
+**Archivo:** `src/features/shipping/packages/domain/interfaces/package-repository.interface.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/domain/interfaces
+cat > src/features/shipping/packages/domain/interfaces/package-repository.interface.ts <<'EOF_BACKEND_IA'
+import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface.js';
+import { Package } from '../entities/package.entity.js';
+
+export const PACKAGE_REPOSITORY = 'PACKAGE_REPOSITORY';
+
+export interface PackageFindAllParams {
+  page?: number;
+  limit?: number;
+  shipmentId?: number;
+}
+
+export interface IPackageRepository {
+  create(pkg: Package): Promise<Package>;
+  update(pkg: Package): Promise<Package>;
+  delete(id: number): Promise<void>;
+  findById(id: number): Promise<Package | null>;
+  findAll(params: PackageFindAllParams): Promise<PaginatedResult<Package>>;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add repository port package-repository.interface.ts"
+```
