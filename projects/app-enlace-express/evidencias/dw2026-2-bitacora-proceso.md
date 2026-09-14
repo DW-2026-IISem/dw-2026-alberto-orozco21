@@ -11106,3 +11106,18 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/invoices.controller.png)
+
+### 13.25 — features/shipping/invoices/index.ts
+
+Barrel export del feature para imports limpios.
+
+**Archivo:** `src/features/shipping/invoices/index.ts`
+
+```bash
+mkdir -p src/features/shipping/invoices
+cat > src/features/shipping/invoices/index.ts <<'EOF_BACKEND_IA'
+export { InvoicesModule } from './invoices.module.js';
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/invoices_index.png)
