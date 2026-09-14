@@ -11941,3 +11941,182 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/shipment.model.png)
+
+### 14.8 — features/shipping/shipments/infrastructure/persistence/repositories/shipment.repository.ts
+
+**Archivo:** `src/features/shipping/shipments/infrastructure/persistence/repositories/shipment.repository.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/infrastructure/persistence/repositories
+cat > src/features/shipping/shipments/infrastructure/persistence/repositories/shipment.repository.ts <<'EOF_BACKEND_IA'
+import { Injectable } from '@nestjs/common';
+import { Op } from 'sequelize';
+import {
+  buildPaginatedResult,
+  normalizePagination,
+} from '../../../../../../common/utils/pagination.util.js';
+import { Shipment } from '../../../domain/entities/shipment.entity.js';
+import {
+  ShipmentFindAllParams,
+  IShipmentRepository,
+} from '../../../domain/interfaces/shipment-repository.interface.js';
+import { ShipmentMapper } from '../../../application/mappers/shipment.mapper.js';
+import { ShipmentModel } from '../models/shipment.model.js';
+
+@Injectable()
+export class ShipmentRepository implements IShipmentRepository {
+  async create(shipment: Shipment): Promise<Shipment> {
+    const model = await ShipmentModel.create(
+      ShipmentMapper.toPersistence(shipment),
+    );
+    return ShipmentMapper.toDomain(model);
+  }
+
+  async update(shipment: Shipment): Promise<Shipment> {
+    await ShipmentModel.update(ShipmentMapper.toPersistence(shipment), {
+      where: { id: shipment.id },
+    });
+    const updated = await ShipmentModel.findByPk(shipment.id!);
+    return ShipmentMapper.toDomain(updated!);
+  }
+
+  async delete(id: number): Promise<void> {
+    await ShipmentModel.destroy({ where: { id } });
+  }
+
+  async findById(id: number): Promise<Shipment | null> {
+    const model = await ShipmentModel.findByPk(id);
+    return model ? ShipmentMapper.toDomain(model) : null;
+  }
+
+  async findAll(params: ShipmentFindAllParams) {
+    const { page, limit, offset } = normalizePagination(
+      params.page,
+      params.limit,
+    );
+
+    const where: Record<string, unknown> = {};
+
+    if (params.companyId) where.companyId = params.companyId;
+    if (params.courierId) where.courierId = params.courierId;
+    if (params.status) where.status = params.status;
+    if (params.priority) where.priority = params.priority;
+
+    if (params.search) {
+      where[Op.or as unknown as string] = [
+        { guideNumber: { [Op.like]: `%${params.search}%` } },
+      ];
+    }
+
+    const { rows, count } = await ShipmentModel.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+    });
+
+    return buildPaginatedResult(
+      rows.map((row) => ShipmentMapper.toDomain(row)),
+      count,
+      page,
+      limit,
+    );
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/shipment.repository.png)
+
+#### 14.9 — features/shipping/shipments/infrastructure/persistence/migrations/create-shipments-table.migration.ts
+
+**Archivo:** `src/features/shipping/shipments/infrastructure/persistence/migrations/create-shipments-table.migration.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/infrastructure/persistence/migrations
+cat > src/features/shipping/shipments/infrastructure/persistence/migrations/create-shipments-table.migration.ts <<'EOF_BACKEND_IA'
+export const createShipmentsTableMigration = {
+  name: 'create-shipments-table',
+  async up(): Promise<void> {
+    // Sequelize sync handles table creation in development.
+    // Production: CREATE TABLE shipments (id, guideNumber UQ, companyId FK->companies,
+    //   originContactId FK->contacts, originAddressId FK->addresses,
+    //   destinationContactId FK->contacts, destinationAddressId FK->addresses,
+    //   rateId FK->rates, courierId FK->couriers NULL, routeId FK->routes NULL,
+    //   invoiceId FK->invoices NULL, priority, totalWeightKg, declaredValue,
+    //   calculatedCost, status, requestDate, estimatedDeliveryDate,
+    //   actualDeliveryDate, isActive, createdAt, updatedAt)
+  },
+  async down(): Promise<void> {
+    // Production: DROP TABLE shipments
+  },
+};
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add migration create-shipments-table.migration.ts"
+```
+
+#### 14.10 — features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.ts
+
+Depende de que ya existan empresas, contactos, direcciones y tarifas.
+
+**Archivo:** `src/features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/infrastructure/persistence/seeders
+cat > src/features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.ts <<'EOF_BACKEND_IA'
+import { ShipmentModel } from '../models/shipment.model.js';
+import { CompanyModel } from '../../../../companies/infrastructure/persistence/models/company.model.js';
+import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../../addresses/infrastructure/persistence/models/address.model.js';
+import { RateModel } from '../../../../rates/infrastructure/persistence/models/rate.model.js';
+import { ShipmentPriority } from '../../../domain/enums/shipment-priority.enum.js';
+import { ShipmentStatus } from '../../../domain/enums/shipment-status.enum.js';
+import { Shipment } from '../../../domain/entities/shipment.entity.js';
+
+export async function seedShipments(): Promise<void> {
+  const count = await ShipmentModel.count();
+  if (count > 0) {
+    return;
+  }
+
+  const company = await CompanyModel.findOne({ order: [['id', 'ASC']] });
+  const contact = await ContactModel.findOne({ order: [['id', 'ASC']] });
+  const address = await AddressModel.findOne({ order: [['id', 'ASC']] });
+  const rate = await RateModel.findOne({ order: [['id', 'ASC']] });
+
+  if (!company || !contact || !address || !rate) {
+    return;
+  }
+
+  await ShipmentModel.create({
+    guideNumber: Shipment.generateGuideNumber(),
+    companyId: company.id,
+    originContactId: contact.id,
+    originAddressId: address.id,
+    destinationContactId: contact.id,
+    destinationAddressId: address.id,
+    rateId: rate.id,
+    priority: ShipmentPriority.NORMAL,
+    totalWeightKg: 5,
+    declaredValue: 150000,
+    status: ShipmentStatus.CREATED,
+    requestDate: new Date(),
+    estimatedDeliveryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+    isActive: true,
+  });
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add seeder shipments.seeder.ts"
+```
