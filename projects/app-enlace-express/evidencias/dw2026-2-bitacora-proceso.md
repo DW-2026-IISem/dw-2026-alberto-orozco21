@@ -11350,14 +11350,9 @@ export class ShippingModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/ShippingModule_invoice.png)
 
-```bash
-git add .
-git commit -m "feat: export InvoicesModule from ShippingModule"
-```
-
-#### 13.30 — Actualizar database-seeder.service.ts y verificar tabla `invoices`
+### 13.30 — Actualizar database-seeder.service.ts y verificar tabla `invoices`
 
 Agrega `seedInvoices` (depende de empresas). `app.module.ts` no necesita cambios: `ShippingModule` ya expone `InvoicesModule`.
 
