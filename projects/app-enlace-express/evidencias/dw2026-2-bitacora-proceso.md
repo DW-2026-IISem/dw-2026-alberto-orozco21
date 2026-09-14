@@ -11420,3 +11420,41 @@ npm run start:dev
 **/api/invoices**
 
 ![alt text](imagenes/api_invoices.png)
+
+---------------------------------------------------------------------
+
+## FASE 14 — `13_BUSINESS_SHIPMENTS`
+
+### Business — Shipments / Envio (patrón completo CA)
+
+> **Objetivo de la fase:** Entidad central de EnlaceExpress. Referencia a Empresa, Contacto (origen y destino — dos asociaciones distintas hacia la misma tabla), Direccion (origen y destino, igual), Tarifa, y opcionalmente Mensajero/Ruta/Factura (se asignan después de creado). Tiene una máquina de estados con transiciones controladas en el dominio, no en el controller.
+>
+> **Transiciones válidas:**
+> ```
+> creado → cotizado → asignado → en_ruta → entregado
+>                                      ↕
+>                                 con_novedad
+> cualquier estado (excepto entregado/cancelado) → cancelado
+> ```
+>
+> **Sobre `numero_guia`**: se genera automáticamente en el dominio (`Shipment.generateGuideNumber()`, formato `ENV-<timestamp36>-<random4>`), no lo envía el cliente. La columna sigue siendo `unique` en BD como red de seguridad ante una colisión improbable — si ocurriera, `sequelize-exception.filter.ts` (fase 6) ya la convierte en un 409 en vez de un 500 genérico.
+>
+> **Sobre "no se puede marcar entregado sin evidencia y receptor"**: esa regla depende de `PruebaEntrega`, que no existe todavía. `deliver()` queda implementado con un comentario `TODO` explícito; cuando construyamos PruebaEntrega, ese use-case pasará a exigir que exista evidencia antes de invocar `shipment.deliver()`.
+
+#### 14.1 — features/shipping/shipments/domain/enums/shipment-priority.enum.ts
+
+**Archivo:** `src/features/shipping/shipments/domain/enums/shipment-priority.enum.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/domain/enums
+cat > src/features/shipping/shipments/domain/enums/shipment-priority.enum.ts <<'EOF_BACKEND_IA'
+export enum ShipmentPriority {
+  NORMAL = 'normal',
+  URGENT = 'urgente',
+  EXPRESS = 'express',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/shipment-priority.enum.png)
+
