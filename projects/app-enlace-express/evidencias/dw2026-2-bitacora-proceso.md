@@ -14726,7 +14726,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/package.serializer.png)
 
-#### 15.19 — features/shipping/packages/presentation/http/controllers/packages.controller.ts
+### 15.19 — features/shipping/packages/presentation/http/controllers/packages.controller.ts
 
 **Archivo:** `src/features/shipping/packages/presentation/http/controllers/packages.controller.ts`
 
@@ -14816,12 +14816,7 @@ export class PackagesController {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add controller packages.controller.ts"
-```
+![alt text](imagenes/packages.controller.png)
 
 #### 15.20 — features/shipping/packages/index.ts
 
