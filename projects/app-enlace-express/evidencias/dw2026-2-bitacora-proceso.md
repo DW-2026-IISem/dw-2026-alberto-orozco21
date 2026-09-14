@@ -13738,7 +13738,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/ShipmentsModule.png)
 
-#### 14.35 — Actualizar database-seeder.service.ts y verificar tabla `shipments` + máquina de estados
+### 14.35 — Actualizar database-seeder.service.ts y verificar tabla `shipments` + máquina de estados
 
 **Archivo:** `src/infrastructure/database/seeders/database-seeder.service.ts`
 
@@ -13787,6 +13787,8 @@ export class DatabaseSeederService implements OnModuleInit {
 EOF_BACKEND_IA
 ```
 
+![alt text](imagenes/database-seeder.service_shipemn.png)
+
 `app.module.ts` no necesita cambios: `ShippingModule` ya expone `ShipmentsModule`.
 
 Arranca la app y recorre la máquina de estados completa contra un envío del seeder:
@@ -13802,9 +13804,10 @@ npm run start:dev
 5. `PATCH /api/shipments/:id/deliver` → `en_ruta → entregado`.
 6. Confirma que `PATCH /api/shipments/:id/cancel` sobre ese mismo envío ya entregado falla (400).
 
-**Sugerencia de commit (issue):**
+**Consola**
 
-```bash
-git add .
-git commit -m "chore: run seedShipments and verify full shipment state machine"
-```
+![alt text](imagenes/shipmen_consola.png)
+
+**/api/shipments/**
+
+![alt text](imagenes/api_shipments.png)

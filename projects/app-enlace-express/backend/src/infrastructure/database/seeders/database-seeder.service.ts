@@ -6,6 +6,7 @@ import { seedRates } from '../../../features/shipping/rates/infrastructure/persi
 import { seedCouriers } from '../../../features/shipping/couriers/infrastructure/persistence/seeders/couriers.seeder.js';
 import { seedRoutes } from '../../../features/shipping/routes/infrastructure/persistence/seeders/routes.seeder.js';
 import { seedInvoices } from '../../../features/shipping/invoices/infrastructure/persistence/seeders/invoices.seeder.js';
+import { seedShipments } from '../../../features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.js';
 
 /**
  * Ejecuta seeders en orden de dependencias.
@@ -28,6 +29,7 @@ export class DatabaseSeederService implements OnModuleInit {
       await seedCouriers();
       await seedRoutes();
       await seedInvoices();
+      await seedShipments();
       this.logger.log('✅ Seeders ejecutados');
     } catch (error: any) {
       this.logger.error(`❌ Error en seeders: ${error.message}`, error.stack);
