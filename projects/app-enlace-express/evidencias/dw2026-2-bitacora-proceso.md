@@ -12263,7 +12263,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/shipment-response.dto.png)
 
-#### 14.13 — features/shipping/shipments/application/dto/create-shipment.dto.ts
+### 14.13 — features/shipping/shipments/application/dto/create-shipment.dto.ts
 
 No incluye `guideNumber` (lo genera el dominio), ni `status`/`calculatedCost`/`courierId`/`routeId`/`invoiceId` (llegan después vía las transiciones).
 
@@ -12337,14 +12337,9 @@ export class CreateShipmentDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/create-shipment.dto.png)
 
-```bash
-git add .
-git commit -m "feat: add dto create-shipment.dto.ts"
-```
-
-#### 14.14 — features/shipping/shipments/application/dto/update-shipment.dto.ts
+### 14.14 — features/shipping/shipments/application/dto/update-shipment.dto.ts
 
 Solo campos comerciales editables mientras el envío está `creado` (ver `Shipment.update`).
 
