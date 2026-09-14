@@ -13323,21 +13323,11 @@ export class CompanyModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
-
-  @HasMany(() => ContactModel)
-  declare contacts: ContactModel[];
-
-  @HasMany(() => AddressModel)
-  declare addresses: AddressModel[];
-
-  @HasMany(() => InvoiceModel)
-  declare invoices: InvoiceModel[];
-
-  @HasMany(() => ShipmentModel)
-  declare shipments: ShipmentModel[];
 }
 EOF_BACKEND_IA
 ```
+
+![alt text](imagenes/company.model_shipmen.png)
 
 **Archivo:** `src/features/shipping/couriers/infrastructure/persistence/models/courier.model.ts`
 
@@ -13394,15 +13384,11 @@ export class CourierModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
-
-  @HasMany(() => RouteModel)
-  declare routes: RouteModel[];
-
-  @HasMany(() => ShipmentModel)
-  declare shipments: ShipmentModel[];
 }
 EOF_BACKEND_IA
 ```
+
+![alt text](imagenes/courier.model_shipmen.png)
 
 **Archivo:** `src/features/shipping/routes/infrastructure/persistence/models/route.model.ts`
 
@@ -13469,12 +13455,11 @@ export class RouteModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
-
-  @HasMany(() => ShipmentModel)
-  declare shipments: ShipmentModel[];
 }
 EOF_BACKEND_IA
 ```
+
+![alt text](imagenes/route.model_shipmen.png)
 
 **Archivo:** `src/features/shipping/rates/infrastructure/persistence/models/rate.model.ts`
 
@@ -13536,12 +13521,10 @@ export class RateModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
-
-  @HasMany(() => ShipmentModel)
-  declare shipments: ShipmentModel[];
 }
 EOF_BACKEND_IA
 ```
+![alt text](imagenes/rate.model_shipmen.png)
 
 **Archivo:** `src/features/shipping/invoices/infrastructure/persistence/models/invoice.model.ts`
 
@@ -13614,21 +13597,13 @@ export class InvoiceModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
-
-  @HasMany(() => ShipmentModel)
-  declare shipments: ShipmentModel[];
 }
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/invoice.model_shipmen.png)
 
-```bash
-git add .
-git commit -m "feat: close shipments HasMany association on company, courier, route, rate and invoice models"
-```
-
-#### 14.33 — Actualizar sequelize.factory.ts (registrar ShipmentModel)
+### 14.33 — Actualizar sequelize.factory.ts (registrar ShipmentModel)
 
 **Archivo:** `src/infrastructure/database/sequelize/sequelize.factory.ts`
 

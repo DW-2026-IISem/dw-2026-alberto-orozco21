@@ -12,6 +12,7 @@ import {
 import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
 import { AddressModel } from '../../../../addresses/infrastructure/persistence/models/address.model.js';
 import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
 
 @Table({ tableName: 'companies' })
 export class CompanyModel extends Model {

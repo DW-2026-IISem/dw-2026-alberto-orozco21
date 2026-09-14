@@ -3,12 +3,14 @@ import {
   Column,
   CreatedAt,
   DataType,
+  HasMany,
   Model,
   PrimaryKey,
   Table,
   UpdatedAt,
 } from 'sequelize-typescript';
 import { RateCalculationRule } from '../../../domain/enums/rate-calculation-rule.enum.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
 
 @Table({ tableName: 'rates' })
 export class RateModel extends Model {

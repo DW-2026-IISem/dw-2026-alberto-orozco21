@@ -5,12 +5,14 @@ import {
   CreatedAt,
   DataType,
   ForeignKey,
+  HasMany,
   Model,
   PrimaryKey,
   Table,
   UpdatedAt,
 } from 'sequelize-typescript';
 import { CourierModel } from '../../../../couriers/infrastructure/persistence/models/courier.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
 import { RouteStatus } from '../../../domain/enums/route-status.enum.js';
 
 @Table({ tableName: 'routes' })

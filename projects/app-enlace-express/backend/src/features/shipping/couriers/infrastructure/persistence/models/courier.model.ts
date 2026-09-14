@@ -11,6 +11,7 @@ import {
 } from 'sequelize-typescript';
 import { VehicleType } from '../../../domain/enums/vehicle-type.enum.js';
 import { RouteModel } from '../../../../routes/infrastructure/persistence/models/route.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
 
 @Table({ tableName: 'couriers' })
 export class CourierModel extends Model {
@@ -48,5 +49,4 @@ export class CourierModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
-
 }
