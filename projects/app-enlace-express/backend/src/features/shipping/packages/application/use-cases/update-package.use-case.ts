@@ -23,8 +23,18 @@ export class UpdatePackageUseCase {
 
   async execute(id: number, dto: UpdatePackageDto) {
     const pkg = await this.packageRepository.findById(id);
+    if (!pkg) throw new PackageNotFoundException(id);
 
     const shipment = await this.shipmentRepository.findById(pkg.shipmentId);
     if (shipment && shipment.status !== ShipmentStatus.CREATED) {
       throw new Error(
-        
+        `No se pueden modificar paquetes de un envío en estado '${shipment.status}'`,
+      );
+    }
+
+    pkg.update(dto);
+
+    const updated = await this.packageRepository.update(pkg);
+    return PackageMapper.toResponse(updated);
+  }
+}

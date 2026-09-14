@@ -15171,7 +15171,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/PackagesModule.png)
 
-#### 15.25 — Actualizar database-seeder.service.ts y verificar tabla `packages`
+### 15.25 — Actualizar database-seeder.service.ts y verificar tabla `packages`
 
 **Archivo:** `src/infrastructure/database/seeders/database-seeder.service.ts`
 
@@ -15222,6 +15222,8 @@ export class DatabaseSeederService implements OnModuleInit {
 EOF_BACKEND_IA
 ```
 
+![alt text](imagenes/seedPackages.png)
+
 `app.module.ts` no necesita cambios: `ShippingModule` ya expone `PackagesModule`.
 
 Arranca la app. Debe crear/sync tabla `packages` (con FK a `shipments`), correr seeder y exponer `/api/packages`. Prueba:
@@ -15232,9 +15234,10 @@ Arranca la app. Debe crear/sync tabla `packages` (con FK a `shipments`), correr 
 npm run start:dev
 ```
 
-**Sugerencia de commit (issue):**
+**Consola**
 
-```bash
-git add .
-git commit -m "chore: run seedPackages and verify packages endpoints with shipment status rule"
-```
+![alt text](imagenes/pack_consola.png)
+
+**/api/packages**
+
+![alt text](imagenes/api_packages.png)

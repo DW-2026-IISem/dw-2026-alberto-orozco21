@@ -21,8 +21,15 @@ export class DeletePackageUseCase {
 
   async execute(id: number): Promise<void> {
     const pkg = await this.packageRepository.findById(id);
+    if (!pkg) throw new PackageNotFoundException(id);
 
     const shipment = await this.shipmentRepository.findById(pkg.shipmentId);
     if (shipment && shipment.status !== ShipmentStatus.CREATED) {
       throw new Error(
-        
+        `No se pueden eliminar paquetes de un envío en estado '${shipment.status}'`,
+      );
+    }
+
+    await this.packageRepository.delete(id);
+  }
+}
