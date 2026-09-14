@@ -14154,7 +14154,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/package.repository.png)
 
-#### 15.6 — features/shipping/packages/infrastructure/persistence/migrations/create-packages-table.migration.ts
+### 15.6 — features/shipping/packages/infrastructure/persistence/migrations/create-packages-table.migration.ts
 
 **Archivo:** `src/features/shipping/packages/infrastructure/persistence/migrations/create-packages-table.migration.ts`
 
@@ -14176,12 +14176,7 @@ export const createPackagesTableMigration = {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add migration create-packages-table.migration.ts"
-```
+![alt text](imagenes/create-packages-table.migration.png)
 
 #### 15.7 — features/shipping/packages/infrastructure/persistence/seeders/packages.seeder.ts
 
