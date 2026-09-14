@@ -12949,7 +12949,7 @@ EOF_BACKEND_IA
 ![alt text](imagenes/deliver-shipment.use-case.ts.png)
 **Sugerencia de commit (issue):**
 
-#### 14.26 — features/shipping/shipments/application/use-cases/cancel-shipment.use-case.ts
+### 14.26 — features/shipping/shipments/application/use-cases/cancel-shipment.use-case.ts
 
 **Archivo:** `src/features/shipping/shipments/application/use-cases/cancel-shipment.use-case.ts`
 
@@ -12984,14 +12984,9 @@ export class CancelShipmentUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/cancel-shipment.use-case.png)
 
-```bash
-git add .
-git commit -m "feat: add use case cancel-shipment.use-case.ts"
-```
-
-#### 14.27 — features/shipping/shipments/application/use-cases/delete-shipment.use-case.ts
+### 14.27 — features/shipping/shipments/application/use-cases/delete-shipment.use-case.ts
 
 Solo se puede borrar un envío recién creado (nunca uno cotizado en adelante — para eso existe `cancelar`).
 
