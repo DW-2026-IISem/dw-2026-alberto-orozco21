@@ -14079,7 +14079,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/package.model.png)
 
-#### 15.5 — features/shipping/packages/infrastructure/persistence/repositories/package.repository.ts
+### 15.5 — features/shipping/packages/infrastructure/persistence/repositories/package.repository.ts
 
 **Archivo:** `src/features/shipping/packages/infrastructure/persistence/repositories/package.repository.ts`
 
@@ -14152,12 +14152,7 @@ export class PackageRepository implements IPackageRepository {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add sequelize repository package.repository.ts"
-```
+![alt text](imagenes/package.repository.png)
 
 #### 15.6 — features/shipping/packages/infrastructure/persistence/migrations/create-packages-table.migration.ts
 
