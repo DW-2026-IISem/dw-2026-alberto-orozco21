@@ -11165,3 +11165,54 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/invoices.module.png)
+
+### 13.27 — Actualizar company.model.ts (cerrar la asociación)
+
+Vuelve al modelo de Empresa y agrega `@HasMany(() => InvoiceModel)` con import estático. Con esto, `Empresa` ya tiene sus tres asociaciones completas (`contacts`, `addresses`, `invoices`); solo falta `shipments`, que llegará con Envio.
+
+**Archivo:** `src/features/shipping/companies/infrastructure/persistence/models/company.model.ts`
+
+```bash
+mkdir -p src/features/shipping/companies/infrastructure/persistence/models
+cat > src/features/shipping/companies/infrastructure/persistence/models/company.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  Column,
+  CreatedAt,
+  DataType,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../../addresses/infrastructure/persistence/models/address.model.js';
+import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
+
+@Table({ tableName: 'companies' })
+export class CompanyModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(20), allowNull: false, unique: true })
+  declare nit: string;
+
+  @Column({ type: DataType.STRING(200), allowNull: false })
+  declare razonSocial: string;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/company.model_invoice.png)

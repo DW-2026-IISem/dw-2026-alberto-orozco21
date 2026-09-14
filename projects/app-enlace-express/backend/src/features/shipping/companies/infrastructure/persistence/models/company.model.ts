@@ -3,15 +3,18 @@ import {
   Column,
   CreatedAt,
   DataType,
+  HasMany,
   Model,
   PrimaryKey,
   Table,
   UpdatedAt,
 } from 'sequelize-typescript';
+import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../../addresses/infrastructure/persistence/models/address.model.js';
+import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
 
 @Table({ tableName: 'companies' })
 export class CompanyModel extends Model {
-
   @PrimaryKey
   @AutoIncrement
   @Column(DataType.INTEGER)
