@@ -11458,3 +11458,23 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/shipment-priority.enum.png)
 
+### 14.2 — features/shipping/shipments/domain/enums/shipment-status.enum.ts
+
+**Archivo:** `src/features/shipping/shipments/domain/enums/shipment-status.enum.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/domain/enums
+cat > src/features/shipping/shipments/domain/enums/shipment-status.enum.ts <<'EOF_BACKEND_IA'
+export enum ShipmentStatus {
+  CREATED = 'creado',
+  QUOTED = 'cotizado',
+  ASSIGNED = 'asignado',
+  IN_TRANSIT = 'en_ruta',
+  DELIVERED = 'entregado',
+  WITH_ISSUE = 'con_novedad',
+  CANCELLED = 'cancelado',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/shipment-status.enum.png)
