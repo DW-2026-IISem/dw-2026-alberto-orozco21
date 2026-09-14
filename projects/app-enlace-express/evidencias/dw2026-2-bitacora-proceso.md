@@ -12486,3 +12486,593 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/shipment.mapper.png)
+
+### 14.17 — features/shipping/shipments/application/use-cases/create-shipment.use-case.ts
+
+El caso de uso más "cruzado" del proyecto: valida empresa, contacto/dirección de origen y destino (y que pertenezcan a esa empresa), y tarifa.
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/create-shipment.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/create-shipment.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { CompanyNotFoundException } from '../../../companies/domain/exceptions/company-not-found.exception.js';
+import {
+  COMPANY_REPOSITORY,
+  type ICompanyRepository,
+} from '../../../companies/domain/interfaces/company-repository.interface.js';
+import { ContactNotFoundException } from '../../../contacts/domain/exceptions/contact-not-found.exception.js';
+import {
+  CONTACT_REPOSITORY,
+  type IContactRepository,
+} from '../../../contacts/domain/interfaces/contact-repository.interface.js';
+import { AddressNotFoundException } from '../../../addresses/domain/exceptions/address-not-found.exception.js';
+import {
+  ADDRESS_REPOSITORY,
+  type IAddressRepository,
+} from '../../../addresses/domain/interfaces/address-repository.interface.js';
+import { RateNotFoundException } from '../../../rates/domain/exceptions/rate-not-found.exception.js';
+import {
+  RATE_REPOSITORY,
+  type IRateRepository,
+} from '../../../rates/domain/interfaces/rate-repository.interface.js';
+import { Shipment } from '../../domain/entities/shipment.entity.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { CreateShipmentDto } from '../dto/create-shipment.dto.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class CreateShipmentUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+    @Inject(COMPANY_REPOSITORY)
+    private readonly companyRepository: ICompanyRepository,
+    @Inject(CONTACT_REPOSITORY)
+    private readonly contactRepository: IContactRepository,
+    @Inject(ADDRESS_REPOSITORY)
+    private readonly addressRepository: IAddressRepository,
+    @Inject(RATE_REPOSITORY)
+    private readonly rateRepository: IRateRepository,
+  ) {}
+
+  async execute(dto: CreateShipmentDto) {
+    const company = await this.companyRepository.findById(dto.companyId);
+    if (!company) throw new CompanyNotFoundException(dto.companyId);
+
+    const [originContact, destinationContact, originAddress, destinationAddress, rate] =
+      await Promise.all([
+        this.contactRepository.findById(dto.originContactId),
+        this.contactRepository.findById(dto.destinationContactId),
+        this.addressRepository.findById(dto.originAddressId),
+        this.addressRepository.findById(dto.destinationAddressId),
+        this.rateRepository.findById(dto.rateId),
+      ]);
+
+    if (!originContact) throw new ContactNotFoundException(dto.originContactId);
+    if (!destinationContact) throw new ContactNotFoundException(dto.destinationContactId);
+    if (!originAddress) throw new AddressNotFoundException(dto.originAddressId);
+    if (!destinationAddress) throw new AddressNotFoundException(dto.destinationAddressId);
+    if (!rate) throw new RateNotFoundException(dto.rateId);
+
+    if (originContact.companyId !== dto.companyId) {
+      throw new Error('El contacto de origen no pertenece a la empresa indicada');
+    }
+    if (destinationContact.companyId !== dto.companyId) {
+      throw new Error('El contacto de destino no pertenece a la empresa indicada');
+    }
+    if (originAddress.companyId !== dto.companyId) {
+      throw new Error('La dirección de origen no pertenece a la empresa indicada');
+    }
+    if (destinationAddress.companyId !== dto.companyId) {
+      throw new Error('La dirección de destino no pertenece a la empresa indicada');
+    }
+
+    const shipment = Shipment.create({
+      guideNumber: Shipment.generateGuideNumber(),
+      companyId: dto.companyId,
+      originContactId: dto.originContactId,
+      originAddressId: dto.originAddressId,
+      destinationContactId: dto.destinationContactId,
+      destinationAddressId: dto.destinationAddressId,
+      rateId: dto.rateId,
+      priority: dto.priority,
+      totalWeightKg: dto.totalWeightKg,
+      declaredValue: dto.declaredValue,
+      estimatedDeliveryDate: new Date(dto.estimatedDeliveryDate),
+    });
+
+    const created = await this.shipmentRepository.create(shipment);
+    return ShipmentMapper.toResponse(created);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/create-shipment.use-case.png)
+
+### 14.18 — features/shipping/shipments/application/use-cases/get-shipment.use-case.ts
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/get-shipment.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/get-shipment.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentNotFoundException } from '../../domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class GetShipmentUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(id: number) {
+    const shipment = await this.shipmentRepository.findById(id);
+    if (!shipment) throw new ShipmentNotFoundException(id);
+    return ShipmentMapper.toResponse(shipment);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case get-shipment.use-case.ts"
+```
+
+#### 14.19 — features/shipping/shipments/application/use-cases/list-shipments.use-case.ts
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/list-shipments.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/list-shipments.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { ShipmentFilterDto } from '../dto/shipment-filter.dto.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class ListShipmentsUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(filter: ShipmentFilterDto) {
+    const result = await this.shipmentRepository.findAll(filter);
+    return {
+      items: result.items.map((shipment) => ShipmentMapper.toResponse(shipment)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case list-shipments.use-case.ts"
+```
+
+#### 14.20 — features/shipping/shipments/application/use-cases/update-shipment.use-case.ts
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/update-shipment.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/update-shipment.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentNotFoundException } from '../../domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { UpdateShipmentDto } from '../dto/update-shipment.dto.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class UpdateShipmentUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(id: number, dto: UpdateShipmentDto) {
+    const shipment = await this.shipmentRepository.findById(id);
+    if (!shipment) throw new ShipmentNotFoundException(id);
+
+    shipment.update({
+      priority: dto.priority,
+      totalWeightKg: dto.totalWeightKg,
+      declaredValue: dto.declaredValue,
+      estimatedDeliveryDate: dto.estimatedDeliveryDate
+        ? new Date(dto.estimatedDeliveryDate)
+        : undefined,
+    });
+
+    const updated = await this.shipmentRepository.update(shipment);
+    return ShipmentMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case update-shipment.use-case.ts"
+```
+
+#### 14.21 — features/shipping/shipments/application/use-cases/quote-shipment.use-case.ts
+
+Calcula `calculatedCost` a partir de la `Tarifa` vinculada, el peso y la prioridad, y transiciona `creado → cotizado`.
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/quote-shipment.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/quote-shipment.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { RateCalculationRule } from '../../../rates/domain/enums/rate-calculation-rule.enum.js';
+import { RateNotFoundException } from '../../../rates/domain/exceptions/rate-not-found.exception.js';
+import {
+  RATE_REPOSITORY,
+  type IRateRepository,
+} from '../../../rates/domain/interfaces/rate-repository.interface.js';
+import { ShipmentPriority } from '../../domain/enums/shipment-priority.enum.js';
+import { ShipmentNotFoundException } from '../../domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class QuoteShipmentUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+    @Inject(RATE_REPOSITORY)
+    private readonly rateRepository: IRateRepository,
+  ) {}
+
+  async execute(id: number) {
+    const shipment = await this.shipmentRepository.findById(id);
+    if (!shipment) throw new ShipmentNotFoundException(id);
+
+    const rate = await this.rateRepository.findById(shipment.rateId);
+    if (!rate) throw new RateNotFoundException(shipment.rateId);
+
+    let cost =
+      rate.calculationRule === RateCalculationRule.FLAT
+        ? rate.baseValue
+        : rate.baseValue + shipment.totalWeightKg * rate.additionalValuePerKg;
+
+    if (
+      shipment.priority === ShipmentPriority.URGENT ||
+      shipment.priority === ShipmentPriority.EXPRESS
+    ) {
+      cost += cost * (rate.urgentSurchargePct / 100);
+    }
+
+    shipment.quote(Number(cost.toFixed(2)));
+
+    const updated = await this.shipmentRepository.update(shipment);
+    return ShipmentMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case quote-shipment.use-case.ts"
+```
+
+#### 14.22 — features/shipping/shipments/application/use-cases/assign-shipment.use-case.ts
+
+Verifica mensajero y ruta, y que la ruta pertenezca a ese mensajero. Transiciona `cotizado → asignado`.
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/assign-shipment.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/assign-shipment.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { CourierNotFoundException } from '../../../couriers/domain/exceptions/courier-not-found.exception.js';
+import {
+  COURIER_REPOSITORY,
+  type ICourierRepository,
+} from '../../../couriers/domain/interfaces/courier-repository.interface.js';
+import { RouteNotFoundException } from '../../../routes/domain/exceptions/route-not-found.exception.js';
+import {
+  ROUTE_REPOSITORY,
+  type IRouteRepository,
+} from '../../../routes/domain/interfaces/route-repository.interface.js';
+import { ShipmentNotFoundException } from '../../domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { AssignShipmentDto } from '../dto/assign-shipment.dto.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class AssignShipmentUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+    @Inject(COURIER_REPOSITORY)
+    private readonly courierRepository: ICourierRepository,
+    @Inject(ROUTE_REPOSITORY)
+    private readonly routeRepository: IRouteRepository,
+  ) {}
+
+  async execute(id: number, dto: AssignShipmentDto) {
+    const shipment = await this.shipmentRepository.findById(id);
+    if (!shipment) throw new ShipmentNotFoundException(id);
+
+    const courier = await this.courierRepository.findById(dto.courierId);
+    if (!courier) throw new CourierNotFoundException(dto.courierId);
+
+    const route = await this.routeRepository.findById(dto.routeId);
+    if (!route) throw new RouteNotFoundException(dto.routeId);
+
+    if (route.courierId !== dto.courierId) {
+      throw new Error('La ruta no pertenece al mensajero indicado');
+    }
+
+    shipment.assign(dto.courierId, dto.routeId);
+
+    const updated = await this.shipmentRepository.update(shipment);
+    return ShipmentMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case assign-shipment.use-case.ts"
+```
+
+#### 14.23 — features/shipping/shipments/application/use-cases/start-transit-shipment.use-case.ts
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/start-transit-shipment.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/start-transit-shipment.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentNotFoundException } from '../../domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class StartTransitShipmentUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(id: number) {
+    const shipment = await this.shipmentRepository.findById(id);
+    if (!shipment) throw new ShipmentNotFoundException(id);
+
+    shipment.startTransit();
+
+    const updated = await this.shipmentRepository.update(shipment);
+    return ShipmentMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case start-transit-shipment.use-case.ts"
+```
+
+#### 14.24 — features/shipping/shipments/application/use-cases/report-shipment-issue.use-case.ts
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/report-shipment-issue.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/report-shipment-issue.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentNotFoundException } from '../../domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class ReportShipmentIssueUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(id: number) {
+    const shipment = await this.shipmentRepository.findById(id);
+    if (!shipment) throw new ShipmentNotFoundException(id);
+
+    shipment.reportIssue();
+
+    const updated = await this.shipmentRepository.update(shipment);
+    return ShipmentMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case report-shipment-issue.use-case.ts"
+```
+
+#### 14.25 — features/shipping/shipments/application/use-cases/deliver-shipment.use-case.ts
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/deliver-shipment.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/deliver-shipment.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentNotFoundException } from '../../domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class DeliverShipmentUseCase {
+  // TODO(fase PruebaEntrega): inyectar PROOF_OF_DELIVERY_REPOSITORY y exigir
+  // que exista una prueba de entrega válida antes de llamar shipment.deliver().
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(id: number) {
+    const shipment = await this.shipmentRepository.findById(id);
+    if (!shipment) throw new ShipmentNotFoundException(id);
+
+    shipment.deliver();
+
+    const updated = await this.shipmentRepository.update(shipment);
+    return ShipmentMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case deliver-shipment.use-case.ts"
+```
+
+#### 14.26 — features/shipping/shipments/application/use-cases/cancel-shipment.use-case.ts
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/cancel-shipment.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/cancel-shipment.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentNotFoundException } from '../../domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+import { ShipmentMapper } from '../mappers/shipment.mapper.js';
+
+@Injectable()
+export class CancelShipmentUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(id: number) {
+    const shipment = await this.shipmentRepository.findById(id);
+    if (!shipment) throw new ShipmentNotFoundException(id);
+
+    shipment.cancel();
+
+    const updated = await this.shipmentRepository.update(shipment);
+    return ShipmentMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case cancel-shipment.use-case.ts"
+```
+
+#### 14.27 — features/shipping/shipments/application/use-cases/delete-shipment.use-case.ts
+
+Solo se puede borrar un envío recién creado (nunca uno cotizado en adelante — para eso existe `cancelar`).
+
+**Archivo:** `src/features/shipping/shipments/application/use-cases/delete-shipment.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/use-cases
+cat > src/features/shipping/shipments/application/use-cases/delete-shipment.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentStatus } from '../../domain/enums/shipment-status.enum.js';
+import { ShipmentNotFoundException } from '../../domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../domain/interfaces/shipment-repository.interface.js';
+
+@Injectable()
+export class DeleteShipmentUseCase {
+  constructor(
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(id: number): Promise<void> {
+    const shipment = await this.shipmentRepository.findById(id);
+    if (!shipment) throw new ShipmentNotFoundException(id);
+
+    if (shipment.status !== ShipmentStatus.CREATED) {
+      throw new Error(
+        `No se puede eliminar un envío en estado '${shipment.status}'; use cancelar en su lugar`,
+      );
+    }
+
+    await this.shipmentRepository.delete(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case delete-shipment.use-case.ts"
+```
