@@ -14405,7 +14405,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/update-package.dto.png)
 
-#### 15.12 — features/shipping/packages/application/mappers/package.mapper.ts
+### 15.12 — features/shipping/packages/application/mappers/package.mapper.ts
 
 **Archivo:** `src/features/shipping/packages/application/mappers/package.mapper.ts`
 
@@ -14468,3 +14468,5 @@ export class PackageMapper {
 }
 EOF_BACKEND_IA
 ```
+
+![alt text](imagenes/package.mapper.png)
