@@ -8,6 +8,7 @@ import { AddressModel } from '../../../features/shipping/addresses/infrastructur
 import { RateModel } from '../../../features/shipping/rates/infrastructure/persistence/models/rate.model.js';
 import { CourierModel } from '../../../features/shipping/couriers/infrastructure/persistence/models/courier.model.js';
 import { RouteModel } from '../../../features/shipping/routes/infrastructure/persistence/models/route.model.js';
+import { InvoiceModel } from '../../../features/shipping/invoices/infrastructure/persistence/models/invoice.model.js';
 
 export const ALL_MODELS = [
   CompanyModel,
@@ -16,6 +17,7 @@ export const ALL_MODELS = [
   RateModel,
   CourierModel,
   RouteModel,
+  InvoiceModel,
 ];
 
 async function loadDialectModule(moduleName: string): Promise<any> {
