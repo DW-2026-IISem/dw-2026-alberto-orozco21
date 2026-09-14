@@ -14871,7 +14871,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/packages.module.png)
 
-#### 15.22 — Actualizar shipment.model.ts (cerrar la asociación)
+### 15.22 — Actualizar shipment.model.ts (cerrar la asociación)
 
 Vuelve al modelo de Envio y agrega `@HasMany(() => PackageModel)`.
 
@@ -15029,12 +15029,7 @@ export class ShipmentModel extends Model {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add packages HasMany association to shipment.model.ts"
-```
+![alt text](imagenes/shipment.model_pack.png)
 
 #### 15.23 — Actualizar sequelize.factory.ts (registrar PackageModel)
 
