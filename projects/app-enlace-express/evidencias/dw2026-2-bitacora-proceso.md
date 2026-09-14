@@ -15123,7 +15123,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/PackageModel.png)
 
-#### 15.24 — Actualizar shipping.module.ts
+### 15.24 — Actualizar shipping.module.ts
 
 **Archivo:** `src/features/shipping/shipping.module.ts`
 
@@ -15169,12 +15169,7 @@ export class ShippingModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: export PackagesModule from ShippingModule"
-```
+![alt text](imagenes/PackagesModule.png)
 
 #### 15.25 — Actualizar database-seeder.service.ts y verificar tabla `packages`
 
