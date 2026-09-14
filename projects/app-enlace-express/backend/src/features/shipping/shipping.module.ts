@@ -6,6 +6,7 @@ import { RatesModule } from './rates/rates.module.js';
 import { CouriersModule } from './couriers/couriers.module.js';
 import { RoutesModule } from './routes/routes.module.js';
 import { InvoicesModule } from './invoices/invoices.module.js';
+import { ShipmentsModule } from './shipments/shipments.module.js';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { InvoicesModule } from './invoices/invoices.module.js';
     CouriersModule,
     RoutesModule,
     InvoicesModule,
+    ShipmentsModule,
   ],
   exports: [
     CompaniesModule,
@@ -25,6 +27,7 @@ import { InvoicesModule } from './invoices/invoices.module.js';
     CouriersModule,
     RoutesModule,
     InvoicesModule,
+    ShipmentsModule,
   ],
 })
 export class ShippingModule {}

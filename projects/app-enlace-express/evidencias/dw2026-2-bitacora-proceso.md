@@ -13736,12 +13736,7 @@ export class ShippingModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: export ShipmentsModule from ShippingModule"
-```
+![alt text](imagenes/ShipmentsModule.png)
 
 #### 14.35 — Actualizar database-seeder.service.ts y verificar tabla `shipments` + máquina de estados
 
