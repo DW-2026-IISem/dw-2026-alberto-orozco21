@@ -14534,7 +14534,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/create-package.use-case.png)
 
-#### 15.14 — features/shipping/packages/application/use-cases/delete-package.use-case.ts
+### 15.14 — features/shipping/packages/application/use-cases/delete-package.use-case.ts
 
 También exige que el envío siga en `creado`.
 
@@ -14581,12 +14581,7 @@ export class DeletePackageUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case delete-package.use-case.ts"
-```
+![alt text](imagenes/delete-package.use-case.png)
 
 #### 15.15 — features/shipping/packages/application/use-cases/get-package.use-case.ts
 
