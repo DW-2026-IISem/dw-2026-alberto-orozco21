@@ -12769,14 +12769,9 @@ export class QuoteShipmentUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/quote-shipment.use-case.png)
 
-```bash
-git add .
-git commit -m "feat: add use case quote-shipment.use-case.ts"
-```
-
-#### 14.22 — features/shipping/shipments/application/use-cases/assign-shipment.use-case.ts
+### 14.22 — features/shipping/shipments/application/use-cases/assign-shipment.use-case.ts
 
 Verifica mensajero y ruta, y que la ruta pertenezca a ese mensajero. Transiciona `cotizado → asignado`.
 
