@@ -12109,9 +12109,4 @@ export async function seedShipments(): Promise<void> {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add seeder shipments.seeder.ts"
-```
+![alt text](imagenes/shipments.seeder.png)
