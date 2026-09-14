@@ -14178,7 +14178,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/create-packages-table.migration.png)
 
-#### 15.7 — features/shipping/packages/infrastructure/persistence/seeders/packages.seeder.ts
+### 15.7 — features/shipping/packages/infrastructure/persistence/seeders/packages.seeder.ts
 
 Depende de que ya exista al menos un envío (fase 14).
 
@@ -14229,12 +14229,7 @@ export async function seedPackages(): Promise<void> {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add seeder packages.seeder.ts"
-```
+![alt text](imagenes/packages.seeder.png)
 
 #### 15.8 — features/shipping/packages/application/dto/package-filter.dto.ts
 
