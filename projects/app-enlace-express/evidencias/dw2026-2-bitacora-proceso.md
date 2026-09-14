@@ -11519,7 +11519,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/shipment-not-found.exception.png)
 
-#### 14.5 — features/shipping/shipments/domain/entities/shipment.entity.ts
+### 14.5 — features/shipping/shipments/domain/entities/shipment.entity.ts
 
 La entidad más grande del proyecto: crea con estado `CREATED`, y solo cambia de estado a través de sus métodos (`quote`, `assign`, `startTransit`, `reportIssue`, `deliver`, `cancel`), cada uno validando la transición.
 
@@ -11748,9 +11748,4 @@ export class Shipment {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add domain entity shipment.entity.ts with state machine"
-```
+![alt text](imagenes/shipment.entity.png)
