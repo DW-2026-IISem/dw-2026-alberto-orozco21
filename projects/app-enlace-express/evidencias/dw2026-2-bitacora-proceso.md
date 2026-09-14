@@ -13276,14 +13276,9 @@ export class ShipmentsModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/shipments.module.png)
 
-```bash
-git add .
-git commit -m "feat: wire nest module shipments.module.ts"
-```
-
-#### 14.32 — Actualizar company.model.ts, courier.model.ts, route.model.ts, rate.model.ts e invoice.model.ts
+### 14.32 — Actualizar company.model.ts, courier.model.ts, route.model.ts, rate.model.ts e invoice.model.ts
 
 Cierra las cinco asociaciones `1:N Envio` pendientes (`Empresa`, `Mensajero`, `Ruta`, `Tarifa`, `Factura`), todas con import estático hacia `ShipmentModel`.
 
