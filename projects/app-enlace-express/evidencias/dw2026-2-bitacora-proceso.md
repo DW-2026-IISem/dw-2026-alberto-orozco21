@@ -12028,7 +12028,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/shipment.repository.png)
 
-#### 14.9 — features/shipping/shipments/infrastructure/persistence/migrations/create-shipments-table.migration.ts
+### 14.9 — features/shipping/shipments/infrastructure/persistence/migrations/create-shipments-table.migration.ts
 
 **Archivo:** `src/features/shipping/shipments/infrastructure/persistence/migrations/create-shipments-table.migration.ts`
 
@@ -12054,14 +12054,9 @@ export const createShipmentsTableMigration = {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/create-shipments-table.migration.png)
 
-```bash
-git add .
-git commit -m "chore: add migration create-shipments-table.migration.ts"
-```
-
-#### 14.10 — features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.ts
+### 14.10 — features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.ts
 
 Depende de que ya existan empresas, contactos, direcciones y tarifas.
 
