@@ -13977,12 +13977,7 @@ export class PackageNotFoundException extends EntityNotFoundException {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add domain exception package-not-found.exception.ts"
-```
+![alt text](imagenes/package-not-found.exception.png)
 
 #### 15.3 — features/shipping/packages/domain/interfaces/package-repository.interface.ts
 
