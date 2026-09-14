@@ -13212,14 +13212,9 @@ export { ShipmentsModule } from './shipments.module.js';
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/shipments_index.png)
 
-```bash
-git add .
-git commit -m "chore: add barrel export shipments"
-```
-
-#### 14.31 — features/shipping/shipments/shipments.module.ts
+### 14.31 — features/shipping/shipments/shipments.module.ts
 
 Importa seis módulos: Companies, Contacts, Addresses, Rates, Couriers y Routes — el precio de ser la entidad central.
 
