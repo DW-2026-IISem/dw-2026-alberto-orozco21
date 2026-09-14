@@ -14385,7 +14385,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/create-package.dto.png)
 
-#### 15.11 — features/shipping/packages/application/dto/update-package.dto.ts
+### 15.11 — features/shipping/packages/application/dto/update-package.dto.ts
 
 `shipmentId` se excluye: un paquete no cambia de envío.
 
@@ -14403,12 +14403,7 @@ export class UpdatePackageDto extends PartialType(
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto update-package.dto.ts"
-```
+![alt text](imagenes/update-package.dto.png)
 
 #### 15.12 — features/shipping/packages/application/mappers/package.mapper.ts
 
