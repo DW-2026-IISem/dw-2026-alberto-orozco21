@@ -13199,14 +13199,9 @@ export class ShipmentsController {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/shipments.controller.png)
 
-```bash
-git add .
-git commit -m "feat: add controller shipments.controller.ts with full state machine routes"
-```
-
-#### 14.30 — features/shipping/shipments/index.ts
+### 14.30 — features/shipping/shipments/index.ts
 
 **Archivo:** `src/features/shipping/shipments/index.ts`
 
