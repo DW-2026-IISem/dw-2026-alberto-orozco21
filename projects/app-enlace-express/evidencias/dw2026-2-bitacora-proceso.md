@@ -11402,3 +11402,21 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/database-seeder.service_invoice.png)
+
+Arranca la app. Debe crear/sync tabla `invoices` (con FK a `companies`), correr seeder y exponer `/api/invoices`. Prueba:
+- `PATCH /api/invoices/:id/pay` → factura pasa a `pagada`.
+- Intentar `PATCH /api/invoices/:id` (update genérico) sobre una factura ya pagada → debe fallar.
+- Intentar `DELETE /api/invoices/:id` sobre una factura pagada → debe fallar.
+- Intentar `PATCH /api/invoices/:id/void` sobre una factura pagada → debe fallar.
+
+```bash
+npm run start:dev
+```
+
+**Consola**
+
+![alt text](imagenes/invace_consola.png)
+
+**/api/invoices**
+
+![alt text](imagenes/api_invoices.png)
