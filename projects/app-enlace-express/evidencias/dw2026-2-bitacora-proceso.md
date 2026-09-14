@@ -14651,7 +14651,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/list-packages.use-case.png)
 
-#### 15.17 — features/shipping/packages/application/use-cases/update-package.use-case.ts
+### 15.17 — features/shipping/packages/application/use-cases/update-package.use-case.ts
 
 También exige que el envío siga en `creado`.
 
@@ -14703,12 +14703,7 @@ export class UpdatePackageUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case update-package.use-case.ts"
-```
+![alt text](imagenes/update-package.use-case.png)
 
 #### 15.18 — features/shipping/packages/presentation/http/serializers/package.serializer.ts
 
