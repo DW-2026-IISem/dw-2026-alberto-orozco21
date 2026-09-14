@@ -5,6 +5,7 @@ import {
   CreatedAt,
   DataType,
   ForeignKey,
+  HasMany,
   Model,
   PrimaryKey,
   Table,
@@ -17,6 +18,7 @@ import { RateModel } from '../../../../rates/infrastructure/persistence/models/r
 import { CourierModel } from '../../../../couriers/infrastructure/persistence/models/courier.model.js';
 import { RouteModel } from '../../../../routes/infrastructure/persistence/models/route.model.js';
 import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
+import { PackageModel } from '../../../../packages/infrastructure/persistence/models/package.model.js';
 import { ShipmentPriority } from '../../../domain/enums/shipment-priority.enum.js';
 import { ShipmentStatus } from '../../../domain/enums/shipment-status.enum.js';
 
@@ -139,4 +141,7 @@ export class ShipmentModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
+
+  @HasMany(() => PackageModel)
+  declare packages: PackageModel[];
 }
