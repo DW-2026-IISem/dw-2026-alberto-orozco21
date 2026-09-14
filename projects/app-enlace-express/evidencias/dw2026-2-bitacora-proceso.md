@@ -13979,7 +13979,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/package-not-found.exception.png)
 
-#### 15.3 — features/shipping/packages/domain/interfaces/package-repository.interface.ts
+### 15.3 — features/shipping/packages/domain/interfaces/package-repository.interface.ts
 
 **Archivo:** `src/features/shipping/packages/domain/interfaces/package-repository.interface.ts`
 
@@ -14007,9 +14007,5 @@ export interface IPackageRepository {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/package-repository.interface.png)
 
-```bash
-git add .
-git commit -m "feat: add repository port package-repository.interface.ts"
-```
