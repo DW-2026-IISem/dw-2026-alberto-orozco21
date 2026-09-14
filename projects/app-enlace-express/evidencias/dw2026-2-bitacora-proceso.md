@@ -12110,3 +12110,302 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/shipments.seeder.png)
+
+### 14.11 — features/shipping/shipments/application/dto/shipment-filter.dto.ts
+
+**Archivo:** `src/features/shipping/shipments/application/dto/shipment-filter.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/dto
+cat > src/features/shipping/shipments/application/dto/shipment-filter.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Min,
+} from 'class-validator';
+import { ShipmentPriority } from '../../domain/enums/shipment-priority.enum.js';
+import { ShipmentStatus } from '../../domain/enums/shipment-status.enum.js';
+
+export class ShipmentFilterDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 'ENV-' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  companyId?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  courierId?: number;
+
+  @ApiPropertyOptional({ enum: ShipmentStatus, example: ShipmentStatus.IN_TRANSIT })
+  @IsOptional()
+  @IsEnum(ShipmentStatus)
+  status?: ShipmentStatus;
+
+  @ApiPropertyOptional({ enum: ShipmentPriority, example: ShipmentPriority.URGENT })
+  @IsOptional()
+  @IsEnum(ShipmentPriority)
+  priority?: ShipmentPriority;
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/shipment-filter.dto.png)
+
+#### 14.12 — features/shipping/shipments/application/dto/shipment-response.dto.ts
+
+**Archivo:** `src/features/shipping/shipments/application/dto/shipment-response.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/dto
+cat > src/features/shipping/shipments/application/dto/shipment-response.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ShipmentPriority } from '../../domain/enums/shipment-priority.enum.js';
+import { ShipmentStatus } from '../../domain/enums/shipment-status.enum.js';
+
+export class ShipmentResponseDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 'ENV-LK3F9A-B7K2' })
+  guideNumber: string;
+
+  @ApiProperty({ example: 1 })
+  companyId: number;
+
+  @ApiProperty({ example: 1 })
+  originContactId: number;
+
+  @ApiProperty({ example: 1 })
+  originAddressId: number;
+
+  @ApiProperty({ example: 2 })
+  destinationContactId: number;
+
+  @ApiProperty({ example: 2 })
+  destinationAddressId: number;
+
+  @ApiProperty({ example: 1 })
+  rateId: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  courierId?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  routeId?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  invoiceId?: number;
+
+  @ApiProperty({ enum: ShipmentPriority, example: ShipmentPriority.NORMAL })
+  priority: ShipmentPriority;
+
+  @ApiProperty({ example: 5 })
+  totalWeightKg: number;
+
+  @ApiProperty({ example: 150000 })
+  declaredValue: number;
+
+  @ApiPropertyOptional({ example: 18500 })
+  calculatedCost?: number;
+
+  @ApiProperty({ enum: ShipmentStatus, example: ShipmentStatus.CREATED })
+  status: ShipmentStatus;
+
+  @ApiProperty()
+  requestDate: Date;
+
+  @ApiProperty()
+  estimatedDeliveryDate: Date;
+
+  @ApiPropertyOptional()
+  actualDeliveryDate?: Date;
+
+  @ApiProperty({ example: true })
+  isActive: boolean;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto shipment-response.dto.ts"
+```
+
+#### 14.13 — features/shipping/shipments/application/dto/create-shipment.dto.ts
+
+No incluye `guideNumber` (lo genera el dominio), ni `status`/`calculatedCost`/`courierId`/`routeId`/`invoiceId` (llegan después vía las transiciones).
+
+**Archivo:** `src/features/shipping/shipments/application/dto/create-shipment.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/dto
+cat > src/features/shipping/shipments/application/dto/create-shipment.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  Min,
+} from 'class-validator';
+import { ShipmentPriority } from '../../domain/enums/shipment-priority.enum.js';
+
+export class CreateShipmentDto {
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  companyId: number;
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  originContactId: number;
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  originAddressId: number;
+
+  @ApiProperty({ example: 2 })
+  @IsInt()
+  @IsPositive()
+  destinationContactId: number;
+
+  @ApiProperty({ example: 2 })
+  @IsInt()
+  @IsPositive()
+  destinationAddressId: number;
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  rateId: number;
+
+  @ApiPropertyOptional({ enum: ShipmentPriority, default: ShipmentPriority.NORMAL })
+  @IsOptional()
+  @IsEnum(ShipmentPriority)
+  priority?: ShipmentPriority;
+
+  @ApiProperty({ example: 5 })
+  @IsNumber()
+  @Min(0.01)
+  totalWeightKg: number;
+
+  @ApiProperty({ example: 150000 })
+  @IsNumber()
+  @Min(0)
+  declaredValue: number;
+
+  @ApiProperty({ example: '2026-09-17' })
+  @IsDateString()
+  estimatedDeliveryDate: string;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto create-shipment.dto.ts"
+```
+
+#### 14.14 — features/shipping/shipments/application/dto/update-shipment.dto.ts
+
+Solo campos comerciales editables mientras el envío está `creado` (ver `Shipment.update`).
+
+**Archivo:** `src/features/shipping/shipments/application/dto/update-shipment.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/dto
+cat > src/features/shipping/shipments/application/dto/update-shipment.dto.ts <<'EOF_BACKEND_IA'
+import { PartialType, PickType } from '@nestjs/mapped-types';
+import { CreateShipmentDto } from './create-shipment.dto.js';
+
+export class UpdateShipmentDto extends PartialType(
+  PickType(CreateShipmentDto, [
+    'priority',
+    'totalWeightKg',
+    'declaredValue',
+    'estimatedDeliveryDate',
+  ] as const),
+) {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto update-shipment.dto.ts"
+```
+
+#### 14.15 — features/shipping/shipments/application/dto/assign-shipment.dto.ts
+
+**Archivo:** `src/features/shipping/shipments/application/dto/assign-shipment.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/shipments/application/dto
+cat > src/features/shipping/shipments/application/dto/assign-shipment.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty } from '@nestjs/swagger';
+import { IsInt, IsPositive } from 'class-validator';
+
+export class AssignShipmentDto {
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  courierId: number;
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  routeId: number;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto assign-shipment.dto.ts"
+```
