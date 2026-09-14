@@ -14320,7 +14320,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/package-response.dto.png)
 
-#### 15.10 — features/shipping/packages/application/dto/create-package.dto.ts
+### 15.10 — features/shipping/packages/application/dto/create-package.dto.ts
 
 **Archivo:** `src/features/shipping/packages/application/dto/create-package.dto.ts`
 
@@ -14383,12 +14383,7 @@ export class CreatePackageDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto create-package.dto.ts"
-```
+![alt text](imagenes/create-package.dto.png)
 
 #### 15.11 — features/shipping/packages/application/dto/update-package.dto.ts
 
