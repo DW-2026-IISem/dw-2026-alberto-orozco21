@@ -12364,7 +12364,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/update-shipment.dto.png)
 
-#### 14.15 — features/shipping/shipments/application/dto/assign-shipment.dto.ts
+### 14.15 — features/shipping/shipments/application/dto/assign-shipment.dto.ts
 
 **Archivo:** `src/features/shipping/shipments/application/dto/assign-shipment.dto.ts`
 
@@ -12388,9 +12388,4 @@ export class AssignShipmentDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto assign-shipment.dto.ts"
-```
+![alt text](imagenes/assign-shipment.dto.png)
