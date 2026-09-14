@@ -11517,12 +11517,7 @@ export class ShipmentNotFoundException extends EntityNotFoundException {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add domain exception shipment-not-found.exception.ts"
-```
+![alt text](imagenes/shipment-not-found.exception.png)
 
 #### 14.5 — features/shipping/shipments/domain/entities/shipment.entity.ts
 
