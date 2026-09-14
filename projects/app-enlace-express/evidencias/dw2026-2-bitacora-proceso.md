@@ -13026,9 +13026,4 @@ export class DeleteShipmentUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case delete-shipment.use-case.ts"
-```
+![alt text](imagenes/delete-shipment.use-case.png)
