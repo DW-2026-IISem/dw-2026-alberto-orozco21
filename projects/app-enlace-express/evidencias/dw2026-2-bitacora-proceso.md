@@ -14470,3 +14470,826 @@ EOF_BACKEND_IA
 ```
 
 ![alt text](imagenes/package.mapper.png)
+
+### 15.13 — features/shipping/packages/application/use-cases/create-package.use-case.ts
+
+Verifica que el envío exista y que esté en estado `creado` (no se pueden agregar paquetes después de cotizado).
+
+**Archivo:** `src/features/shipping/packages/application/use-cases/create-package.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/use-cases
+cat > src/features/shipping/packages/application/use-cases/create-package.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentStatus } from '../../../shipments/domain/enums/shipment-status.enum.js';
+import { ShipmentNotFoundException } from '../../../shipments/domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../../shipments/domain/interfaces/shipment-repository.interface.js';
+import { Package } from '../../domain/entities/package.entity.js';
+import {
+  PACKAGE_REPOSITORY,
+  type IPackageRepository,
+} from '../../domain/interfaces/package-repository.interface.js';
+import { CreatePackageDto } from '../dto/create-package.dto.js';
+import { PackageMapper } from '../mappers/package.mapper.js';
+
+@Injectable()
+export class CreatePackageUseCase {
+  constructor(
+    @Inject(PACKAGE_REPOSITORY)
+    private readonly packageRepository: IPackageRepository,
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(dto: CreatePackageDto) {
+    const shipment = await this.shipmentRepository.findById(dto.shipmentId);
+    if (!shipment) throw new ShipmentNotFoundException(dto.shipmentId);
+
+    if (shipment.status !== ShipmentStatus.CREATED) {
+      throw new Error(
+        `No se pueden agregar paquetes a un envío en estado '${shipment.status}'`,
+      );
+    }
+
+    const pkg = Package.create({
+      shipmentId: dto.shipmentId,
+      contentDescription: dto.contentDescription,
+      weightKg: dto.weightKg,
+      heightCm: dto.heightCm,
+      widthCm: dto.widthCm,
+      lengthCm: dto.lengthCm,
+      declaredValue: dto.declaredValue,
+      isFragile: dto.isFragile,
+    });
+
+    const created = await this.packageRepository.create(pkg);
+    return PackageMapper.toResponse(created);
+  }
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/create-package.use-case.png)
+
+#### 15.14 — features/shipping/packages/application/use-cases/delete-package.use-case.ts
+
+También exige que el envío siga en `creado`.
+
+**Archivo:** `src/features/shipping/packages/application/use-cases/delete-package.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/use-cases
+cat > src/features/shipping/packages/application/use-cases/delete-package.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentStatus } from '../../../shipments/domain/enums/shipment-status.enum.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../../shipments/domain/interfaces/shipment-repository.interface.js';
+import { PackageNotFoundException } from '../../domain/exceptions/package-not-found.exception.js';
+import {
+  PACKAGE_REPOSITORY,
+  type IPackageRepository,
+} from '../../domain/interfaces/package-repository.interface.js';
+
+@Injectable()
+export class DeletePackageUseCase {
+  constructor(
+    @Inject(PACKAGE_REPOSITORY)
+    private readonly packageRepository: IPackageRepository,
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(id: number): Promise<void> {
+    const pkg = await this.packageRepository.findById(id);
+    if (!pkg) throw new PackageNotFoundException(id);
+
+    const shipment = await this.shipmentRepository.findById(pkg.shipmentId);
+    if (shipment && shipment.status !== ShipmentStatus.CREATED) {
+      throw new Error(
+        `No se pueden eliminar paquetes de un envío en estado '${shipment.status}'`,
+      );
+    }
+
+    await this.packageRepository.delete(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case delete-package.use-case.ts"
+```
+
+#### 15.15 — features/shipping/packages/application/use-cases/get-package.use-case.ts
+
+**Archivo:** `src/features/shipping/packages/application/use-cases/get-package.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/use-cases
+cat > src/features/shipping/packages/application/use-cases/get-package.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { PackageNotFoundException } from '../../domain/exceptions/package-not-found.exception.js';
+import {
+  PACKAGE_REPOSITORY,
+  type IPackageRepository,
+} from '../../domain/interfaces/package-repository.interface.js';
+import { PackageMapper } from '../mappers/package.mapper.js';
+
+@Injectable()
+export class GetPackageUseCase {
+  constructor(
+    @Inject(PACKAGE_REPOSITORY)
+    private readonly packageRepository: IPackageRepository,
+  ) {}
+
+  async execute(id: number) {
+    const pkg = await this.packageRepository.findById(id);
+    if (!pkg) throw new PackageNotFoundException(id);
+    return PackageMapper.toResponse(pkg);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case get-package.use-case.ts"
+```
+
+#### 15.16 — features/shipping/packages/application/use-cases/list-packages.use-case.ts
+
+**Archivo:** `src/features/shipping/packages/application/use-cases/list-packages.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/use-cases
+cat > src/features/shipping/packages/application/use-cases/list-packages.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  PACKAGE_REPOSITORY,
+  type IPackageRepository,
+} from '../../domain/interfaces/package-repository.interface.js';
+import { PackageFilterDto } from '../dto/package-filter.dto.js';
+import { PackageMapper } from '../mappers/package.mapper.js';
+
+@Injectable()
+export class ListPackagesUseCase {
+  constructor(
+    @Inject(PACKAGE_REPOSITORY)
+    private readonly packageRepository: IPackageRepository,
+  ) {}
+
+  async execute(filter: PackageFilterDto) {
+    const result = await this.packageRepository.findAll(filter);
+    return {
+      items: result.items.map((pkg) => PackageMapper.toResponse(pkg)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case list-packages.use-case.ts"
+```
+
+#### 15.17 — features/shipping/packages/application/use-cases/update-package.use-case.ts
+
+También exige que el envío siga en `creado`.
+
+**Archivo:** `src/features/shipping/packages/application/use-cases/update-package.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/application/use-cases
+cat > src/features/shipping/packages/application/use-cases/update-package.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentStatus } from '../../../shipments/domain/enums/shipment-status.enum.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../../shipments/domain/interfaces/shipment-repository.interface.js';
+import { PackageNotFoundException } from '../../domain/exceptions/package-not-found.exception.js';
+import {
+  PACKAGE_REPOSITORY,
+  type IPackageRepository,
+} from '../../domain/interfaces/package-repository.interface.js';
+import { UpdatePackageDto } from '../dto/update-package.dto.js';
+import { PackageMapper } from '../mappers/package.mapper.js';
+
+@Injectable()
+export class UpdatePackageUseCase {
+  constructor(
+    @Inject(PACKAGE_REPOSITORY)
+    private readonly packageRepository: IPackageRepository,
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(id: number, dto: UpdatePackageDto) {
+    const pkg = await this.packageRepository.findById(id);
+    if (!pkg) throw new PackageNotFoundException(id);
+
+    const shipment = await this.shipmentRepository.findById(pkg.shipmentId);
+    if (shipment && shipment.status !== ShipmentStatus.CREATED) {
+      throw new Error(
+        `No se pueden modificar paquetes de un envío en estado '${shipment.status}'`,
+      );
+    }
+
+    pkg.update(dto);
+
+    const updated = await this.packageRepository.update(pkg);
+    return PackageMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case update-package.use-case.ts"
+```
+
+#### 15.18 — features/shipping/packages/presentation/http/serializers/package.serializer.ts
+
+**Archivo:** `src/features/shipping/packages/presentation/http/serializers/package.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/presentation/http/serializers
+cat > src/features/shipping/packages/presentation/http/serializers/package.serializer.ts <<'EOF_BACKEND_IA'
+import { Package } from '../../../domain/entities/package.entity.js';
+import { PackageResponseDto } from '../../../application/dto/package-response.dto.js';
+import { PackageMapper } from '../../../application/mappers/package.mapper.js';
+
+export class PackageSerializer {
+  static serialize(entity: Package): PackageResponseDto {
+    return PackageMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add serializer package.serializer.ts"
+```
+
+#### 15.19 — features/shipping/packages/presentation/http/controllers/packages.controller.ts
+
+**Archivo:** `src/features/shipping/packages/presentation/http/controllers/packages.controller.ts`
+
+```bash
+mkdir -p src/features/shipping/packages/presentation/http/controllers
+cat > src/features/shipping/packages/presentation/http/controllers/packages.controller.ts <<'EOF_BACKEND_IA'
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ParsePositiveIntPipe } from '../../../../../../common/pipes/parse-positive-int.pipe.js';
+import { CreatePackageDto } from '../../../application/dto/create-package.dto.js';
+import { UpdatePackageDto } from '../../../application/dto/update-package.dto.js';
+import { PackageFilterDto } from '../../../application/dto/package-filter.dto.js';
+import { PackageResponseDto } from '../../../application/dto/package-response.dto.js';
+import { CreatePackageUseCase } from '../../../application/use-cases/create-package.use-case.js';
+import { UpdatePackageUseCase } from '../../../application/use-cases/update-package.use-case.js';
+import { DeletePackageUseCase } from '../../../application/use-cases/delete-package.use-case.js';
+import { GetPackageUseCase } from '../../../application/use-cases/get-package.use-case.js';
+import { ListPackagesUseCase } from '../../../application/use-cases/list-packages.use-case.js';
+
+@ApiTags('Packages')
+@Controller('packages')
+export class PackagesController {
+  constructor(
+    private readonly createPackageUseCase: CreatePackageUseCase,
+    private readonly updatePackageUseCase: UpdatePackageUseCase,
+    private readonly deletePackageUseCase: DeletePackageUseCase,
+    private readonly getPackageUseCase: GetPackageUseCase,
+    private readonly listPackagesUseCase: ListPackagesUseCase,
+  ) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Agregar un paquete a un envío' })
+  @ApiCreatedResponse({ type: PackageResponseDto })
+  create(@Body() dto: CreatePackageDto) {
+    return this.createPackageUseCase.execute(dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar paquetes (opcionalmente por envío)' })
+  @ApiOkResponse({ type: [PackageResponseDto] })
+  findAll(@Query() filter: PackageFilterDto) {
+    return this.listPackagesUseCase.execute(filter);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener un paquete por ID' })
+  @ApiOkResponse({ type: PackageResponseDto })
+  findOne(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.getPackageUseCase.execute(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar un paquete (solo si el envío sigue creado)' })
+  @ApiOkResponse({ type: PackageResponseDto })
+  update(
+    @Param('id', ParsePositiveIntPipe) id: number,
+    @Body() dto: UpdatePackageDto,
+  ) {
+    return this.updatePackageUseCase.execute(id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar un paquete (solo si el envío sigue creado)' })
+  @ApiNoContentResponse()
+  remove(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.deletePackageUseCase.execute(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add controller packages.controller.ts"
+```
+
+#### 15.20 — features/shipping/packages/index.ts
+
+**Archivo:** `src/features/shipping/packages/index.ts`
+
+```bash
+mkdir -p src/features/shipping/packages
+cat > src/features/shipping/packages/index.ts <<'EOF_BACKEND_IA'
+export { PackagesModule } from './packages.module.js';
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add barrel export packages"
+```
+
+#### 15.21 — features/shipping/packages/packages.module.ts
+
+Importa `ShipmentsModule` para inyectar `SHIPMENT_REPOSITORY` y validar la FK + estado.
+
+**Archivo:** `src/features/shipping/packages/packages.module.ts`
+
+```bash
+mkdir -p src/features/shipping/packages
+cat > src/features/shipping/packages/packages.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { ShipmentsModule } from '../shipments/shipments.module.js';
+import { PACKAGE_REPOSITORY } from './domain/interfaces/package-repository.interface.js';
+import { PackageRepository } from './infrastructure/persistence/repositories/package.repository.js';
+import { CreatePackageUseCase } from './application/use-cases/create-package.use-case.js';
+import { UpdatePackageUseCase } from './application/use-cases/update-package.use-case.js';
+import { DeletePackageUseCase } from './application/use-cases/delete-package.use-case.js';
+import { GetPackageUseCase } from './application/use-cases/get-package.use-case.js';
+import { ListPackagesUseCase } from './application/use-cases/list-packages.use-case.js';
+import { PackagesController } from './presentation/http/controllers/packages.controller.js';
+
+@Module({
+  imports: [ShipmentsModule],
+  controllers: [PackagesController],
+  providers: [
+    PackageRepository,
+    { provide: PACKAGE_REPOSITORY, useExisting: PackageRepository },
+    CreatePackageUseCase,
+    UpdatePackageUseCase,
+    DeletePackageUseCase,
+    GetPackageUseCase,
+    ListPackagesUseCase,
+  ],
+  exports: [PACKAGE_REPOSITORY],
+})
+export class PackagesModule {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: wire nest module packages.module.ts"
+```
+
+#### 15.22 — Actualizar shipment.model.ts (cerrar la asociación)
+
+Vuelve al modelo de Envio y agrega `@HasMany(() => PackageModel)`.
+
+**Archivo:** `src/features/shipping/shipments/infrastructure/persistence/models/shipment.model.ts`
+
+```bash
+cat > src/features/shipping/shipments/infrastructure/persistence/models/shipment.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  BelongsTo,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { CompanyModel } from '../../../../companies/infrastructure/persistence/models/company.model.js';
+import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../../addresses/infrastructure/persistence/models/address.model.js';
+import { RateModel } from '../../../../rates/infrastructure/persistence/models/rate.model.js';
+import { CourierModel } from '../../../../couriers/infrastructure/persistence/models/courier.model.js';
+import { RouteModel } from '../../../../routes/infrastructure/persistence/models/route.model.js';
+import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
+import { PackageModel } from '../../../../packages/infrastructure/persistence/models/package.model.js';
+import { ShipmentPriority } from '../../../domain/enums/shipment-priority.enum.js';
+import { ShipmentStatus } from '../../../domain/enums/shipment-status.enum.js';
+
+@Table({ tableName: 'shipments' })
+export class ShipmentModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(30), allowNull: false, unique: true })
+  declare guideNumber: string;
+
+  @ForeignKey(() => CompanyModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare companyId: number;
+
+  @BelongsTo(() => CompanyModel)
+  declare company: CompanyModel;
+
+  @ForeignKey(() => ContactModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare originContactId: number;
+
+  @BelongsTo(() => ContactModel, { foreignKey: 'originContactId', as: 'originContact' })
+  declare originContact: ContactModel;
+
+  @ForeignKey(() => AddressModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare originAddressId: number;
+
+  @BelongsTo(() => AddressModel, { foreignKey: 'originAddressId', as: 'originAddress' })
+  declare originAddress: AddressModel;
+
+  @ForeignKey(() => ContactModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare destinationContactId: number;
+
+  @BelongsTo(() => ContactModel, {
+    foreignKey: 'destinationContactId',
+    as: 'destinationContact',
+  })
+  declare destinationContact: ContactModel;
+
+  @ForeignKey(() => AddressModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare destinationAddressId: number;
+
+  @BelongsTo(() => AddressModel, {
+    foreignKey: 'destinationAddressId',
+    as: 'destinationAddress',
+  })
+  declare destinationAddress: AddressModel;
+
+  @ForeignKey(() => RateModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare rateId: number;
+
+  @BelongsTo(() => RateModel)
+  declare rate: RateModel;
+
+  @ForeignKey(() => CourierModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare courierId: number | null;
+
+  @BelongsTo(() => CourierModel)
+  declare courier: CourierModel;
+
+  @ForeignKey(() => RouteModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare routeId: number | null;
+
+  @BelongsTo(() => RouteModel)
+  declare route: RouteModel;
+
+  @ForeignKey(() => InvoiceModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare invoiceId: number | null;
+
+  @BelongsTo(() => InvoiceModel)
+  declare invoice: InvoiceModel;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(ShipmentPriority)),
+    allowNull: false,
+    defaultValue: ShipmentPriority.NORMAL,
+  })
+  declare priority: ShipmentPriority;
+
+  @Column({ type: DataType.DECIMAL(8, 2), allowNull: false })
+  declare totalWeightKg: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare declaredValue: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: true })
+  declare calculatedCost: number | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(ShipmentStatus)),
+    allowNull: false,
+    defaultValue: ShipmentStatus.CREATED,
+  })
+  declare status: ShipmentStatus;
+
+  @Column({ type: DataType.DATE, allowNull: false })
+  declare requestDate: Date;
+
+  @Column({ type: DataType.DATE, allowNull: false })
+  declare estimatedDeliveryDate: Date;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare actualDeliveryDate: Date | null;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  @HasMany(() => PackageModel)
+  declare packages: PackageModel[];
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add packages HasMany association to shipment.model.ts"
+```
+
+#### 15.23 — Actualizar sequelize.factory.ts (registrar PackageModel)
+
+**Archivo:** `src/infrastructure/database/sequelize/sequelize.factory.ts`
+
+```bash
+mkdir -p src/infrastructure/database/sequelize
+cat > src/infrastructure/database/sequelize/sequelize.factory.ts <<'EOF_BACKEND_IA'
+import { Sequelize } from 'sequelize-typescript';
+import { DatabaseDialect } from '../../../config/environment/env.interface.js';
+import { getSequelizeOptions } from './sequelize.options.js';
+
+import { CompanyModel } from '../../../features/shipping/companies/infrastructure/persistence/models/company.model.js';
+import { ContactModel } from '../../../features/shipping/contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../features/shipping/addresses/infrastructure/persistence/models/address.model.js';
+import { RateModel } from '../../../features/shipping/rates/infrastructure/persistence/models/rate.model.js';
+import { CourierModel } from '../../../features/shipping/couriers/infrastructure/persistence/models/courier.model.js';
+import { RouteModel } from '../../../features/shipping/routes/infrastructure/persistence/models/route.model.js';
+import { InvoiceModel } from '../../../features/shipping/invoices/infrastructure/persistence/models/invoice.model.js';
+import { ShipmentModel } from '../../../features/shipping/shipments/infrastructure/persistence/models/shipment.model.js';
+import { PackageModel } from '../../../features/shipping/packages/infrastructure/persistence/models/package.model.js';
+
+export const ALL_MODELS = [
+  CompanyModel,
+  ContactModel,
+  AddressModel,
+  RateModel,
+  CourierModel,
+  RouteModel,
+  InvoiceModel,
+  ShipmentModel,
+  PackageModel,
+];
+
+async function loadDialectModule(moduleName: string): Promise<any> {
+  // Proyecto ESM: require() no existe como global, se usa import() dinámico.
+  const mod: any = await import(moduleName);
+  return mod.default ?? mod;
+}
+
+export async function createSequelizeInstance(
+  dialect: DatabaseDialect,
+): Promise<Sequelize> {
+  const options = getSequelizeOptions(dialect);
+
+  let dialectModule: any;
+
+  switch (dialect) {
+    case DatabaseDialect.MySQL:
+      dialectModule = await loadDialectModule('mysql2');
+      break;
+    case DatabaseDialect.Postgres:
+      dialectModule = await loadDialectModule('pg');
+      break;
+    case DatabaseDialect.MSSQL:
+      dialectModule = await loadDialectModule('tedious');
+      break;
+    case DatabaseDialect.Oracle:
+      dialectModule = await loadDialectModule('oracledb');
+      break;
+    default:
+      throw new Error(`Dialecto no soportado: ${dialect}`);
+  }
+
+  const sequelize = new Sequelize({
+    ...options,
+    dialectModule,
+    models: ALL_MODELS,
+  } as any);
+
+  try {
+    await sequelize.authenticate();
+    console.log(`✅ Conexión exitosa a ${dialect.toUpperCase()}`);
+  } catch (error: any) {
+    console.error(
+      `❌ Error conectando a ${dialect.toUpperCase()}:`,
+      error.message,
+    );
+    throw error;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    await sequelize.sync({ alter: false });
+    console.log('✅ Tablas sincronizadas');
+  }
+
+  return sequelize;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: register PackageModel in sequelize factory"
+```
+
+#### 15.24 — Actualizar shipping.module.ts
+
+**Archivo:** `src/features/shipping/shipping.module.ts`
+
+```bash
+mkdir -p src/features/shipping
+cat > src/features/shipping/shipping.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { CompaniesModule } from './companies/companies.module.js';
+import { ContactsModule } from './contacts/contacts.module.js';
+import { AddressesModule } from './addresses/addresses.module.js';
+import { RatesModule } from './rates/rates.module.js';
+import { CouriersModule } from './couriers/couriers.module.js';
+import { RoutesModule } from './routes/routes.module.js';
+import { InvoicesModule } from './invoices/invoices.module.js';
+import { ShipmentsModule } from './shipments/shipments.module.js';
+import { PackagesModule } from './packages/packages.module.js';
+
+@Module({
+  imports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+    InvoicesModule,
+    ShipmentsModule,
+    PackagesModule,
+  ],
+  exports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+    InvoicesModule,
+    ShipmentsModule,
+    PackagesModule,
+  ],
+})
+export class ShippingModule {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: export PackagesModule from ShippingModule"
+```
+
+#### 15.25 — Actualizar database-seeder.service.ts y verificar tabla `packages`
+
+**Archivo:** `src/infrastructure/database/seeders/database-seeder.service.ts`
+
+```bash
+mkdir -p src/infrastructure/database/seeders
+cat > src/infrastructure/database/seeders/database-seeder.service.ts <<'EOF_BACKEND_IA'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { seedCompanies } from '../../../features/shipping/companies/infrastructure/persistence/seeders/companies.seeder.js';
+import { seedContacts } from '../../../features/shipping/contacts/infrastructure/persistence/seeders/contacts.seeder.js';
+import { seedAddresses } from '../../../features/shipping/addresses/infrastructure/persistence/seeders/addresses.seeder.js';
+import { seedRates } from '../../../features/shipping/rates/infrastructure/persistence/seeders/rates.seeder.js';
+import { seedCouriers } from '../../../features/shipping/couriers/infrastructure/persistence/seeders/couriers.seeder.js';
+import { seedRoutes } from '../../../features/shipping/routes/infrastructure/persistence/seeders/routes.seeder.js';
+import { seedInvoices } from '../../../features/shipping/invoices/infrastructure/persistence/seeders/invoices.seeder.js';
+import { seedShipments } from '../../../features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.js';
+import { seedPackages } from '../../../features/shipping/packages/infrastructure/persistence/seeders/packages.seeder.js';
+
+/**
+ * Ejecuta seeders en orden de dependencias.
+ * Solo en entornos no productivos.
+ */
+@Injectable()
+export class DatabaseSeederService implements OnModuleInit {
+  private readonly logger = new Logger(DatabaseSeederService.name);
+
+  async onModuleInit(): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    try {
+      await seedCompanies();
+      await seedContacts();
+      await seedAddresses();
+      await seedRates();
+      await seedCouriers();
+      await seedRoutes();
+      await seedInvoices();
+      await seedShipments();
+      await seedPackages();
+      this.logger.log('✅ Seeders ejecutados');
+    } catch (error: any) {
+      this.logger.error(`❌ Error en seeders: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+}
+EOF_BACKEND_IA
+```
+
+`app.module.ts` no necesita cambios: `ShippingModule` ya expone `PackagesModule`.
+
+Arranca la app. Debe crear/sync tabla `packages` (con FK a `shipments`), correr seeder y exponer `/api/packages`. Prueba:
+- `POST /api/packages` sobre un envío `creado` → funciona.
+- `PATCH /api/shipments/:id/quote` sobre ese mismo envío, y luego intenta `POST /api/packages` de nuevo para él → debe fallar (400) por la regla de estado.
+
+```bash
+npm run start:dev
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: run seedPackages and verify packages endpoints with shipment status rule"
+```
