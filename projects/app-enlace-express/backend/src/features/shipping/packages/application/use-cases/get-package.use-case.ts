@@ -15,7 +15,6 @@ export class GetPackageUseCase {
 
   async execute(id: number) {
     const pkg = await this.packageRepository.findById(id);
-    if (!pkg) throw new PackageNotFoundException(id);
     return PackageMapper.toResponse(pkg);
   }
 }
