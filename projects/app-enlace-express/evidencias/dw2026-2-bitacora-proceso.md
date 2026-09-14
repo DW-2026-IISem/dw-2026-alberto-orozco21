@@ -12907,14 +12907,9 @@ export class ReportShipmentIssueUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/report-shipment-issue.use-case.png)
 
-```bash
-git add .
-git commit -m "feat: add use case report-shipment-issue.use-case.ts"
-```
-
-#### 14.25 — features/shipping/shipments/application/use-cases/deliver-shipment.use-case.ts
+### 14.25 — features/shipping/shipments/application/use-cases/deliver-shipment.use-case.ts
 
 **Archivo:** `src/features/shipping/shipments/application/use-cases/deliver-shipment.use-case.ts`
 
