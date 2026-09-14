@@ -12180,7 +12180,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/shipment-filter.dto.png)
 
-#### 14.12 — features/shipping/shipments/application/dto/shipment-response.dto.ts
+### 14.12 — features/shipping/shipments/application/dto/shipment-response.dto.ts
 
 **Archivo:** `src/features/shipping/shipments/application/dto/shipment-response.dto.ts`
 
@@ -12261,12 +12261,7 @@ export class ShipmentResponseDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto shipment-response.dto.ts"
-```
+![alt text](imagenes/shipment-response.dto.png)
 
 #### 14.13 — features/shipping/shipments/application/dto/create-shipment.dto.ts
 
