@@ -11400,3 +11400,5 @@ export class DatabaseSeederService implements OnModuleInit {
 }
 EOF_BACKEND_IA
 ```
+
+![alt text](imagenes/database-seeder.service_invoice.png)
