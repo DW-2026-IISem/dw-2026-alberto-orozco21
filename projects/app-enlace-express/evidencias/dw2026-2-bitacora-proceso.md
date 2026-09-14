@@ -14818,7 +14818,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/packages.controller.png)
 
-#### 15.20 — features/shipping/packages/index.ts
+### 15.20 — features/shipping/packages/index.ts
 
 **Archivo:** `src/features/shipping/packages/index.ts`
 
@@ -14831,7 +14831,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/packages-index.png)
 
-#### 15.21 — features/shipping/packages/packages.module.ts
+### 15.21 — features/shipping/packages/packages.module.ts
 
 Importa `ShipmentsModule` para inyectar `SHIPMENT_REPOSITORY` y validar la FK + estado.
 
@@ -14869,12 +14869,7 @@ export class PackagesModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: wire nest module packages.module.ts"
-```
+![alt text](imagenes/packages.module.png)
 
 #### 15.22 — Actualizar shipment.model.ts (cerrar la asociación)
 
