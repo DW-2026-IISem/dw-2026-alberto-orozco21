@@ -15031,7 +15031,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/shipment.model_pack.png)
 
-#### 15.23 — Actualizar sequelize.factory.ts (registrar PackageModel)
+### 15.23 — Actualizar sequelize.factory.ts (registrar PackageModel)
 
 **Archivo:** `src/infrastructure/database/sequelize/sequelize.factory.ts`
 
@@ -15121,12 +15121,7 @@ export async function createSequelizeInstance(
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: register PackageModel in sequelize factory"
-```
+![alt text](imagenes/PackageModel.png)
 
 #### 15.24 — Actualizar shipping.module.ts
 
