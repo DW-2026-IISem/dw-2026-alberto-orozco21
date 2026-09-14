@@ -12946,12 +12946,8 @@ export class DeliverShipmentUseCase {
 EOF_BACKEND_IA
 ```
 
+![alt text](imagenes/deliver-shipment.use-case.ts.png)
 **Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case deliver-shipment.use-case.ts"
-```
 
 #### 14.26 — features/shipping/shipments/application/use-cases/cancel-shipment.use-case.ts
 
