@@ -9,7 +9,8 @@ import { RateModel } from '../../../features/shipping/rates/infrastructure/persi
 import { CourierModel } from '../../../features/shipping/couriers/infrastructure/persistence/models/courier.model.js';
 import { RouteModel } from '../../../features/shipping/routes/infrastructure/persistence/models/route.model.js';
 import { InvoiceModel } from '../../../features/shipping/invoices/infrastructure/persistence/models/invoice.model.js';
-import { ShipmentModel } from '../../../features/shipping/shipments/infrastructure/persistence/models/shipment.model.js';
+import { ShipmentModel } from '../../.features/shipping/shipments/infrastructure/persistence/models/shipment.model.js';
+import { PackageModel } from '../../../features/shipping/packages/infrastructure/persistence/models/package.model.js';
 
 export const ALL_MODELS = [
   CompanyModel,
@@ -20,10 +21,11 @@ export const ALL_MODELS = [
   RouteModel,
   InvoiceModel,
   ShipmentModel,
+  PackageModel,
 ];
 
 async function loadDialectModule(moduleName: string): Promise<any> {
-  // Proyecto ESM: require() no existe como global, se usa import() dinámico.
+  // Proyecto ESM: require() no existe como global, se usa import() dnámico.
   const mod: any = await import(moduleName);
   return mod.default ?? mod;
 }
@@ -42,37 +44,11 @@ export async function createSequelizeInstance(
     case DatabaseDialect.Postgres:
       dialectModule = await loadDialectModule('pg');
       break;
-    case DatabaseDialect.MSSQL:
+    case DatabaseDialect.MSL:
       dialectModule = await loadDialectModule('tedious');
       break;
     case DatabaseDialect.Oracle:
       dialectModule = await loadDialectModule('oracledb');
       break;
     default:
-      throw new Error(`Dialecto no soportado: ${dialect}`);
-  }
-
-  const sequelize = new Sequelize({
-    ...options,
-    dialectModule,
-    models: ALL_MODELS,
-  } as any);
-
-  try {
-    await sequelize.authenticate();
-    console.log(`✅ Conexión exitosa a ${dialect.toUpperCase()}`);
-  } catch (error: any) {
-    console.error(
-      `❌ Error conectando a ${dialect.toUpperCase()}:`,
-      error.message,
-    );
-    throw error;
-  }
-
-  if (process.env.NODE_ENV !== 'production') {
-    await sequelize.sync({ alter: false });
-    console.log('✅ Tablas sincronizadas');
-  }
-
-  return sequelize;
-}
+      throw new Error(
