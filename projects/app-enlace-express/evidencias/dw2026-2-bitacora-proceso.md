@@ -14231,7 +14231,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/packages.seeder.png)
 
-#### 15.8 — features/shipping/packages/application/dto/package-filter.dto.ts
+### 15.8 — features/shipping/packages/application/dto/package-filter.dto.ts
 
 **Archivo:** `src/features/shipping/packages/application/dto/package-filter.dto.ts`
 
@@ -14267,12 +14267,7 @@ export class PackageFilterDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto package-filter.dto.ts"
-```
+![alt text](imagenes/package-filter.dto.png)
 
 #### 15.9 — features/shipping/packages/application/dto/package-response.dto.ts
 
