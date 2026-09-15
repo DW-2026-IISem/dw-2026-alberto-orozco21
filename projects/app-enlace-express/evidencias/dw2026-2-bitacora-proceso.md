@@ -15493,7 +15493,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-event.model.png)
 
-#### 16.7 — features/shipping/tracking-events/infrastructure/persistence/repositories/tracking-event.repository.ts
+### 16.7 — features/shipping/tracking-events/infrastructure/persistence/repositories/tracking-event.repository.ts
 
 **Archivo:** `src/features/shipping/tracking-events/infrastructure/persistence/repositories/tracking-event.repository.ts`
 
@@ -15555,12 +15555,7 @@ export class TrackingEventRepository implements ITrackingEventRepository {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add sequelize repository tracking-event.repository.ts"
-```
+![alt text](imagenes/tracking-event.repository.png)
 
 #### 16.8 — features/shipping/tracking-events/infrastructure/persistence/migrations/create-tracking-events-table.migration.ts
 
