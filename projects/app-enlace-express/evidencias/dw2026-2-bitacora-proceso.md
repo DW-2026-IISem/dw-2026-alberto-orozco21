@@ -16036,14 +16036,9 @@ export class TrackingEventsController {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/tracking-events.controller.png)
 
-```bash
-git add .
-git commit -m "feat: add controller tracking-events.controller.ts (create + read only)"
-```
-
-#### 16.19 — features/shipping/tracking-events/index.ts
+### 16.19 — features/shipping/tracking-events/index.ts
 
 **Archivo:** `src/features/shipping/tracking-events/index.ts`
 
