@@ -15241,3 +15241,1334 @@ npm run start:dev
 **/api/packages**
 
 ![alt text](imagenes/api_packages.png)
+
+-------------------------------------------------------------------------------------------------
+
+## FASE 16 — `15_BUSINESS_TRACKING_EVENTS`
+
+### Business — TrackingEvents / EventoTracking (patrón completo CA)
+
+> **Objetivo de la fase:** Décima entidad de negocio: EventoTracking, el log de hitos de un envío (recogido, en tránsito, en reparto, novedad, entregado, devuelto). A diferencia de todas las entidades anteriores, **es un log de solo lectura una vez creado**: no tiene `update` ni `delete` — un evento de tracking ya registrado no se edita ni se borra, se agrega uno nuevo si algo cambió. Depende de Envio (`shipmentId`, obligatorio) y opcionalmente de Mensajero (`recordedByCourierId`, quien lo reportó).
+
+#### 16.1 — features/shipping/tracking-events/domain/enums/tracking-event-type.enum.ts
+
+**Archivo:** `src/features/shipping/tracking-events/domain/enums/tracking-event-type.enum.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/domain/enums
+cat > src/features/shipping/tracking-events/domain/enums/tracking-event-type.enum.ts <<'EOF_BACKEND_IA'
+export enum TrackingEventType {
+  PICKED_UP = 'recogido',
+  IN_TRANSIT = 'en_transito',
+  OUT_FOR_DELIVERY = 'en_reparto',
+  ISSUE = 'novedad',
+  DELIVERED = 'entregado',
+  RETURNED = 'devuelto',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/tracking-event-type.enum.png)
+
+#### 16.2 — features/shipping/tracking-events/domain/enums/tracking-event-severity.enum.ts
+
+**Archivo:** `src/features/shipping/tracking-events/domain/enums/tracking-event-severity.enum.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/domain/enums
+cat > src/features/shipping/tracking-events/domain/enums/tracking-event-severity.enum.ts <<'EOF_BACKEND_IA'
+export enum TrackingEventSeverity {
+  INFO = 'informativo',
+  MINOR_ISSUE = 'novedad_leve',
+  CRITICAL_ISSUE = 'novedad_critica',
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add domain enum tracking-event-severity.enum.ts"
+```
+
+#### 16.3 — features/shipping/tracking-events/domain/entities/tracking-event.entity.ts
+
+Sin `update()`: una vez creado, un evento de tracking es inmutable.
+
+**Archivo:** `src/features/shipping/tracking-events/domain/entities/tracking-event.entity.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/domain/entities
+cat > src/features/shipping/tracking-events/domain/entities/tracking-event.entity.ts <<'EOF_BACKEND_IA'
+import { TrackingEventType } from '../enums/tracking-event-type.enum.js';
+import { TrackingEventSeverity } from '../enums/tracking-event-severity.enum.js';
+
+export interface TrackingEventProps {
+  id?: number;
+  shipmentId: number;
+  type: TrackingEventType;
+  eventDate?: Date;
+  location?: string;
+  observations?: string;
+  severity?: TrackingEventSeverity;
+  recordedByCourierId?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class TrackingEvent {
+  id?: number;
+  shipmentId: number;
+  type: TrackingEventType;
+  eventDate: Date;
+  location?: string;
+  observations?: string;
+  severity: TrackingEventSeverity;
+  recordedByCourierId?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+
+  private constructor(props: TrackingEventProps) {
+    this.id = props.id;
+    this.shipmentId = props.shipmentId;
+    this.type = props.type;
+    this.eventDate = props.eventDate ?? new Date();
+    this.location = props.location;
+    this.observations = props.observations;
+    this.severity = props.severity ?? TrackingEventSeverity.INFO;
+    this.recordedByCourierId = props.recordedByCourierId;
+    this.createdAt = props.createdAt;
+    this.updatedAt = props.updatedAt;
+  }
+
+  static create(
+    props: Omit<TrackingEventProps, 'id' | 'createdAt' | 'updatedAt'>,
+  ): TrackingEvent {
+    if (!props.shipmentId) {
+      throw new Error('El evento de tracking debe estar asociado a un envío');
+    }
+    if (!props.type) {
+      throw new Error('El tipo de evento es requerido');
+    }
+    if (
+      props.type === TrackingEventType.ISSUE &&
+      (props.severity === undefined || props.severity === TrackingEventSeverity.INFO)
+    ) {
+      throw new Error(
+        'Un evento de tipo "novedad" requiere severidad novedad_leve o novedad_critica',
+      );
+    }
+
+    return new TrackingEvent(props);
+  }
+
+  static reconstitute(props: TrackingEventProps): TrackingEvent {
+    return new TrackingEvent(props);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add domain entity tracking-event.entity.ts"
+```
+
+#### 16.4 — features/shipping/tracking-events/domain/exceptions/tracking-event-not-found.exception.ts
+
+**Archivo:** `src/features/shipping/tracking-events/domain/exceptions/tracking-event-not-found.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/domain/exceptions
+cat > src/features/shipping/tracking-events/domain/exceptions/tracking-event-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception.js';
+
+export class TrackingEventNotFoundException extends EntityNotFoundException {
+  constructor(id: number) {
+    super('Evento de tracking', id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add domain exception tracking-event-not-found.exception.ts"
+```
+
+#### 16.5 — features/shipping/tracking-events/domain/interfaces/tracking-event-repository.interface.ts
+
+Nota: sin `update` ni `delete` en el contrato — coherente con el diseño de solo-lectura tras la creación.
+
+**Archivo:** `src/features/shipping/tracking-events/domain/interfaces/tracking-event-repository.interface.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/domain/interfaces
+cat > src/features/shipping/tracking-events/domain/interfaces/tracking-event-repository.interface.ts <<'EOF_BACKEND_IA'
+import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface.js';
+import { TrackingEventType } from '../enums/tracking-event-type.enum.js';
+import { TrackingEvent } from '../entities/tracking-event.entity.js';
+
+export const TRACKING_EVENT_REPOSITORY = 'TRACKING_EVENT_REPOSITORY';
+
+export interface TrackingEventFindAllParams {
+  page?: number;
+  limit?: number;
+  shipmentId?: number;
+  type?: TrackingEventType;
+}
+
+export interface ITrackingEventRepository {
+  create(event: TrackingEvent): Promise<TrackingEvent>;
+  findById(id: number): Promise<TrackingEvent | null>;
+  findAll(params: TrackingEventFindAllParams): Promise<PaginatedResult<TrackingEvent>>;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add repository port tracking-event-repository.interface.ts"
+```
+
+#### 16.6 — features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.ts
+
+**Archivo:** `src/features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/infrastructure/persistence/models
+cat > src/features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  BelongsTo,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+import { CourierModel } from '../../../../couriers/infrastructure/persistence/models/courier.model.js';
+import { TrackingEventType } from '../../../domain/enums/tracking-event-type.enum.js';
+import { TrackingEventSeverity } from '../../../domain/enums/tracking-event-severity.enum.js';
+
+@Table({ tableName: 'tracking_events', updatedAt: false })
+export class TrackingEventModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @ForeignKey(() => ShipmentModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare shipmentId: number;
+
+  @BelongsTo(() => ShipmentModel)
+  declare shipment: ShipmentModel;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(TrackingEventType)),
+    allowNull: false,
+  })
+  declare type: TrackingEventType;
+
+  @Column({ type: DataType.DATE, allowNull: false })
+  declare eventDate: Date;
+
+  @Column({ type: DataType.STRING(255), allowNull: true })
+  declare location: string | null;
+
+  @Column({ type: DataType.TEXT, allowNull: true })
+  declare observations: string | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(TrackingEventSeverity)),
+    allowNull: false,
+    defaultValue: TrackingEventSeverity.INFO,
+  })
+  declare severity: TrackingEventSeverity;
+
+  @ForeignKey(() => CourierModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare recordedByCourierId: number | null;
+
+  @BelongsTo(() => CourierModel)
+  declare recordedByCourier: CourierModel;
+
+  @CreatedAt
+  declare createdAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add sequelize model tracking-event.model.ts (append-only, no updatedAt)"
+```
+
+#### 16.7 — features/shipping/tracking-events/infrastructure/persistence/repositories/tracking-event.repository.ts
+
+**Archivo:** `src/features/shipping/tracking-events/infrastructure/persistence/repositories/tracking-event.repository.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/infrastructure/persistence/repositories
+cat > src/features/shipping/tracking-events/infrastructure/persistence/repositories/tracking-event.repository.ts <<'EOF_BACKEND_IA'
+import { Injectable } from '@nestjs/common';
+import {
+  buildPaginatedResult,
+  normalizePagination,
+} from '../../../../../../common/utils/pagination.util.js';
+import { TrackingEvent } from '../../../domain/entities/tracking-event.entity.js';
+import {
+  TrackingEventFindAllParams,
+  ITrackingEventRepository,
+} from '../../../domain/interfaces/tracking-event-repository.interface.js';
+import { TrackingEventMapper } from '../../../application/mappers/tracking-event.mapper.js';
+import { TrackingEventModel } from '../models/tracking-event.model.js';
+
+@Injectable()
+export class TrackingEventRepository implements ITrackingEventRepository {
+  async create(event: TrackingEvent): Promise<TrackingEvent> {
+    const model = await TrackingEventModel.create(
+      TrackingEventMapper.toPersistence(event),
+    );
+    return TrackingEventMapper.toDomain(model);
+  }
+
+  async findById(id: number): Promise<TrackingEvent | null> {
+    const model = await TrackingEventModel.findByPk(id);
+    return model ? TrackingEventMapper.toDomain(model) : null;
+  }
+
+  async findAll(params: TrackingEventFindAllParams) {
+    const { page, limit, offset } = normalizePagination(
+      params.page,
+      params.limit,
+    );
+
+    const where: Record<string, unknown> = {};
+    if (params.shipmentId) where.shipmentId = params.shipmentId;
+    if (params.type) where.type = params.type;
+
+    const { rows, count } = await TrackingEventModel.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['eventDate', 'ASC']],
+    });
+
+    return buildPaginatedResult(
+      rows.map((row) => TrackingEventMapper.toDomain(row)),
+      count,
+      page,
+      limit,
+    );
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add sequelize repository tracking-event.repository.ts"
+```
+
+#### 16.8 — features/shipping/tracking-events/infrastructure/persistence/migrations/create-tracking-events-table.migration.ts
+
+**Archivo:** `src/features/shipping/tracking-events/infrastructure/persistence/migrations/create-tracking-events-table.migration.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/infrastructure/persistence/migrations
+cat > src/features/shipping/tracking-events/infrastructure/persistence/migrations/create-tracking-events-table.migration.ts <<'EOF_BACKEND_IA'
+export const createTrackingEventsTableMigration = {
+  name: 'create-tracking-events-table',
+  async up(): Promise<void> {
+    // Sequelize sync handles table creation in development.
+    // Production: CREATE TABLE tracking_events (id, shipmentId FK->shipments, type,
+    //   eventDate, location, observations, severity, recordedByCourierId FK->couriers NULL,
+    //   createdAt) -- sin updatedAt: es un log de solo escritura
+  },
+  async down(): Promise<void> {
+    // Production: DROP TABLE tracking_events
+  },
+};
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add migration create-tracking-events-table.migration.ts"
+```
+
+#### 16.9 — features/shipping/tracking-events/infrastructure/persistence/seeders/tracking-events.seeder.ts
+
+**Archivo:** `src/features/shipping/tracking-events/infrastructure/persistence/seeders/tracking-events.seeder.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/infrastructure/persistence/seeders
+cat > src/features/shipping/tracking-events/infrastructure/persistence/seeders/tracking-events.seeder.ts <<'EOF_BACKEND_IA'
+import { TrackingEventModel } from '../models/tracking-event.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+import { TrackingEventType } from '../../../domain/enums/tracking-event-type.enum.js';
+import { TrackingEventSeverity } from '../../../domain/enums/tracking-event-severity.enum.js';
+
+export async function seedTrackingEvents(): Promise<void> {
+  const count = await TrackingEventModel.count();
+  if (count > 0) {
+    return;
+  }
+
+  const shipment = await ShipmentModel.findOne({ order: [['id', 'ASC']] });
+  if (!shipment) {
+    return;
+  }
+
+  await TrackingEventModel.bulkCreate([
+    {
+      shipmentId: shipment.id,
+      type: TrackingEventType.PICKED_UP,
+      eventDate: new Date(),
+      location: 'Bodega norte, Barranquilla',
+      observations: 'Envío recogido en el origen',
+      severity: TrackingEventSeverity.INFO,
+    },
+  ]);
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add seeder tracking-events.seeder.ts"
+```
+
+#### 16.10 — features/shipping/tracking-events/application/dto/tracking-event-filter.dto.ts
+
+**Archivo:** `src/features/shipping/tracking-events/application/dto/tracking-event-filter.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/application/dto
+cat > src/features/shipping/tracking-events/application/dto/tracking-event-filter.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, IsPositive, Min } from 'class-validator';
+import { TrackingEventType } from '../../domain/enums/tracking-event-type.enum.js';
+
+export class TrackingEventFilterDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  shipmentId?: number;
+
+  @ApiPropertyOptional({ enum: TrackingEventType, example: TrackingEventType.IN_TRANSIT })
+  @IsOptional()
+  @IsEnum(TrackingEventType)
+  type?: TrackingEventType;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto tracking-event-filter.dto.ts"
+```
+
+#### 16.11 — features/shipping/tracking-events/application/dto/tracking-event-response.dto.ts
+
+**Archivo:** `src/features/shipping/tracking-events/application/dto/tracking-event-response.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/application/dto
+cat > src/features/shipping/tracking-events/application/dto/tracking-event-response.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TrackingEventType } from '../../domain/enums/tracking-event-type.enum.js';
+import { TrackingEventSeverity } from '../../domain/enums/tracking-event-severity.enum.js';
+
+export class TrackingEventResponseDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 1 })
+  shipmentId: number;
+
+  @ApiProperty({ enum: TrackingEventType, example: TrackingEventType.PICKED_UP })
+  type: TrackingEventType;
+
+  @ApiProperty()
+  eventDate: Date;
+
+  @ApiPropertyOptional({ example: 'Bodega norte, Barranquilla' })
+  location?: string;
+
+  @ApiPropertyOptional({ example: 'Envío recogido en el origen' })
+  observations?: string;
+
+  @ApiProperty({ enum: TrackingEventSeverity, example: TrackingEventSeverity.INFO })
+  severity: TrackingEventSeverity;
+
+  @ApiPropertyOptional({ example: 1 })
+  recordedByCourierId?: number;
+
+  @ApiProperty()
+  createdAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto tracking-event-response.dto.ts"
+```
+
+#### 16.12 — features/shipping/tracking-events/application/dto/create-tracking-event.dto.ts
+
+**Archivo:** `src/features/shipping/tracking-events/application/dto/create-tracking-event.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/application/dto
+cat > src/features/shipping/tracking-events/application/dto/create-tracking-event.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { TrackingEventType } from '../../domain/enums/tracking-event-type.enum.js';
+import { TrackingEventSeverity } from '../../domain/enums/tracking-event-severity.enum.js';
+
+export class CreateTrackingEventDto {
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  shipmentId: number;
+
+  @ApiProperty({ enum: TrackingEventType, example: TrackingEventType.IN_TRANSIT })
+  @IsEnum(TrackingEventType)
+  type: TrackingEventType;
+
+  @ApiPropertyOptional({ example: '2026-09-15T10:30:00Z' })
+  @IsOptional()
+  @IsDateString()
+  eventDate?: string;
+
+  @ApiPropertyOptional({ example: 'Centro de distribución, Soledad' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  location?: string;
+
+  @ApiPropertyOptional({ example: 'Paquete en tránsito hacia destino' })
+  @IsOptional()
+  @IsString()
+  observations?: string;
+
+  @ApiPropertyOptional({ enum: TrackingEventSeverity, default: TrackingEventSeverity.INFO })
+  @IsOptional()
+  @IsEnum(TrackingEventSeverity)
+  severity?: TrackingEventSeverity;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  recordedByCourierId?: number;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto create-tracking-event.dto.ts"
+```
+
+#### 16.13 — features/shipping/tracking-events/application/mappers/tracking-event.mapper.ts
+
+**Archivo:** `src/features/shipping/tracking-events/application/mappers/tracking-event.mapper.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/application/mappers
+cat > src/features/shipping/tracking-events/application/mappers/tracking-event.mapper.ts <<'EOF_BACKEND_IA'
+import { TrackingEvent } from '../../domain/entities/tracking-event.entity.js';
+import { TrackingEventResponseDto } from '../dto/tracking-event-response.dto.js';
+import { TrackingEventModel } from '../../infrastructure/persistence/models/tracking-event.model.js';
+
+export class TrackingEventMapper {
+  static toDomain(model: TrackingEventModel): TrackingEvent {
+    return TrackingEvent.reconstitute({
+      id: model.id,
+      shipmentId: model.shipmentId,
+      type: model.type,
+      eventDate: model.eventDate,
+      location: model.location ?? undefined,
+      observations: model.observations ?? undefined,
+      severity: model.severity,
+      recordedByCourierId: model.recordedByCourierId ?? undefined,
+      createdAt: model.createdAt,
+    });
+  }
+
+  static toResponse(entity: TrackingEvent): TrackingEventResponseDto {
+    return {
+      id: entity.id!,
+      shipmentId: entity.shipmentId,
+      type: entity.type,
+      eventDate: entity.eventDate,
+      location: entity.location,
+      observations: entity.observations,
+      severity: entity.severity,
+      recordedByCourierId: entity.recordedByCourierId,
+      createdAt: entity.createdAt!,
+    };
+  }
+
+  static toPersistence(entity: TrackingEvent): Partial<TrackingEventModel> {
+    return {
+      id: entity.id,
+      shipmentId: entity.shipmentId,
+      type: entity.type,
+      eventDate: entity.eventDate,
+      location: entity.location ?? null,
+      observations: entity.observations ?? null,
+      severity: entity.severity,
+      recordedByCourierId: entity.recordedByCourierId ?? null,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add mapper tracking-event.mapper.ts"
+```
+
+#### 16.14 — features/shipping/tracking-events/application/use-cases/create-tracking-event.use-case.ts
+
+Verifica que el envío exista y, si viene `recordedByCourierId`, que el mensajero también exista.
+
+**Archivo:** `src/features/shipping/tracking-events/application/use-cases/create-tracking-event.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/application/use-cases
+cat > src/features/shipping/tracking-events/application/use-cases/create-tracking-event.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentNotFoundException } from '../../../shipments/domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../../shipments/domain/interfaces/shipment-repository.interface.js';
+import { CourierNotFoundException } from '../../../couriers/domain/exceptions/courier-not-found.exception.js';
+import {
+  COURIER_REPOSITORY,
+  type ICourierRepository,
+} from '../../../couriers/domain/interfaces/courier-repository.interface.js';
+import { TrackingEvent } from '../../domain/entities/tracking-event.entity.js';
+import {
+  TRACKING_EVENT_REPOSITORY,
+  type ITrackingEventRepository,
+} from '../../domain/interfaces/tracking-event-repository.interface.js';
+import { CreateTrackingEventDto } from '../dto/create-tracking-event.dto.js';
+import { TrackingEventMapper } from '../mappers/tracking-event.mapper.js';
+
+@Injectable()
+export class CreateTrackingEventUseCase {
+  constructor(
+    @Inject(TRACKING_EVENT_REPOSITORY)
+    private readonly trackingEventRepository: ITrackingEventRepository,
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+    @Inject(COURIER_REPOSITORY)
+    private readonly courierRepository: ICourierRepository,
+  ) {}
+
+  async execute(dto: CreateTrackingEventDto) {
+    const shipment = await this.shipmentRepository.findById(dto.shipmentId);
+    if (!shipment) throw new ShipmentNotFoundException(dto.shipmentId);
+
+    if (dto.recordedByCourierId) {
+      const courier = await this.courierRepository.findById(dto.recordedByCourierId);
+      if (!courier) throw new CourierNotFoundException(dto.recordedByCourierId);
+    }
+
+    const event = TrackingEvent.create({
+      shipmentId: dto.shipmentId,
+      type: dto.type,
+      eventDate: dto.eventDate ? new Date(dto.eventDate) : undefined,
+      location: dto.location,
+      observations: dto.observations,
+      severity: dto.severity,
+      recordedByCourierId: dto.recordedByCourierId,
+    });
+
+    const created = await this.trackingEventRepository.create(event);
+    return TrackingEventMapper.toResponse(created);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case create-tracking-event.use-case.ts"
+```
+
+#### 16.15 — features/shipping/tracking-events/application/use-cases/get-tracking-event.use-case.ts
+
+**Archivo:** `src/features/shipping/tracking-events/application/use-cases/get-tracking-event.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/application/use-cases
+cat > src/features/shipping/tracking-events/application/use-cases/get-tracking-event.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { TrackingEventNotFoundException } from '../../domain/exceptions/tracking-event-not-found.exception.js';
+import {
+  TRACKING_EVENT_REPOSITORY,
+  type ITrackingEventRepository,
+} from '../../domain/interfaces/tracking-event-repository.interface.js';
+import { TrackingEventMapper } from '../mappers/tracking-event.mapper.js';
+
+@Injectable()
+export class GetTrackingEventUseCase {
+  constructor(
+    @Inject(TRACKING_EVENT_REPOSITORY)
+    private readonly trackingEventRepository: ITrackingEventRepository,
+  ) {}
+
+  async execute(id: number) {
+    const event = await this.trackingEventRepository.findById(id);
+    if (!event) throw new TrackingEventNotFoundException(id);
+    return TrackingEventMapper.toResponse(event);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case get-tracking-event.use-case.ts"
+```
+
+#### 16.16 — features/shipping/tracking-events/application/use-cases/list-tracking-events.use-case.ts
+
+**Archivo:** `src/features/shipping/tracking-events/application/use-cases/list-tracking-events.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/application/use-cases
+cat > src/features/shipping/tracking-events/application/use-cases/list-tracking-events.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  TRACKING_EVENT_REPOSITORY,
+  type ITrackingEventRepository,
+} from '../../domain/interfaces/tracking-event-repository.interface.js';
+import { TrackingEventFilterDto } from '../dto/tracking-event-filter.dto.js';
+import { TrackingEventMapper } from '../mappers/tracking-event.mapper.js';
+
+@Injectable()
+export class ListTrackingEventsUseCase {
+  constructor(
+    @Inject(TRACKING_EVENT_REPOSITORY)
+    private readonly trackingEventRepository: ITrackingEventRepository,
+  ) {}
+
+  async execute(filter: TrackingEventFilterDto) {
+    const result = await this.trackingEventRepository.findAll(filter);
+    return {
+      items: result.items.map((event) => TrackingEventMapper.toResponse(event)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case list-tracking-events.use-case.ts"
+```
+
+#### 16.17 — features/shipping/tracking-events/presentation/http/serializers/tracking-event.serializer.ts
+
+**Archivo:** `src/features/shipping/tracking-events/presentation/http/serializers/tracking-event.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/presentation/http/serializers
+cat > src/features/shipping/tracking-events/presentation/http/serializers/tracking-event.serializer.ts <<'EOF_BACKEND_IA'
+import { TrackingEvent } from '../../../domain/entities/tracking-event.entity.js';
+import { TrackingEventResponseDto } from '../../../application/dto/tracking-event-response.dto.js';
+import { TrackingEventMapper } from '../../../application/mappers/tracking-event.mapper.js';
+
+export class TrackingEventSerializer {
+  static serialize(entity: TrackingEvent): TrackingEventResponseDto {
+    return TrackingEventMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add serializer tracking-event.serializer.ts"
+```
+
+#### 16.18 — features/shipping/tracking-events/presentation/http/controllers/tracking-events.controller.ts
+
+Solo `POST`, `GET` (lista) y `GET :id` — sin `PATCH` ni `DELETE`, consistente con el diseño de solo-lectura.
+
+**Archivo:** `src/features/shipping/tracking-events/presentation/http/controllers/tracking-events.controller.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events/presentation/http/controllers
+cat > src/features/shipping/tracking-events/presentation/http/controllers/tracking-events.controller.ts <<'EOF_BACKEND_IA'
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ParsePositiveIntPipe } from '../../../../../../common/pipes/parse-positive-int.pipe.js';
+import { CreateTrackingEventDto } from '../../../application/dto/create-tracking-event.dto.js';
+import { TrackingEventFilterDto } from '../../../application/dto/tracking-event-filter.dto.js';
+import { TrackingEventResponseDto } from '../../../application/dto/tracking-event-response.dto.js';
+import { CreateTrackingEventUseCase } from '../../../application/use-cases/create-tracking-event.use-case.js';
+import { GetTrackingEventUseCase } from '../../../application/use-cases/get-tracking-event.use-case.js';
+import { ListTrackingEventsUseCase } from '../../../application/use-cases/list-tracking-events.use-case.js';
+
+@ApiTags('TrackingEvents')
+@Controller('tracking-events')
+export class TrackingEventsController {
+  constructor(
+    private readonly createTrackingEventUseCase: CreateTrackingEventUseCase,
+    private readonly getTrackingEventUseCase: GetTrackingEventUseCase,
+    private readonly listTrackingEventsUseCase: ListTrackingEventsUseCase,
+  ) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Registrar un evento de tracking' })
+  @ApiCreatedResponse({ type: TrackingEventResponseDto })
+  create(@Body() dto: CreateTrackingEventDto) {
+    return this.createTrackingEventUseCase.execute(dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar eventos de tracking (opcionalmente por envío)' })
+  @ApiOkResponse({ type: [TrackingEventResponseDto] })
+  findAll(@Query() filter: TrackingEventFilterDto) {
+    return this.listTrackingEventsUseCase.execute(filter);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener un evento de tracking por ID' })
+  @ApiOkResponse({ type: TrackingEventResponseDto })
+  findOne(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.getTrackingEventUseCase.execute(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add controller tracking-events.controller.ts (create + read only)"
+```
+
+#### 16.19 — features/shipping/tracking-events/index.ts
+
+**Archivo:** `src/features/shipping/tracking-events/index.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events
+cat > src/features/shipping/tracking-events/index.ts <<'EOF_BACKEND_IA'
+export { TrackingEventsModule } from './tracking-events.module.js';
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add barrel export tracking-events"
+```
+
+#### 16.20 — features/shipping/tracking-events/tracking-events.module.ts
+
+**Archivo:** `src/features/shipping/tracking-events/tracking-events.module.ts`
+
+```bash
+mkdir -p src/features/shipping/tracking-events
+cat > src/features/shipping/tracking-events/tracking-events.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { ShipmentsModule } from '../shipments/shipments.module.js';
+import { CouriersModule } from '../couriers/couriers.module.js';
+import { TRACKING_EVENT_REPOSITORY } from './domain/interfaces/tracking-event-repository.interface.js';
+import { TrackingEventRepository } from './infrastructure/persistence/repositories/tracking-event.repository.js';
+import { CreateTrackingEventUseCase } from './application/use-cases/create-tracking-event.use-case.js';
+import { GetTrackingEventUseCase } from './application/use-cases/get-tracking-event.use-case.js';
+import { ListTrackingEventsUseCase } from './application/use-cases/list-tracking-events.use-case.js';
+import { TrackingEventsController } from './presentation/http/controllers/tracking-events.controller.js';
+
+@Module({
+  imports: [ShipmentsModule, CouriersModule],
+  controllers: [TrackingEventsController],
+  providers: [
+    TrackingEventRepository,
+    { provide: TRACKING_EVENT_REPOSITORY, useExisting: TrackingEventRepository },
+    CreateTrackingEventUseCase,
+    GetTrackingEventUseCase,
+    ListTrackingEventsUseCase,
+  ],
+  exports: [TRACKING_EVENT_REPOSITORY],
+})
+export class TrackingEventsModule {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: wire nest module tracking-events.module.ts"
+```
+
+#### 16.21 — Actualizar shipment.model.ts (cerrar la asociación)
+
+**Archivo:** `src/features/shipping/shipments/infrastructure/persistence/models/shipment.model.ts`
+
+```bash
+cat > src/features/shipping/shipments/infrastructure/persistence/models/shipment.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  BelongsTo,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { CompanyModel } from '../../../../companies/infrastructure/persistence/models/company.model.js';
+import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../../addresses/infrastructure/persistence/models/address.model.js';
+import { RateModel } from '../../../../rates/infrastructure/persistence/models/rate.model.js';
+import { CourierModel } from '../../../../couriers/infrastructure/persistence/models/courier.model.js';
+import { RouteModel } from '../../../../routes/infrastructure/persistence/models/route.model.js';
+import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
+import { PackageModel } from '../../../../packages/infrastructure/persistence/models/package.model.js';
+import { TrackingEventModel } from '../../../../tracking-events/infrastructure/persistence/models/tracking-event.model.js';
+import { ShipmentPriority } from '../../../domain/enums/shipment-priority.enum.js';
+import { ShipmentStatus } from '../../../domain/enums/shipment-status.enum.js';
+
+@Table({ tableName: 'shipments' })
+export class ShipmentModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(30), allowNull: false, unique: true })
+  declare guideNumber: string;
+
+  @ForeignKey(() => CompanyModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare companyId: number;
+
+  @BelongsTo(() => CompanyModel)
+  declare company: CompanyModel;
+
+  @ForeignKey(() => ContactModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare originContactId: number;
+
+  @BelongsTo(() => ContactModel, { foreignKey: 'originContactId', as: 'originContact' })
+  declare originContact: ContactModel;
+
+  @ForeignKey(() => AddressModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare originAddressId: number;
+
+  @BelongsTo(() => AddressModel, { foreignKey: 'originAddressId', as: 'originAddress' })
+  declare originAddress: AddressModel;
+
+  @ForeignKey(() => ContactModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare destinationContactId: number;
+
+  @BelongsTo(() => ContactModel, {
+    foreignKey: 'destinationContactId',
+    as: 'destinationContact',
+  })
+  declare destinationContact: ContactModel;
+
+  @ForeignKey(() => AddressModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare destinationAddressId: number;
+
+  @BelongsTo(() => AddressModel, {
+    foreignKey: 'destinationAddressId',
+    as: 'destinationAddress',
+  })
+  declare destinationAddress: AddressModel;
+
+  @ForeignKey(() => RateModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare rateId: number;
+
+  @BelongsTo(() => RateModel)
+  declare rate: RateModel;
+
+  @ForeignKey(() => CourierModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare courierId: number | null;
+
+  @BelongsTo(() => CourierModel)
+  declare courier: CourierModel;
+
+  @ForeignKey(() => RouteModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare routeId: number | null;
+
+  @BelongsTo(() => RouteModel)
+  declare route: RouteModel;
+
+  @ForeignKey(() => InvoiceModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare invoiceId: number | null;
+
+  @BelongsTo(() => InvoiceModel)
+  declare invoice: InvoiceModel;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(ShipmentPriority)),
+    allowNull: false,
+    defaultValue: ShipmentPriority.NORMAL,
+  })
+  declare priority: ShipmentPriority;
+
+  @Column({ type: DataType.DECIMAL(8, 2), allowNull: false })
+  declare totalWeightKg: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare declaredValue: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: true })
+  declare calculatedCost: number | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(ShipmentStatus)),
+    allowNull: false,
+    defaultValue: ShipmentStatus.CREATED,
+  })
+  declare status: ShipmentStatus;
+
+  @Column({ type: DataType.DATE, allowNull: false })
+  declare requestDate: Date;
+
+  @Column({ type: DataType.DATE, allowNull: false })
+  declare estimatedDeliveryDate: Date;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare actualDeliveryDate: Date | null;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  @HasMany(() => PackageModel)
+  declare packages: PackageModel[];
+
+  @HasMany(() => TrackingEventModel)
+  declare trackingEvents: TrackingEventModel[];
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add tracking events HasMany association to shipment.model.ts"
+```
+
+#### 16.22 — Actualizar sequelize.factory.ts (registrar TrackingEventModel)
+
+**Archivo:** `src/infrastructure/database/sequelize/sequelize.factory.ts`
+
+```bash
+mkdir -p src/infrastructure/database/sequelize
+cat > src/infrastructure/database/sequelize/sequelize.factory.ts <<'EOF_BACKEND_IA'
+import { Sequelize } from 'sequelize-typescript';
+import { DatabaseDialect } from '../../../config/environment/env.interface.js';
+import { getSequelizeOptions } from './sequelize.options.js';
+
+import { CompanyModel } from '../../../features/shipping/companies/infrastructure/persistence/models/company.model.js';
+import { ContactModel } from '../../../features/shipping/contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../features/shipping/addresses/infrastructure/persistence/models/address.model.js';
+import { RateModel } from '../../../features/shipping/rates/infrastructure/persistence/models/rate.model.js';
+import { CourierModel } from '../../../features/shipping/couriers/infrastructure/persistence/models/courier.model.js';
+import { RouteModel } from '../../../features/shipping/routes/infrastructure/persistence/models/route.model.js';
+import { InvoiceModel } from '../../../features/shipping/invoices/infrastructure/persistence/models/invoice.model.js';
+import { ShipmentModel } from '../../../features/shipping/shipments/infrastructure/persistence/models/shipment.model.js';
+import { PackageModel } from '../../../features/shipping/packages/infrastructure/persistence/models/package.model.js';
+import { TrackingEventModel } from '../../../features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.js';
+
+export const ALL_MODELS = [
+  CompanyModel,
+  ContactModel,
+  AddressModel,
+  RateModel,
+  CourierModel,
+  RouteModel,
+  InvoiceModel,
+  ShipmentModel,
+  PackageModel,
+  TrackingEventModel,
+];
+
+async function loadDialectModule(moduleName: string): Promise<any> {
+  // Proyecto ESM: require() no existe como global, se usa import() dinámico.
+  const mod: any = await import(moduleName);
+  return mod.default ?? mod;
+}
+
+export async function createSequelizeInstance(
+  dialect: DatabaseDialect,
+): Promise<Sequelize> {
+  const options = getSequelizeOptions(dialect);
+
+  let dialectModule: any;
+
+  switch (dialect) {
+    case DatabaseDialect.MySQL:
+      dialectModule = await loadDialectModule('mysql2');
+      break;
+    case DatabaseDialect.Postgres:
+      dialectModule = await loadDialectModule('pg');
+      break;
+    case DatabaseDialect.MSSQL:
+      dialectModule = await loadDialectModule('tedious');
+      break;
+    case DatabaseDialect.Oracle:
+      dialectModule = await loadDialectModule('oracledb');
+      break;
+    default:
+      throw new Error(`Dialecto no soportado: ${dialect}`);
+  }
+
+  const sequelize = new Sequelize({
+    ...options,
+    dialectModule,
+    models: ALL_MODELS,
+  } as any);
+
+  try {
+    await sequelize.authenticate();
+    console.log(`✅ Conexión exitosa a ${dialect.toUpperCase()}`);
+  } catch (error: any) {
+    console.error(
+      `❌ Error conectando a ${dialect.toUpperCase()}:`,
+      error.message,
+    );
+    throw error;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    await sequelize.sync({ alter: false });
+    console.log('✅ Tablas sincronizadas');
+  }
+
+  return sequelize;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: register TrackingEventModel in sequelize factory"
+```
+
+#### 16.23 — Actualizar shipping.module.ts
+
+**Archivo:** `src/features/shipping/shipping.module.ts`
+
+```bash
+mkdir -p src/features/shipping
+cat > src/features/shipping/shipping.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { CompaniesModule } from './companies/companies.module.js';
+import { ContactsModule } from './contacts/contacts.module.js';
+import { AddressesModule } from './addresses/addresses.module.js';
+import { RatesModule } from './rates/rates.module.js';
+import { CouriersModule } from './couriers/couriers.module.js';
+import { RoutesModule } from './routes/routes.module.js';
+import { InvoicesModule } from './invoices/invoices.module.js';
+import { ShipmentsModule } from './shipments/shipments.module.js';
+import { PackagesModule } from './packages/packages.module.js';
+import { TrackingEventsModule } from './tracking-events/tracking-events.module.js';
+
+@Module({
+  imports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+    InvoicesModule,
+    ShipmentsModule,
+    PackagesModule,
+    TrackingEventsModule,
+  ],
+  exports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+    InvoicesModule,
+    ShipmentsModule,
+    PackagesModule,
+    TrackingEventsModule,
+  ],
+})
+export class ShippingModule {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: export TrackingEventsModule from ShippingModule"
+```
+
+#### 16.24 — Actualizar database-seeder.service.ts y verificar tabla `tracking_events`
+
+**Archivo:** `src/infrastructure/database/seeders/database-seeder.service.ts`
+
+```bash
+mkdir -p src/infrastructure/database/seeders
+cat > src/infrastructure/database/seeders/database-seeder.service.ts <<'EOF_BACKEND_IA'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { seedCompanies } from '../../../features/shipping/companies/infrastructure/persistence/seeders/companies.seeder.js';
+import { seedContacts } from '../../../features/shipping/contacts/infrastructure/persistence/seeders/contacts.seeder.js';
+import { seedAddresses } from '../../../features/shipping/addresses/infrastructure/persistence/seeders/addresses.seeder.js';
+import { seedRates } from '../../../features/shipping/rates/infrastructure/persistence/seeders/rates.seeder.js';
+import { seedCouriers } from '../../../features/shipping/couriers/infrastructure/persistence/seeders/couriers.seeder.js';
+import { seedRoutes } from '../../../features/shipping/routes/infrastructure/persistence/seeders/routes.seeder.js';
+import { seedInvoices } from '../../../features/shipping/invoices/infrastructure/persistence/seeders/invoices.seeder.js';
+import { seedShipments } from '../../../features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.js';
+import { seedPackages } from '../../../features/shipping/packages/infrastructure/persistence/seeders/packages.seeder.js';
+import { seedTrackingEvents } from '../../../features/shipping/tracking-events/infrastructure/persistence/seeders/tracking-events.seeder.js';
+
+/**
+ * Ejecuta seeders en orden de dependencias.
+ * Solo en entornos no productivos.
+ */
+@Injectable()
+export class DatabaseSeederService implements OnModuleInit {
+  private readonly logger = new Logger(DatabaseSeederService.name);
+
+  async onModuleInit(): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    try {
+      await seedCompanies();
+      await seedContacts();
+      await seedAddresses();
+      await seedRates();
+      await seedCouriers();
+      await seedRoutes();
+      await seedInvoices();
+      await seedShipments();
+      await seedPackages();
+      await seedTrackingEvents();
+      this.logger.log('✅ Seeders ejecutados');
+    } catch (error: any) {
+      this.logger.error(`❌ Error en seeders: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+}
+EOF_BACKEND_IA
+```
+
+`app.module.ts` no necesita cambios. Arranca la app y confirma:
+
+```bash
+npm run start:dev
+```
+
+- `POST /api/tracking-events` con `type: "novedad"` y sin `severity` → debe fallar (400, regla de dominio).
+- `GET /api/tracking-events?shipmentId=1` → debe traer el evento del seeder ordenado por `eventDate`.
+- No existen rutas `PATCH`/`DELETE` para este recurso — confírmalo en Swagger.
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: run seedTrackingEvents and verify append-only endpoints"
+```
