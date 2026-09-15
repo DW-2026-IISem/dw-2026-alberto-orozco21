@@ -19,6 +19,7 @@ import { CourierModel } from '../../../../couriers/infrastructure/persistence/mo
 import { RouteModel } from '../../../../routes/infrastructure/persistence/models/route.model.js';
 import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
 import { PackageModel } from '../../../../packages/infrastructure/persistence/models/package.model.js';
+import { TrackingEventModel } from '../../../../tracking-events/infrastructure/persistence/models/tracking-event.model.js';
 import { ShipmentPriority } from '../../../domain/enums/shipment-priority.enum.js';
 import { ShipmentStatus } from '../../../domain/enums/shipment-status.enum.js';
 
@@ -144,4 +145,7 @@ export class ShipmentModel extends Model {
 
   @HasMany(() => PackageModel)
   declare packages: PackageModel[];
+
+  @HasMany(() => TrackingEventModel)
+  declare trackingEvents: TrackingEventModel[];
 }

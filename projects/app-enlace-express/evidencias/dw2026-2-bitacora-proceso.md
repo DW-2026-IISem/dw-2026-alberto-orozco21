@@ -16086,7 +16086,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-events.module.png)
 
-#### 16.21 — Actualizar shipment.model.ts (cerrar la asociación)
+### 16.21 — Actualizar shipment.model.ts (cerrar la asociación)
 
 **Archivo:** `src/features/shipping/shipments/infrastructure/persistence/models/shipment.model.ts`
 
@@ -16246,12 +16246,7 @@ export class ShipmentModel extends Model {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add tracking events HasMany association to shipment.model.ts"
-```
+![alt text](imagenes/shipment.model_trevent.png)
 
 #### 16.22 — Actualizar sequelize.factory.ts (registrar TrackingEventModel)
 
