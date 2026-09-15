@@ -15768,12 +15768,7 @@ export class CreateTrackingEventDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto create-tracking-event.dto.ts"
-```
+![alt text](imagenes/create-tracking-event.dto.png)
 
 #### 16.13 — features/shipping/tracking-events/application/mappers/tracking-event.mapper.ts
 
