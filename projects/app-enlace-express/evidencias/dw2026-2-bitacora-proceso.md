@@ -15367,7 +15367,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-event.entity.png)
 
-#### 16.4 — features/shipping/tracking-events/domain/exceptions/tracking-event-not-found.exception.ts
+### 16.4 — features/shipping/tracking-events/domain/exceptions/tracking-event-not-found.exception.ts
 
 **Archivo:** `src/features/shipping/tracking-events/domain/exceptions/tracking-event-not-found.exception.ts`
 
@@ -15384,12 +15384,7 @@ export class TrackingEventNotFoundException extends EntityNotFoundException {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add domain exception tracking-event-not-found.exception.ts"
-```
+![alt text](imagenes/tracking-event-not-found.exception.png)
 
 #### 16.5 — features/shipping/tracking-events/domain/interfaces/tracking-event-repository.interface.ts
 
