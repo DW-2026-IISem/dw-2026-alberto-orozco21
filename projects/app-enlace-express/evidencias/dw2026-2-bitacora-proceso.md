@@ -15620,7 +15620,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-events.seeder.png)
 
-#### 16.10 — features/shipping/tracking-events/application/dto/tracking-event-filter.dto.ts
+### 16.10 — features/shipping/tracking-events/application/dto/tracking-event-filter.dto.ts
 
 **Archivo:** `src/features/shipping/tracking-events/application/dto/tracking-event-filter.dto.ts`
 
@@ -15662,12 +15662,7 @@ export class TrackingEventFilterDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto tracking-event-filter.dto.ts"
-```
+![alt text](imagenes/tracking-event-filter.dto.png)
 
 #### 16.11 — features/shipping/tracking-events/application/dto/tracking-event-response.dto.ts
 
