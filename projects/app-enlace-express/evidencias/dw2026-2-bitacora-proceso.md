@@ -15770,7 +15770,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/create-tracking-event.dto.png)
 
-#### 16.13 — features/shipping/tracking-events/application/mappers/tracking-event.mapper.ts
+### 16.13 — features/shipping/tracking-events/application/mappers/tracking-event.mapper.ts
 
 **Archivo:** `src/features/shipping/tracking-events/application/mappers/tracking-event.mapper.ts`
 
@@ -15826,12 +15826,7 @@ export class TrackingEventMapper {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add mapper tracking-event.mapper.ts"
-```
+![alt text](imagenes/tracking-event.mapper.png)
 
 #### 16.14 — features/shipping/tracking-events/application/use-cases/create-tracking-event.use-case.ts
 
