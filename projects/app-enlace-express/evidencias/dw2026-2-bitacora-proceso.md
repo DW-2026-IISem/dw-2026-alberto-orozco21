@@ -15557,7 +15557,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-event.repository.png)
 
-#### 16.8 — features/shipping/tracking-events/infrastructure/persistence/migrations/create-tracking-events-table.migration.ts
+### 16.8 — features/shipping/tracking-events/infrastructure/persistence/migrations/create-tracking-events-table.migration.ts
 
 **Archivo:** `src/features/shipping/tracking-events/infrastructure/persistence/migrations/create-tracking-events-table.migration.ts`
 
@@ -15579,12 +15579,7 @@ export const createTrackingEventsTableMigration = {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add migration create-tracking-events-table.migration.ts"
-```
+![alt text](imagenes/create-tracking-events-table.migration.png)
 
 #### 16.9 — features/shipping/tracking-events/infrastructure/persistence/seeders/tracking-events.seeder.ts
 
