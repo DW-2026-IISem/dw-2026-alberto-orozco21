@@ -15287,7 +15287,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-event-severity.enum.png)
 
-#### 16.3 — features/shipping/tracking-events/domain/entities/tracking-event.entity.ts
+### 16.3 — features/shipping/tracking-events/domain/entities/tracking-event.entity.ts
 
 Sin `update()`: una vez creado, un evento de tracking es inmutable.
 
@@ -15365,12 +15365,7 @@ export class TrackingEvent {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add domain entity tracking-event.entity.ts"
-```
+![alt text](imagenes/tracking-event.entity.png)
 
 #### 16.4 — features/shipping/tracking-events/domain/exceptions/tracking-event-not-found.exception.ts
 
