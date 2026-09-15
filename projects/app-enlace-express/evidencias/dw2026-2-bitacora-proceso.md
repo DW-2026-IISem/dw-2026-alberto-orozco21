@@ -15386,7 +15386,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-event-not-found.exception.png)
 
-#### 16.5 — features/shipping/tracking-events/domain/interfaces/tracking-event-repository.interface.ts
+### 16.5 — features/shipping/tracking-events/domain/interfaces/tracking-event-repository.interface.ts
 
 Nota: sin `update` ni `delete` en el contrato — coherente con el diseño de solo-lectura tras la creación.
 
@@ -15416,12 +15416,7 @@ export interface ITrackingEventRepository {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add repository port tracking-event-repository.interface.ts"
-```
+![alt text](imagenes/tracking-event-repository.interface.png)
 
 #### 16.6 — features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.ts
 
