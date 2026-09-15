@@ -16049,14 +16049,9 @@ export { TrackingEventsModule } from './tracking-events.module.js';
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/tracking-events.png)
 
-```bash
-git add .
-git commit -m "chore: add barrel export tracking-events"
-```
-
-#### 16.20 — features/shipping/tracking-events/tracking-events.module.ts
+### 16.20 — features/shipping/tracking-events/tracking-events.module.ts
 
 **Archivo:** `src/features/shipping/tracking-events/tracking-events.module.ts`
 
