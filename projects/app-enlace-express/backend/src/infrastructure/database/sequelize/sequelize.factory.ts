@@ -11,6 +11,7 @@ import { RouteModel } from '../../../features/shipping/routes/infrastructure/per
 import { InvoiceModel } from '../../../features/shipping/invoices/infrastructure/persistence/models/invoice.model.js';
 import { ShipmentModel } from '../../../features/shipping/shipments/infrastructure/persistence/models/shipment.model.js';
 import { PackageModel } from '../../../features/shipping/packages/infrastructure/persistence/models/package.model.js';
+import { TrackingEventModel } from '../../../features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.js';
 
 export const ALL_MODELS = [
   CompanyModel,
@@ -22,6 +23,7 @@ export const ALL_MODELS = [
   InvoiceModel,
   ShipmentModel,
   PackageModel,
+  TrackingEventModel,
 ];
 
 async function loadDialectModule(moduleName: string): Promise<any> {

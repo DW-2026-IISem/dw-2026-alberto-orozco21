@@ -16248,7 +16248,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/shipment.model_trevent.png)
 
-#### 16.22 — Actualizar sequelize.factory.ts (registrar TrackingEventModel)
+### 16.22 — Actualizar sequelize.factory.ts (registrar TrackingEventModel)
 
 **Archivo:** `src/infrastructure/database/sequelize/sequelize.factory.ts`
 
@@ -16340,12 +16340,7 @@ export async function createSequelizeInstance(
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: register TrackingEventModel in sequelize factory"
-```
+![alt text](imagenes/TrackingEventModel.png)
 
 #### 16.23 — Actualizar shipping.module.ts
 
