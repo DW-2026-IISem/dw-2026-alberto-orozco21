@@ -15895,7 +15895,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/create-tracking-event.use-case.png)
 
-#### 16.15 — features/shipping/tracking-events/application/use-cases/get-tracking-event.use-case.ts
+### 16.15 — features/shipping/tracking-events/application/use-cases/get-tracking-event.use-case.ts
 
 **Archivo:** `src/features/shipping/tracking-events/application/use-cases/get-tracking-event.use-case.ts`
 
@@ -15926,14 +15926,9 @@ export class GetTrackingEventUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/get-tracking-event.use-case.png)
 
-```bash
-git add .
-git commit -m "feat: add use case get-tracking-event.use-case.ts"
-```
-
-#### 16.16 — features/shipping/tracking-events/application/use-cases/list-tracking-events.use-case.ts
+### 16.16 — features/shipping/tracking-events/application/use-cases/list-tracking-events.use-case.ts
 
 **Archivo:** `src/features/shipping/tracking-events/application/use-cases/list-tracking-events.use-case.ts`
 
