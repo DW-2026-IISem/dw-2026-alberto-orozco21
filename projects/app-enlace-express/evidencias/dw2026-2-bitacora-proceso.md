@@ -15418,7 +15418,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-event-repository.interface.png)
 
-#### 16.6 — features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.ts
+### 16.6 — features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.ts
 
 **Archivo:** `src/features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.ts`
 
@@ -15491,12 +15491,7 @@ export class TrackingEventModel extends Model {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add sequelize model tracking-event.model.ts (append-only, no updatedAt)"
-```
+![alt text](imagenes/tracking-event.model.png)
 
 #### 16.7 — features/shipping/tracking-events/infrastructure/persistence/repositories/tracking-event.repository.ts
 
