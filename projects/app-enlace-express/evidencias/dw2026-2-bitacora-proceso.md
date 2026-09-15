@@ -15828,7 +15828,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-event.mapper.png)
 
-#### 16.14 — features/shipping/tracking-events/application/use-cases/create-tracking-event.use-case.ts
+### 16.14 — features/shipping/tracking-events/application/use-cases/create-tracking-event.use-case.ts
 
 Verifica que el envío exista y, si viene `recordedByCourierId`, que el mensajero también exista.
 
@@ -15893,12 +15893,7 @@ export class CreateTrackingEventUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case create-tracking-event.use-case.ts"
-```
+![alt text](imagenes/create-tracking-event.use-case.png)
 
 #### 16.15 — features/shipping/tracking-events/application/use-cases/get-tracking-event.use-case.ts
 
