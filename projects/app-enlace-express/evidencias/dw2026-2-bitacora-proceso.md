@@ -16084,12 +16084,7 @@ export class TrackingEventsModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: wire nest module tracking-events.module.ts"
-```
+![alt text](imagenes/tracking-events.module.png)
 
 #### 16.21 — Actualizar shipment.model.ts (cerrar la asociación)
 
