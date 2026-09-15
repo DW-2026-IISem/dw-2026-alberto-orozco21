@@ -15963,7 +15963,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/list-tracking-events.use-case.png)
 
-#### 16.17 — features/shipping/tracking-events/presentation/http/serializers/tracking-event.serializer.ts
+### 16.17 — features/shipping/tracking-events/presentation/http/serializers/tracking-event.serializer.ts
 
 **Archivo:** `src/features/shipping/tracking-events/presentation/http/serializers/tracking-event.serializer.ts`
 
@@ -15982,14 +15982,9 @@ export class TrackingEventSerializer {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/tracking-event.serializer.png)
 
-```bash
-git add .
-git commit -m "feat: add serializer tracking-event.serializer.ts"
-```
-
-#### 16.18 — features/shipping/tracking-events/presentation/http/controllers/tracking-events.controller.ts
+### 16.18 — features/shipping/tracking-events/presentation/http/controllers/tracking-events.controller.ts
 
 Solo `POST`, `GET` (lista) y `GET :id` — sin `PATCH` ni `DELETE`, consistente con el diseño de solo-lectura.
 
