@@ -15270,7 +15270,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/tracking-event-type.enum.png)
 
-#### 16.2 — features/shipping/tracking-events/domain/enums/tracking-event-severity.enum.ts
+### 16.2 — features/shipping/tracking-events/domain/enums/tracking-event-severity.enum.ts
 
 **Archivo:** `src/features/shipping/tracking-events/domain/enums/tracking-event-severity.enum.ts`
 
@@ -15285,12 +15285,7 @@ export enum TrackingEventSeverity {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add domain enum tracking-event-severity.enum.ts"
-```
+![alt text](imagenes/tracking-event-severity.enum.png)
 
 #### 16.3 — features/shipping/tracking-events/domain/entities/tracking-event.entity.ts
 
