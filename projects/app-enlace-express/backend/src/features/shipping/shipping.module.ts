@@ -8,6 +8,7 @@ import { RoutesModule } from './routes/routes.module.js';
 import { InvoicesModule } from './invoices/invoices.module.js';
 import { ShipmentsModule } from './shipments/shipments.module.js';
 import { PackagesModule } from './packages/packages.module.js';
+import { TrackingEventsModule } from './tracking-events/tracking-events.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PackagesModule } from './packages/packages.module.js';
     InvoicesModule,
     ShipmentsModule,
     PackagesModule,
+    TrackingEventsModule,
   ],
   exports: [
     CompaniesModule,
@@ -31,6 +33,7 @@ import { PackagesModule } from './packages/packages.module.js';
     InvoicesModule,
     ShipmentsModule,
     PackagesModule,
+    TrackingEventsModule,
   ],
 })
 export class ShippingModule {}

@@ -16342,7 +16342,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/TrackingEventModel.png)
 
-#### 16.23 — Actualizar shipping.module.ts
+### 16.23 — Actualizar shipping.module.ts
 
 **Archivo:** `src/features/shipping/shipping.module.ts`
 
@@ -16391,12 +16391,7 @@ export class ShippingModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: export TrackingEventsModule from ShippingModule"
-```
+![alt text](imagenes/TrackingEventsModule.png)
 
 #### 16.24 — Actualizar database-seeder.service.ts y verificar tabla `tracking_events`
 
