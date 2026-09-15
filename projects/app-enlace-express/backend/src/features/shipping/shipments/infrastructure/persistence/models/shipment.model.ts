@@ -141,4 +141,7 @@ export class ShipmentModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
+
+  @HasMany(() => PackageModel)
+  declare packages: PackageModel[];
 }

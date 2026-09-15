@@ -15581,7 +15581,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/create-tracking-events-table.migration.png)
 
-#### 16.9 — features/shipping/tracking-events/infrastructure/persistence/seeders/tracking-events.seeder.ts
+### 16.9 — features/shipping/tracking-events/infrastructure/persistence/seeders/tracking-events.seeder.ts
 
 **Archivo:** `src/features/shipping/tracking-events/infrastructure/persistence/seeders/tracking-events.seeder.ts`
 
@@ -15618,12 +15618,7 @@ export async function seedTrackingEvents(): Promise<void> {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add seeder tracking-events.seeder.ts"
-```
+![alt text](imagenes/tracking-events.seeder.png)
 
 #### 16.10 — features/shipping/tracking-events/application/dto/tracking-event-filter.dto.ts
 

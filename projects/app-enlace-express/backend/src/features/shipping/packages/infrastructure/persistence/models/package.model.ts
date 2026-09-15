@@ -24,7 +24,7 @@ export class PackageModel extends Model {
   declare shipmentId: number;
 
   @BelongsTo(() => ShipmentModel)
-  declare shipment: ShipmentModel;
+  declare shipment: Model; // <- antes: ShipmentModel. Rompe la metadata circular; Sequelize igual resuelve bien la asociación.
 
   @Column({ type: DataType.STRING(255), allowNull: false })
   declare contentDescription: string;
