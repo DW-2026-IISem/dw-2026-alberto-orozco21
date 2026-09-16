@@ -17201,7 +17201,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/create-proof-of-delivery.use-case.png)
 
-#### 17.16 — features/shipping/delivery-proofs/application/use-cases/get-proof-of-delivery.use-case.ts
+### 17.16 — features/shipping/delivery-proofs/application/use-cases/get-proof-of-delivery.use-case.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/application/use-cases/get-proof-of-delivery.use-case.ts`
 
@@ -17232,12 +17232,7 @@ export class GetProofOfDeliveryUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case get-proof-of-delivery.use-case.ts"
-```
+![alt text](imagenes/get-proof-of-delivery.use-case.png)
 
 #### 17.17 — features/shipping/delivery-proofs/application/use-cases/list-proofs-of-delivery.use-case.ts
 
