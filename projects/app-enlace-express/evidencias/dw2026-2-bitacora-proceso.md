@@ -17463,7 +17463,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/delivery-proofs_index.png)
 
-#### 17.23 — features/shipping/delivery-proofs/delivery-proofs.module.ts
+### 17.23 — features/shipping/delivery-proofs/delivery-proofs.module.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/delivery-proofs.module.ts`
 
@@ -17499,12 +17499,7 @@ export class DeliveryProofsModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: wire nest module delivery-proofs.module.ts"
-```
+![alt text](imagenes/delivery-proofs.module.png)
 
 #### 17.24 — Cerrar el TODO: eliminar el endpoint `/deliver` de Envio
 
