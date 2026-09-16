@@ -16666,12 +16666,7 @@ export interface IProofOfDeliveryRepository {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add repository port proof-of-delivery-repository.interface.ts"
-```
+![alt text](imagenes/proof-of-delivery-repository.interface.png)
 
 #### 17.6 — features/shipping/delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.ts
 
