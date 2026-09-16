@@ -17450,7 +17450,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/delivery-proofs.controller.png)
 
-#### 17.22 — features/shipping/delivery-proofs/index.ts
+### 17.22 — features/shipping/delivery-proofs/index.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/index.ts`
 
@@ -17461,12 +17461,7 @@ export { DeliveryProofsModule } from './delivery-proofs.module.js';
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add barrel export delivery-proofs"
-```
+![alt text](imagenes/delivery-proofs_index.png)
 
 #### 17.23 — features/shipping/delivery-proofs/delivery-proofs.module.ts
 
