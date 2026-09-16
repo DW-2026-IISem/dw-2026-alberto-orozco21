@@ -16466,3 +16466,1766 @@ npm run start:dev
 **/api/tracking-events**
 
 ![alt text](imagenes/api_tracking-events.png)
+
+-----------------------------------------------------------------------------------------------
+
+## FASE 17 — `16_BUSINESS_DELIVERY_PROOFS`
+
+### Business — DeliveryProofs / PruebaEntrega (patrón completo CA)
+
+> **Objetivo de la fase:** Última entidad de negocio de EnlaceExpress: PruebaEntrega, relación **1:1** con Envio (`shipmentId` único). Cierra la regla de negocio de la narrativa: *"Un envío no puede marcarse entregado sin evidencia y receptor"*.
+>
+> **Decisión de diseño clave — por qué no hay un caso de uso separado que "verifique" la prueba antes de entregar:**
+> Si `DeliveryProofsModule` necesitara `SHIPMENT_REPOSITORY` (para validar el envío) y `ShipmentsModule` necesitara `PROOF_OF_DELIVERY_REPOSITORY` (para el `TODO` de `DeliverShipmentUseCase` de fase 14), tendríamos una dependencia circular entre módulos. La solución limpia es invertir el control: **registrar la prueba de entrega ES la acción que entrega el envío.** `CreateProofOfDeliveryUseCase` (en `DeliveryProofsModule`, que sí puede importar `ShipmentsModule` sin problema) valida el envío, crea la prueba, y llama `shipment.deliver()` él mismo. El endpoint `PATCH /shipments/:id/deliver` de la fase 14 queda **eliminado** — la única forma de entregar un envío pasa a ser `POST /delivery-proofs`.
+
+### 17.1 — features/shipping/delivery-proofs/domain/enums/proof-of-delivery-status.enum.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/domain/enums/proof-of-delivery-status.enum.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/domain/enums
+cat > src/features/shipping/delivery-proofs/domain/enums/proof-of-delivery-status.enum.ts <<'EOF_BACKEND_IA'
+export enum ProofOfDeliveryStatus {
+  VALID = 'valida',
+  OBSERVED = 'observada',
+  REJECTED = 'rechazada',
+}
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/proof-of-delivery-status.enum.png)
+
+### 17.2 — features/shipping/delivery-proofs/domain/entities/proof-of-delivery.entity.ts
+
+Regla: se requiere receptor (nombre + documento) y al menos una evidencia (`signatureUrl` o `photoUrl`). Las transiciones de revisión (`markObserved`, `markRejected`) solo son válidas desde `VALID`, una sola vez.
+
+**Archivo:** `src/features/shipping/delivery-proofs/domain/entities/proof-of-delivery.entity.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/domain/entities
+cat > src/features/shipping/delivery-proofs/domain/entities/proof-of-delivery.entity.ts <<'EOF_BACKEND_IA'
+import { ProofOfDeliveryStatus } from '../enums/proof-of-delivery-status.enum.js';
+
+export interface ProofOfDeliveryProps {
+  id?: number;
+  shipmentId: number;
+  deliveredAt?: Date;
+  receiverName: string;
+  receiverDocument: string;
+  signatureUrl?: string;
+  photoUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  observations?: string;
+  status?: ProofOfDeliveryStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class ProofOfDelivery {
+  id?: number;
+  shipmentId: number;
+  deliveredAt: Date;
+  receiverName: string;
+  receiverDocument: string;
+  signatureUrl?: string;
+  photoUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  observations?: string;
+  status: ProofOfDeliveryStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
+
+  private constructor(props: ProofOfDeliveryProps) {
+    this.id = props.id;
+    this.shipmentId = props.shipmentId;
+    this.deliveredAt = props.deliveredAt ?? new Date();
+    this.receiverName = props.receiverName;
+    this.receiverDocument = props.receiverDocument;
+    this.signatureUrl = props.signatureUrl;
+    this.photoUrl = props.photoUrl;
+    this.latitude = props.latitude;
+    this.longitude = props.longitude;
+    this.observations = props.observations;
+    this.status = props.status ?? ProofOfDeliveryStatus.VALID;
+    this.createdAt = props.createdAt;
+    this.updatedAt = props.updatedAt;
+  }
+
+  static create(
+    props: Omit<ProofOfDeliveryProps, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
+  ): ProofOfDelivery {
+    if (!props.shipmentId) {
+      throw new Error('La prueba de entrega debe estar asociada a un envío');
+    }
+    if (!props.receiverName?.trim()) {
+      throw new Error('El nombre del receptor es requerido');
+    }
+    if (!props.receiverDocument?.trim()) {
+      throw new Error('El documento del receptor es requerido');
+    }
+    if (!props.signatureUrl?.trim() && !props.photoUrl?.trim()) {
+      throw new Error('Se requiere al menos una evidencia: firma o foto');
+    }
+
+    return new ProofOfDelivery(props);
+  }
+
+  static reconstitute(props: ProofOfDeliveryProps): ProofOfDelivery {
+    return new ProofOfDelivery(props);
+  }
+
+  markObserved(notes?: string): void {
+    if (this.status !== ProofOfDeliveryStatus.VALID) {
+      throw new Error(
+        `Solo una prueba de entrega válida puede marcarse como observada (estado actual: '${this.status}')`,
+      );
+    }
+    this.status = ProofOfDeliveryStatus.OBSERVED;
+    if (notes) this.observations = notes;
+  }
+
+  markRejected(notes?: string): void {
+    if (this.status !== ProofOfDeliveryStatus.VALID) {
+      throw new Error(
+        `Solo una prueba de entrega válida puede rechazarse (estado actual: '${this.status}')`,
+      );
+    }
+    this.status = ProofOfDeliveryStatus.REJECTED;
+    if (notes) this.observations = notes;
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add domain entity proof-of-delivery.entity.ts"
+```
+
+#### 17.3 — features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-already-exists.exception.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-already-exists.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/domain/exceptions
+cat > src/features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-already-exists.exception.ts <<'EOF_BACKEND_IA'
+import { DomainException } from '../../../../../common/exceptions/domain.exception.js';
+
+export class ProofOfDeliveryAlreadyExistsException extends DomainException {
+  constructor(shipmentId: number) {
+    super(`El envío ${shipmentId} ya tiene una prueba de entrega registrada`);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add domain exception proof-of-delivery-already-exists.exception.ts"
+```
+
+#### 17.4 — features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-not-found.exception.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-not-found.exception.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/domain/exceptions
+cat > src/features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-not-found.exception.ts <<'EOF_BACKEND_IA'
+import { EntityNotFoundException } from '../../../../../common/exceptions/entity-not-found.exception.js';
+
+export class ProofOfDeliveryNotFoundException extends EntityNotFoundException {
+  constructor(id: number) {
+    super('Prueba de entrega', id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add domain exception proof-of-delivery-not-found.exception.ts"
+```
+
+#### 17.5 — features/shipping/delivery-proofs/domain/interfaces/proof-of-delivery-repository.interface.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/domain/interfaces/proof-of-delivery-repository.interface.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/domain/interfaces
+cat > src/features/shipping/delivery-proofs/domain/interfaces/proof-of-delivery-repository.interface.ts <<'EOF_BACKEND_IA'
+import { PaginatedResult } from '../../../../../common/interfaces/pagination.interface.js';
+import { ProofOfDelivery } from '../entities/proof-of-delivery.entity.js';
+
+export const PROOF_OF_DELIVERY_REPOSITORY = 'PROOF_OF_DELIVERY_REPOSITORY';
+
+export interface ProofOfDeliveryFindAllParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface IProofOfDeliveryRepository {
+  create(proof: ProofOfDelivery): Promise<ProofOfDelivery>;
+  update(proof: ProofOfDelivery): Promise<ProofOfDelivery>;
+  findById(id: number): Promise<ProofOfDelivery | null>;
+  findByShipmentId(shipmentId: number): Promise<ProofOfDelivery | null>;
+  findAll(params: ProofOfDeliveryFindAllParams): Promise<PaginatedResult<ProofOfDelivery>>;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add repository port proof-of-delivery-repository.interface.ts"
+```
+
+#### 17.6 — features/shipping/delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.ts
+
+`shipmentId` es `unique` — refleja la relación 1:1 a nivel de base de datos, no solo en el dominio.
+
+**Archivo:** `src/features/shipping/delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/infrastructure/persistence/models
+cat > src/features/shipping/delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  BelongsTo,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+import { ProofOfDeliveryStatus } from '../../../domain/enums/proof-of-delivery-status.enum.js';
+
+@Table({ tableName: 'delivery_proofs' })
+export class ProofOfDeliveryModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @ForeignKey(() => ShipmentModel)
+  @Column({ type: DataType.INTEGER, allowNull: false, unique: true })
+  declare shipmentId: number;
+
+  @BelongsTo(() => ShipmentModel)
+  declare shipment: ShipmentModel;
+
+  @Column({ type: DataType.DATE, allowNull: false })
+  declare deliveredAt: Date;
+
+  @Column({ type: DataType.STRING(150), allowNull: false })
+  declare receiverName: string;
+
+  @Column({ type: DataType.STRING(30), allowNull: false })
+  declare receiverDocument: string;
+
+  @Column({ type: DataType.STRING(500), allowNull: true })
+  declare signatureUrl: string | null;
+
+  @Column({ type: DataType.STRING(500), allowNull: true })
+  declare photoUrl: string | null;
+
+  @Column({ type: DataType.DECIMAL(10, 7), allowNull: true })
+  declare latitude: number | null;
+
+  @Column({ type: DataType.DECIMAL(10, 7), allowNull: true })
+  declare longitude: number | null;
+
+  @Column({ type: DataType.TEXT, allowNull: true })
+  declare observations: string | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(ProofOfDeliveryStatus)),
+    allowNull: false,
+    defaultValue: ProofOfDeliveryStatus.VALID,
+  })
+  declare status: ProofOfDeliveryStatus;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add sequelize model proof-of-delivery.model.ts with unique shipment FK"
+```
+
+#### 17.7 — features/shipping/delivery-proofs/infrastructure/persistence/repositories/proof-of-delivery.repository.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/infrastructure/persistence/repositories/proof-of-delivery.repository.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/infrastructure/persistence/repositories
+cat > src/features/shipping/delivery-proofs/infrastructure/persistence/repositories/proof-of-delivery.repository.ts <<'EOF_BACKEND_IA'
+import { Injectable } from '@nestjs/common';
+import {
+  buildPaginatedResult,
+  normalizePagination,
+} from '../../../../../../common/utils/pagination.util.js';
+import { ProofOfDelivery } from '../../../domain/entities/proof-of-delivery.entity.js';
+import {
+  ProofOfDeliveryFindAllParams,
+  IProofOfDeliveryRepository,
+} from '../../../domain/interfaces/proof-of-delivery-repository.interface.js';
+import { ProofOfDeliveryMapper } from '../../../application/mappers/proof-of-delivery.mapper.js';
+import { ProofOfDeliveryModel } from '../models/proof-of-delivery.model.js';
+
+@Injectable()
+export class ProofOfDeliveryRepository implements IProofOfDeliveryRepository {
+  async create(proof: ProofOfDelivery): Promise<ProofOfDelivery> {
+    const model = await ProofOfDeliveryModel.create(
+      ProofOfDeliveryMapper.toPersistence(proof),
+    );
+    return ProofOfDeliveryMapper.toDomain(model);
+  }
+
+  async update(proof: ProofOfDelivery): Promise<ProofOfDelivery> {
+    await ProofOfDeliveryModel.update(ProofOfDeliveryMapper.toPersistence(proof), {
+      where: { id: proof.id },
+    });
+    const updated = await ProofOfDeliveryModel.findByPk(proof.id!);
+    return ProofOfDeliveryMapper.toDomain(updated!);
+  }
+
+  async findById(id: number): Promise<ProofOfDelivery | null> {
+    const model = await ProofOfDeliveryModel.findByPk(id);
+    return model ? ProofOfDeliveryMapper.toDomain(model) : null;
+  }
+
+  async findByShipmentId(shipmentId: number): Promise<ProofOfDelivery | null> {
+    const model = await ProofOfDeliveryModel.findOne({ where: { shipmentId } });
+    return model ? ProofOfDeliveryMapper.toDomain(model) : null;
+  }
+
+  async findAll(params: ProofOfDeliveryFindAllParams) {
+    const { page, limit, offset } = normalizePagination(
+      params.page,
+      params.limit,
+    );
+
+    const { rows, count } = await ProofOfDeliveryModel.findAndCountAll({
+      limit,
+      offset,
+      order: [['deliveredAt', 'DESC']],
+    });
+
+    return buildPaginatedResult(
+      rows.map((row) => ProofOfDeliveryMapper.toDomain(row)),
+      count,
+      page,
+      limit,
+    );
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add sequelize repository proof-of-delivery.repository.ts"
+```
+
+#### 17.8 — features/shipping/delivery-proofs/infrastructure/persistence/migrations/create-delivery-proofs-table.migration.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/infrastructure/persistence/migrations/create-delivery-proofs-table.migration.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/infrastructure/persistence/migrations
+cat > src/features/shipping/delivery-proofs/infrastructure/persistence/migrations/create-delivery-proofs-table.migration.ts <<'EOF_BACKEND_IA'
+export const createDeliveryProofsTableMigration = {
+  name: 'create-delivery-proofs-table',
+  async up(): Promise<void> {
+    // Sequelize sync handles table creation in development.
+    // Production: CREATE TABLE delivery_proofs (id, shipmentId FK->shipments UNIQUE,
+    //   deliveredAt, receiverName, receiverDocument, signatureUrl, photoUrl,
+    //   latitude, longitude, observations, status, createdAt, updatedAt)
+  },
+  async down(): Promise<void> {
+    // Production: DROP TABLE delivery_proofs
+  },
+};
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add migration create-delivery-proofs-table.migration.ts"
+```
+
+#### 17.9 — features/shipping/delivery-proofs/infrastructure/persistence/seeders/delivery-proofs.seeder.ts
+
+Sin efecto por ahora: solo crea una prueba si hay un envío `en_ruta`, y el envío sembrado en fase 14 quedó en `creado`. Queda listo para cuando el flujo de pruebas de entrega se ejercite manualmente.
+
+**Archivo:** `src/features/shipping/delivery-proofs/infrastructure/persistence/seeders/delivery-proofs.seeder.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/infrastructure/persistence/seeders
+cat > src/features/shipping/delivery-proofs/infrastructure/persistence/seeders/delivery-proofs.seeder.ts <<'EOF_BACKEND_IA'
+import { ProofOfDeliveryModel } from '../models/proof-of-delivery.model.js';
+import { ShipmentModel } from '../../../../shipments/infrastructure/persistence/models/shipment.model.js';
+import { ShipmentStatus } from '../../../../shipments/domain/enums/shipment-status.enum.js';
+
+export async function seedProofsOfDelivery(): Promise<void> {
+  const count = await ProofOfDeliveryModel.count();
+  if (count > 0) {
+    return;
+  }
+
+  const shipment = await ShipmentModel.findOne({
+    where: { status: ShipmentStatus.IN_TRANSIT },
+    order: [['id', 'ASC']],
+  });
+
+  if (!shipment) {
+    // No hay envíos en_ruta en los datos sembrados; se omite el seeder.
+    return;
+  }
+
+  await ProofOfDeliveryModel.create({
+    shipmentId: shipment.id,
+    deliveredAt: new Date(),
+    receiverName: 'Recepción Bodega Central',
+    receiverDocument: '1122334455',
+    photoUrl: 'https://example.com/evidence/photo.jpg',
+    observations: 'Entregado sin novedad',
+  });
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add seeder delivery-proofs.seeder.ts"
+```
+
+#### 17.10 — features/shipping/delivery-proofs/application/dto/proof-of-delivery-filter.dto.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/dto/proof-of-delivery-filter.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/dto
+cat > src/features/shipping/delivery-proofs/application/dto/proof-of-delivery-filter.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsPositive, Min } from 'class-validator';
+
+export class ProofOfDeliveryFilterDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  limit?: number;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto proof-of-delivery-filter.dto.ts"
+```
+
+#### 17.11 — features/shipping/delivery-proofs/application/dto/proof-of-delivery-response.dto.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/dto/proof-of-delivery-response.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/dto
+cat > src/features/shipping/delivery-proofs/application/dto/proof-of-delivery-response.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ProofOfDeliveryStatus } from '../../domain/enums/proof-of-delivery-status.enum.js';
+
+export class ProofOfDeliveryResponseDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 1 })
+  shipmentId: number;
+
+  @ApiProperty()
+  deliveredAt: Date;
+
+  @ApiProperty({ example: 'Recepción Bodega Central' })
+  receiverName: string;
+
+  @ApiProperty({ example: '1122334455' })
+  receiverDocument: string;
+
+  @ApiPropertyOptional({ example: 'https://example.com/evidence/signature.png' })
+  signatureUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://example.com/evidence/photo.jpg' })
+  photoUrl?: string;
+
+  @ApiPropertyOptional({ example: 11.0184 })
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: -74.8508 })
+  longitude?: number;
+
+  @ApiPropertyOptional({ example: 'Entregado sin novedad' })
+  observations?: string;
+
+  @ApiProperty({ enum: ProofOfDeliveryStatus, example: ProofOfDeliveryStatus.VALID })
+  status: ProofOfDeliveryStatus;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto proof-of-delivery-response.dto.ts"
+```
+
+#### 17.12 — features/shipping/delivery-proofs/application/dto/create-proof-of-delivery.dto.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/dto/create-proof-of-delivery.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/dto
+cat > src/features/shipping/delivery-proofs/application/dto/create-proof-of-delivery.dto.ts <<'EOF_BACKEND_IA'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsInt,
+  IsLatitude,
+  IsLongitude,
+  IsNotEmpty,
+  IsOptional,
+  IsPositive,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+
+export class CreateProofOfDeliveryDto {
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @IsPositive()
+  shipmentId: number;
+
+  @ApiProperty({ example: 'Recepción Bodega Central' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(150)
+  receiverName: string;
+
+  @ApiProperty({ example: '1122334455' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(30)
+  receiverDocument: string;
+
+  @ApiPropertyOptional({ example: 'https://example.com/evidence/signature.png' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  signatureUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://example.com/evidence/photo.jpg' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  photoUrl?: string;
+
+  @ApiPropertyOptional({ example: 11.0184 })
+  @IsOptional()
+  @IsLatitude()
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: -74.8508 })
+  @IsOptional()
+  @IsLongitude()
+  longitude?: number;
+
+  @ApiPropertyOptional({ example: 'Entregado sin novedad' })
+  @IsOptional()
+  @IsString()
+  observations?: string;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto create-proof-of-delivery.dto.ts"
+```
+
+#### 17.13 — features/shipping/delivery-proofs/application/dto/review-proof-of-delivery.dto.ts
+
+Usado tanto por `/observe` como por `/reject`.
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/dto/review-proof-of-delivery.dto.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/dto
+cat > src/features/shipping/delivery-proofs/application/dto/review-proof-of-delivery.dto.ts <<'EOF_BACKEND_IA'
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
+
+export class ReviewProofOfDeliveryDto {
+  @ApiPropertyOptional({ example: 'Firma no coincide con el documento del receptor' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add dto review-proof-of-delivery.dto.ts"
+```
+
+#### 17.14 — features/shipping/delivery-proofs/application/mappers/proof-of-delivery.mapper.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/mappers/proof-of-delivery.mapper.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/mappers
+cat > src/features/shipping/delivery-proofs/application/mappers/proof-of-delivery.mapper.ts <<'EOF_BACKEND_IA'
+import { ProofOfDelivery } from '../../domain/entities/proof-of-delivery.entity.js';
+import { ProofOfDeliveryResponseDto } from '../dto/proof-of-delivery-response.dto.js';
+import { ProofOfDeliveryModel } from '../../infrastructure/persistence/models/proof-of-delivery.model.js';
+
+export class ProofOfDeliveryMapper {
+  static toDomain(model: ProofOfDeliveryModel): ProofOfDelivery {
+    return ProofOfDelivery.reconstitute({
+      id: model.id,
+      shipmentId: model.shipmentId,
+      deliveredAt: model.deliveredAt,
+      receiverName: model.receiverName,
+      receiverDocument: model.receiverDocument,
+      signatureUrl: model.signatureUrl ?? undefined,
+      photoUrl: model.photoUrl ?? undefined,
+      latitude: model.latitude !== null ? Number(model.latitude) : undefined,
+      longitude: model.longitude !== null ? Number(model.longitude) : undefined,
+      observations: model.observations ?? undefined,
+      status: model.status,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+    });
+  }
+
+  static toResponse(entity: ProofOfDelivery): ProofOfDeliveryResponseDto {
+    return {
+      id: entity.id!,
+      shipmentId: entity.shipmentId,
+      deliveredAt: entity.deliveredAt,
+      receiverName: entity.receiverName,
+      receiverDocument: entity.receiverDocument,
+      signatureUrl: entity.signatureUrl,
+      photoUrl: entity.photoUrl,
+      latitude: entity.latitude,
+      longitude: entity.longitude,
+      observations: entity.observations,
+      status: entity.status,
+      createdAt: entity.createdAt!,
+      updatedAt: entity.updatedAt!,
+    };
+  }
+
+  static toPersistence(entity: ProofOfDelivery): Partial<ProofOfDeliveryModel> {
+    return {
+      id: entity.id,
+      shipmentId: entity.shipmentId,
+      deliveredAt: entity.deliveredAt,
+      receiverName: entity.receiverName,
+      receiverDocument: entity.receiverDocument,
+      signatureUrl: entity.signatureUrl ?? null,
+      photoUrl: entity.photoUrl ?? null,
+      latitude: entity.latitude ?? null,
+      longitude: entity.longitude ?? null,
+      observations: entity.observations ?? null,
+      status: entity.status,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add mapper proof-of-delivery.mapper.ts"
+```
+
+#### 17.15 — features/shipping/delivery-proofs/application/use-cases/create-proof-of-delivery.use-case.ts
+
+El caso de uso que cierra el ciclo: valida el envío, la unicidad de la prueba, crea la evidencia y **entrega el envío** (`shipment.deliver()`), todo en una sola operación.
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/use-cases/create-proof-of-delivery.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/use-cases
+cat > src/features/shipping/delivery-proofs/application/use-cases/create-proof-of-delivery.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ShipmentNotFoundException } from '../../../shipments/domain/exceptions/shipment-not-found.exception.js';
+import {
+  SHIPMENT_REPOSITORY,
+  type IShipmentRepository,
+} from '../../../shipments/domain/interfaces/shipment-repository.interface.js';
+import { ProofOfDelivery } from '../../domain/entities/proof-of-delivery.entity.js';
+import { ProofOfDeliveryAlreadyExistsException } from '../../domain/exceptions/proof-of-delivery-already-exists.exception.js';
+import {
+  PROOF_OF_DELIVERY_REPOSITORY,
+  type IProofOfDeliveryRepository,
+} from '../../domain/interfaces/proof-of-delivery-repository.interface.js';
+import { CreateProofOfDeliveryDto } from '../dto/create-proof-of-delivery.dto.js';
+import { ProofOfDeliveryMapper } from '../mappers/proof-of-delivery.mapper.js';
+
+@Injectable()
+export class CreateProofOfDeliveryUseCase {
+  constructor(
+    @Inject(PROOF_OF_DELIVERY_REPOSITORY)
+    private readonly proofRepository: IProofOfDeliveryRepository,
+    @Inject(SHIPMENT_REPOSITORY)
+    private readonly shipmentRepository: IShipmentRepository,
+  ) {}
+
+  async execute(dto: CreateProofOfDeliveryDto) {
+    const shipment = await this.shipmentRepository.findById(dto.shipmentId);
+    if (!shipment) throw new ShipmentNotFoundException(dto.shipmentId);
+
+    const existing = await this.proofRepository.findByShipmentId(dto.shipmentId);
+    if (existing) throw new ProofOfDeliveryAlreadyExistsException(dto.shipmentId);
+
+    const proof = ProofOfDelivery.create({
+      shipmentId: dto.shipmentId,
+      receiverName: dto.receiverName,
+      receiverDocument: dto.receiverDocument,
+      signatureUrl: dto.signatureUrl,
+      photoUrl: dto.photoUrl,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      observations: dto.observations,
+    });
+
+    // La transición de dominio (valida que el envío esté 'en_ruta') vive en
+    // Shipment.deliver() — ver fase 14. Si el envío no está en ese estado,
+    // esto lanza InvalidShipmentTransitionException antes de guardar nada.
+    shipment.deliver(proof.deliveredAt);
+
+    const created = await this.proofRepository.create(proof);
+    await this.shipmentRepository.update(shipment);
+
+    return ProofOfDeliveryMapper.toResponse(created);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case create-proof-of-delivery.use-case.ts that delivers the shipment"
+```
+
+#### 17.16 — features/shipping/delivery-proofs/application/use-cases/get-proof-of-delivery.use-case.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/use-cases/get-proof-of-delivery.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/use-cases
+cat > src/features/shipping/delivery-proofs/application/use-cases/get-proof-of-delivery.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ProofOfDeliveryNotFoundException } from '../../domain/exceptions/proof-of-delivery-not-found.exception.js';
+import {
+  PROOF_OF_DELIVERY_REPOSITORY,
+  type IProofOfDeliveryRepository,
+} from '../../domain/interfaces/proof-of-delivery-repository.interface.js';
+import { ProofOfDeliveryMapper } from '../mappers/proof-of-delivery.mapper.js';
+
+@Injectable()
+export class GetProofOfDeliveryUseCase {
+  constructor(
+    @Inject(PROOF_OF_DELIVERY_REPOSITORY)
+    private readonly proofRepository: IProofOfDeliveryRepository,
+  ) {}
+
+  async execute(id: number) {
+    const proof = await this.proofRepository.findById(id);
+    if (!proof) throw new ProofOfDeliveryNotFoundException(id);
+    return ProofOfDeliveryMapper.toResponse(proof);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case get-proof-of-delivery.use-case.ts"
+```
+
+#### 17.17 — features/shipping/delivery-proofs/application/use-cases/list-proofs-of-delivery.use-case.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/use-cases/list-proofs-of-delivery.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/use-cases
+cat > src/features/shipping/delivery-proofs/application/use-cases/list-proofs-of-delivery.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  PROOF_OF_DELIVERY_REPOSITORY,
+  type IProofOfDeliveryRepository,
+} from '../../domain/interfaces/proof-of-delivery-repository.interface.js';
+import { ProofOfDeliveryFilterDto } from '../dto/proof-of-delivery-filter.dto.js';
+import { ProofOfDeliveryMapper } from '../mappers/proof-of-delivery.mapper.js';
+
+@Injectable()
+export class ListProofsOfDeliveryUseCase {
+  constructor(
+    @Inject(PROOF_OF_DELIVERY_REPOSITORY)
+    private readonly proofRepository: IProofOfDeliveryRepository,
+  ) {}
+
+  async execute(filter: ProofOfDeliveryFilterDto) {
+    const result = await this.proofRepository.findAll(filter);
+    return {
+      items: result.items.map((proof) => ProofOfDeliveryMapper.toResponse(proof)),
+      meta: result.meta,
+    };
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case list-proofs-of-delivery.use-case.ts"
+```
+
+#### 17.18 — features/shipping/delivery-proofs/application/use-cases/mark-proof-observed.use-case.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/use-cases/mark-proof-observed.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/use-cases
+cat > src/features/shipping/delivery-proofs/application/use-cases/mark-proof-observed.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ProofOfDeliveryNotFoundException } from '../../domain/exceptions/proof-of-delivery-not-found.exception.js';
+import {
+  PROOF_OF_DELIVERY_REPOSITORY,
+  type IProofOfDeliveryRepository,
+} from '../../domain/interfaces/proof-of-delivery-repository.interface.js';
+import { ReviewProofOfDeliveryDto } from '../dto/review-proof-of-delivery.dto.js';
+import { ProofOfDeliveryMapper } from '../mappers/proof-of-delivery.mapper.js';
+
+@Injectable()
+export class MarkProofObservedUseCase {
+  constructor(
+    @Inject(PROOF_OF_DELIVERY_REPOSITORY)
+    private readonly proofRepository: IProofOfDeliveryRepository,
+  ) {}
+
+  async execute(id: number, dto: ReviewProofOfDeliveryDto) {
+    const proof = await this.proofRepository.findById(id);
+    if (!proof) throw new ProofOfDeliveryNotFoundException(id);
+
+    proof.markObserved(dto.notes);
+
+    const updated = await this.proofRepository.update(proof);
+    return ProofOfDeliveryMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case mark-proof-observed.use-case.ts"
+```
+
+#### 17.19 — features/shipping/delivery-proofs/application/use-cases/mark-proof-rejected.use-case.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/application/use-cases/mark-proof-rejected.use-case.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/application/use-cases
+cat > src/features/shipping/delivery-proofs/application/use-cases/mark-proof-rejected.use-case.ts <<'EOF_BACKEND_IA'
+import { Inject, Injectable } from '@nestjs/common';
+import { ProofOfDeliveryNotFoundException } from '../../domain/exceptions/proof-of-delivery-not-found.exception.js';
+import {
+  PROOF_OF_DELIVERY_REPOSITORY,
+  type IProofOfDeliveryRepository,
+} from '../../domain/interfaces/proof-of-delivery-repository.interface.js';
+import { ReviewProofOfDeliveryDto } from '../dto/review-proof-of-delivery.dto.js';
+import { ProofOfDeliveryMapper } from '../mappers/proof-of-delivery.mapper.js';
+
+@Injectable()
+export class MarkProofRejectedUseCase {
+  constructor(
+    @Inject(PROOF_OF_DELIVERY_REPOSITORY)
+    private readonly proofRepository: IProofOfDeliveryRepository,
+  ) {}
+
+  async execute(id: number, dto: ReviewProofOfDeliveryDto) {
+    const proof = await this.proofRepository.findById(id);
+    if (!proof) throw new ProofOfDeliveryNotFoundException(id);
+
+    proof.markRejected(dto.notes);
+
+    const updated = await this.proofRepository.update(proof);
+    return ProofOfDeliveryMapper.toResponse(updated);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add use case mark-proof-rejected.use-case.ts"
+```
+
+#### 17.20 — features/shipping/delivery-proofs/presentation/http/serializers/proof-of-delivery.serializer.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/presentation/http/serializers/proof-of-delivery.serializer.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/presentation/http/serializers
+cat > src/features/shipping/delivery-proofs/presentation/http/serializers/proof-of-delivery.serializer.ts <<'EOF_BACKEND_IA'
+import { ProofOfDelivery } from '../../../domain/entities/proof-of-delivery.entity.js';
+import { ProofOfDeliveryResponseDto } from '../../../application/dto/proof-of-delivery-response.dto.js';
+import { ProofOfDeliveryMapper } from '../../../application/mappers/proof-of-delivery.mapper.js';
+
+export class ProofOfDeliverySerializer {
+  static serialize(entity: ProofOfDelivery): ProofOfDeliveryResponseDto {
+    return ProofOfDeliveryMapper.toResponse(entity);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add serializer proof-of-delivery.serializer.ts"
+```
+
+#### 17.21 — features/shipping/delivery-proofs/presentation/http/controllers/delivery-proofs.controller.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/presentation/http/controllers/delivery-proofs.controller.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs/presentation/http/controllers
+cat > src/features/shipping/delivery-proofs/presentation/http/controllers/delivery-proofs.controller.ts <<'EOF_BACKEND_IA'
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ParsePositiveIntPipe } from '../../../../../../common/pipes/parse-positive-int.pipe.js';
+import { CreateProofOfDeliveryDto } from '../../../application/dto/create-proof-of-delivery.dto.js';
+import { ReviewProofOfDeliveryDto } from '../../../application/dto/review-proof-of-delivery.dto.js';
+import { ProofOfDeliveryFilterDto } from '../../../application/dto/proof-of-delivery-filter.dto.js';
+import { ProofOfDeliveryResponseDto } from '../../../application/dto/proof-of-delivery-response.dto.js';
+import { CreateProofOfDeliveryUseCase } from '../../../application/use-cases/create-proof-of-delivery.use-case.js';
+import { GetProofOfDeliveryUseCase } from '../../../application/use-cases/get-proof-of-delivery.use-case.js';
+import { ListProofsOfDeliveryUseCase } from '../../../application/use-cases/list-proofs-of-delivery.use-case.js';
+import { MarkProofObservedUseCase } from '../../../application/use-cases/mark-proof-observed.use-case.js';
+import { MarkProofRejectedUseCase } from '../../../application/use-cases/mark-proof-rejected.use-case.js';
+
+@ApiTags('DeliveryProofs')
+@Controller('delivery-proofs')
+export class DeliveryProofsController {
+  constructor(
+    private readonly createProofOfDeliveryUseCase: CreateProofOfDeliveryUseCase,
+    private readonly getProofOfDeliveryUseCase: GetProofOfDeliveryUseCase,
+    private readonly listProofsOfDeliveryUseCase: ListProofsOfDeliveryUseCase,
+    private readonly markProofObservedUseCase: MarkProofObservedUseCase,
+    private readonly markProofRejectedUseCase: MarkProofRejectedUseCase,
+  ) {}
+
+  @Post()
+  @ApiOperation({
+    summary: 'Registrar evidencia de entrega (entrega el envío: en_ruta → entregado)',
+  })
+  @ApiCreatedResponse({ type: ProofOfDeliveryResponseDto })
+  create(@Body() dto: CreateProofOfDeliveryDto) {
+    return this.createProofOfDeliveryUseCase.execute(dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar pruebas de entrega' })
+  @ApiOkResponse({ type: [ProofOfDeliveryResponseDto] })
+  findAll(@Query() filter: ProofOfDeliveryFilterDto) {
+    return this.listProofsOfDeliveryUseCase.execute(filter);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener una prueba de entrega por ID' })
+  @ApiOkResponse({ type: ProofOfDeliveryResponseDto })
+  findOne(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.getProofOfDeliveryUseCase.execute(id);
+  }
+
+  @Patch(':id/observe')
+  @ApiOperation({ summary: 'Marcar una prueba de entrega como observada' })
+  @ApiOkResponse({ type: ProofOfDeliveryResponseDto })
+  observe(
+    @Param('id', ParsePositiveIntPipe) id: number,
+    @Body() dto: ReviewProofOfDeliveryDto,
+  ) {
+    return this.markProofObservedUseCase.execute(id, dto);
+  }
+
+  @Patch(':id/reject')
+  @ApiOperation({ summary: 'Rechazar una prueba de entrega' })
+  @ApiOkResponse({ type: ProofOfDeliveryResponseDto })
+  reject(
+    @Param('id', ParsePositiveIntPipe) id: number,
+    @Body() dto: ReviewProofOfDeliveryDto,
+  ) {
+    return this.markProofRejectedUseCase.execute(id, dto);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add controller delivery-proofs.controller.ts"
+```
+
+#### 17.22 — features/shipping/delivery-proofs/index.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/index.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs
+cat > src/features/shipping/delivery-proofs/index.ts <<'EOF_BACKEND_IA'
+export { DeliveryProofsModule } from './delivery-proofs.module.js';
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add barrel export delivery-proofs"
+```
+
+#### 17.23 — features/shipping/delivery-proofs/delivery-proofs.module.ts
+
+**Archivo:** `src/features/shipping/delivery-proofs/delivery-proofs.module.ts`
+
+```bash
+mkdir -p src/features/shipping/delivery-proofs
+cat > src/features/shipping/delivery-proofs/delivery-proofs.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { ShipmentsModule } from '../shipments/shipments.module.js';
+import { PROOF_OF_DELIVERY_REPOSITORY } from './domain/interfaces/proof-of-delivery-repository.interface.js';
+import { ProofOfDeliveryRepository } from './infrastructure/persistence/repositories/proof-of-delivery.repository.js';
+import { CreateProofOfDeliveryUseCase } from './application/use-cases/create-proof-of-delivery.use-case.js';
+import { GetProofOfDeliveryUseCase } from './application/use-cases/get-proof-of-delivery.use-case.js';
+import { ListProofsOfDeliveryUseCase } from './application/use-cases/list-proofs-of-delivery.use-case.js';
+import { MarkProofObservedUseCase } from './application/use-cases/mark-proof-observed.use-case.js';
+import { MarkProofRejectedUseCase } from './application/use-cases/mark-proof-rejected.use-case.js';
+import { DeliveryProofsController } from './presentation/http/controllers/delivery-proofs.controller.js';
+
+@Module({
+  imports: [ShipmentsModule],
+  controllers: [DeliveryProofsController],
+  providers: [
+    ProofOfDeliveryRepository,
+    { provide: PROOF_OF_DELIVERY_REPOSITORY, useExisting: ProofOfDeliveryRepository },
+    CreateProofOfDeliveryUseCase,
+    GetProofOfDeliveryUseCase,
+    ListProofsOfDeliveryUseCase,
+    MarkProofObservedUseCase,
+    MarkProofRejectedUseCase,
+  ],
+  exports: [PROOF_OF_DELIVERY_REPOSITORY],
+})
+export class DeliveryProofsModule {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: wire nest module delivery-proofs.module.ts"
+```
+
+#### 17.24 — Cerrar el TODO: eliminar el endpoint `/deliver` de Envio
+
+Ahora que `CreateProofOfDeliveryUseCase` es quien entrega el envío, `DeliverShipmentUseCase` y la ruta `PATCH /shipments/:id/deliver` (fase 14) quedan **eliminados** — mantenerlos permitiría entregar un envío sin evidencia, justo lo que la narrativa del proyecto prohíbe.
+
+```bash
+rm src/features/shipping/shipments/application/use-cases/deliver-shipment.use-case.ts
+```
+
+**Archivo (reescrito):** `src/features/shipping/shipments/presentation/http/controllers/shipments.controller.ts`
+
+```bash
+cat > src/features/shipping/shipments/presentation/http/controllers/shipments.controller.ts <<'EOF_BACKEND_IA'
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ParsePositiveIntPipe } from '../../../../../../common/pipes/parse-positive-int.pipe.js';
+import { CreateShipmentDto } from '../../../application/dto/create-shipment.dto.js';
+import { UpdateShipmentDto } from '../../../application/dto/update-shipment.dto.js';
+import { AssignShipmentDto } from '../../../application/dto/assign-shipment.dto.js';
+import { ShipmentFilterDto } from '../../../application/dto/shipment-filter.dto.js';
+import { ShipmentResponseDto } from '../../../application/dto/shipment-response.dto.js';
+import { CreateShipmentUseCase } from '../../../application/use-cases/create-shipment.use-case.js';
+import { UpdateShipmentUseCase } from '../../../application/use-cases/update-shipment.use-case.js';
+import { DeleteShipmentUseCase } from '../../../application/use-cases/delete-shipment.use-case.js';
+import { GetShipmentUseCase } from '../../../application/use-cases/get-shipment.use-case.js';
+import { ListShipmentsUseCase } from '../../../application/use-cases/list-shipments.use-case.js';
+import { QuoteShipmentUseCase } from '../../../application/use-cases/quote-shipment.use-case.js';
+import { AssignShipmentUseCase } from '../../../application/use-cases/assign-shipment.use-case.js';
+import { StartTransitShipmentUseCase } from '../../../application/use-cases/start-transit-shipment.use-case.js';
+import { ReportShipmentIssueUseCase } from '../../../application/use-cases/report-shipment-issue.use-case.js';
+import { CancelShipmentUseCase } from '../../../application/use-cases/cancel-shipment.use-case.js';
+
+@ApiTags('Shipments')
+@Controller('shipments')
+export class ShipmentsController {
+  constructor(
+    private readonly createShipmentUseCase: CreateShipmentUseCase,
+    private readonly updateShipmentUseCase: UpdateShipmentUseCase,
+    private readonly deleteShipmentUseCase: DeleteShipmentUseCase,
+    private readonly getShipmentUseCase: GetShipmentUseCase,
+    private readonly listShipmentsUseCase: ListShipmentsUseCase,
+    private readonly quoteShipmentUseCase: QuoteShipmentUseCase,
+    private readonly assignShipmentUseCase: AssignShipmentUseCase,
+    private readonly startTransitShipmentUseCase: StartTransitShipmentUseCase,
+    private readonly reportShipmentIssueUseCase: ReportShipmentIssueUseCase,
+    private readonly cancelShipmentUseCase: CancelShipmentUseCase,
+  ) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Crear un envío' })
+  @ApiCreatedResponse({ type: ShipmentResponseDto })
+  create(@Body() dto: CreateShipmentDto) {
+    return this.createShipmentUseCase.execute(dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar envíos' })
+  @ApiOkResponse({ type: [ShipmentResponseDto] })
+  findAll(@Query() filter: ShipmentFilterDto) {
+    return this.listShipmentsUseCase.execute(filter);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener un envío por ID' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  findOne(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.getShipmentUseCase.execute(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar datos comerciales (solo si está creado)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  update(
+    @Param('id', ParsePositiveIntPipe) id: number,
+    @Body() dto: UpdateShipmentDto,
+  ) {
+    return this.updateShipmentUseCase.execute(id, dto);
+  }
+
+  @Patch(':id/quote')
+  @ApiOperation({ summary: 'Cotizar el envío (creado → cotizado)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  quote(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.quoteShipmentUseCase.execute(id);
+  }
+
+  @Patch(':id/assign')
+  @ApiOperation({ summary: 'Asignar mensajero y ruta (cotizado → asignado)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  assign(
+    @Param('id', ParsePositiveIntPipe) id: number,
+    @Body() dto: AssignShipmentDto,
+  ) {
+    return this.assignShipmentUseCase.execute(id, dto);
+  }
+
+  @Patch(':id/start-transit')
+  @ApiOperation({ summary: 'Poner en ruta (asignado/con_novedad → en_ruta)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  startTransit(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.startTransitShipmentUseCase.execute(id);
+  }
+
+  @Patch(':id/report-issue')
+  @ApiOperation({ summary: 'Reportar novedad (en_ruta → con_novedad)' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  reportIssue(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.reportShipmentIssueUseCase.execute(id);
+  }
+
+  // La transición en_ruta → entregado ya NO vive aquí.
+  // Ver POST /delivery-proofs (fase 17): registrar la evidencia es lo que entrega el envío.
+
+  @Patch(':id/cancel')
+  @ApiOperation({ summary: 'Cancelar el envío' })
+  @ApiOkResponse({ type: ShipmentResponseDto })
+  cancel(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.cancelShipmentUseCase.execute(id);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar un envío recién creado' })
+  @ApiNoContentResponse()
+  remove(@Param('id', ParsePositiveIntPipe) id: number) {
+    return this.deleteShipmentUseCase.execute(id);
+  }
+}
+EOF_BACKEND_IA
+```
+
+**Archivo (reescrito):** `src/features/shipping/shipments/shipments.module.ts`
+
+```bash
+cat > src/features/shipping/shipments/shipments.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { CompaniesModule } from '../companies/companies.module.js';
+import { ContactsModule } from '../contacts/contacts.module.js';
+import { AddressesModule } from '../addresses/addresses.module.js';
+import { RatesModule } from '../rates/rates.module.js';
+import { CouriersModule } from '../couriers/couriers.module.js';
+import { RoutesModule } from '../routes/routes.module.js';
+import { SHIPMENT_REPOSITORY } from './domain/interfaces/shipment-repository.interface.js';
+import { ShipmentRepository } from './infrastructure/persistence/repositories/shipment.repository.js';
+import { CreateShipmentUseCase } from './application/use-cases/create-shipment.use-case.js';
+import { UpdateShipmentUseCase } from './application/use-cases/update-shipment.use-case.js';
+import { DeleteShipmentUseCase } from './application/use-cases/delete-shipment.use-case.js';
+import { GetShipmentUseCase } from './application/use-cases/get-shipment.use-case.js';
+import { ListShipmentsUseCase } from './application/use-cases/list-shipments.use-case.js';
+import { QuoteShipmentUseCase } from './application/use-cases/quote-shipment.use-case.js';
+import { AssignShipmentUseCase } from './application/use-cases/assign-shipment.use-case.js';
+import { StartTransitShipmentUseCase } from './application/use-cases/start-transit-shipment.use-case.js';
+import { ReportShipmentIssueUseCase } from './application/use-cases/report-shipment-issue.use-case.js';
+import { CancelShipmentUseCase } from './application/use-cases/cancel-shipment.use-case.js';
+import { ShipmentsController } from './presentation/http/controllers/shipments.controller.js';
+
+@Module({
+  imports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+  ],
+  controllers: [ShipmentsController],
+  providers: [
+    ShipmentRepository,
+    { provide: SHIPMENT_REPOSITORY, useExisting: ShipmentRepository },
+    CreateShipmentUseCase,
+    UpdateShipmentUseCase,
+    DeleteShipmentUseCase,
+    GetShipmentUseCase,
+    ListShipmentsUseCase,
+    QuoteShipmentUseCase,
+    AssignShipmentUseCase,
+    StartTransitShipmentUseCase,
+    ReportShipmentIssueUseCase,
+    CancelShipmentUseCase,
+  ],
+  exports: [SHIPMENT_REPOSITORY],
+})
+export class ShipmentsModule {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "refactor: remove standalone deliver endpoint; delivery now requires proof-of-delivery"
+```
+
+#### 17.25 — Actualizar shipment.model.ts (asociación 1:1 con `@HasOne`)
+
+A diferencia de todas las anteriores, esta es `@HasOne`, no `@HasMany` — es la única relación 1:1 del proyecto.
+
+**Archivo:** `src/features/shipping/shipments/infrastructure/persistence/models/shipment.model.ts`
+
+```bash
+cat > src/features/shipping/shipments/infrastructure/persistence/models/shipment.model.ts <<'EOF_BACKEND_IA'
+import {
+  AutoIncrement,
+  BelongsTo,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  HasMany,
+  HasOne,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from 'sequelize-typescript';
+import { CompanyModel } from '../../../../companies/infrastructure/persistence/models/company.model.js';
+import { ContactModel } from '../../../../contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../../addresses/infrastructure/persistence/models/address.model.js';
+import { RateModel } from '../../../../rates/infrastructure/persistence/models/rate.model.js';
+import { CourierModel } from '../../../../couriers/infrastructure/persistence/models/courier.model.js';
+import { RouteModel } from '../../../../routes/infrastructure/persistence/models/route.model.js';
+import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
+import { PackageModel } from '../../../../packages/infrastructure/persistence/models/package.model.js';
+import { TrackingEventModel } from '../../../../tracking-events/infrastructure/persistence/models/tracking-event.model.js';
+import { ProofOfDeliveryModel } from '../../../../delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.js';
+import { ShipmentPriority } from '../../../domain/enums/shipment-priority.enum.js';
+import { ShipmentStatus } from '../../../domain/enums/shipment-status.enum.js';
+
+@Table({ tableName: 'shipments' })
+export class ShipmentModel extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  declare id: number;
+
+  @Column({ type: DataType.STRING(30), allowNull: false, unique: true })
+  declare guideNumber: string;
+
+  @ForeignKey(() => CompanyModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare companyId: number;
+
+  @BelongsTo(() => CompanyModel)
+  declare company: CompanyModel;
+
+  @ForeignKey(() => ContactModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare originContactId: number;
+
+  @BelongsTo(() => ContactModel, { foreignKey: 'originContactId', as: 'originContact' })
+  declare originContact: ContactModel;
+
+  @ForeignKey(() => AddressModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare originAddressId: number;
+
+  @BelongsTo(() => AddressModel, { foreignKey: 'originAddressId', as: 'originAddress' })
+  declare originAddress: AddressModel;
+
+  @ForeignKey(() => ContactModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare destinationContactId: number;
+
+  @BelongsTo(() => ContactModel, {
+    foreignKey: 'destinationContactId',
+    as: 'destinationContact',
+  })
+  declare destinationContact: ContactModel;
+
+  @ForeignKey(() => AddressModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare destinationAddressId: number;
+
+  @BelongsTo(() => AddressModel, {
+    foreignKey: 'destinationAddressId',
+    as: 'destinationAddress',
+  })
+  declare destinationAddress: AddressModel;
+
+  @ForeignKey(() => RateModel)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare rateId: number;
+
+  @BelongsTo(() => RateModel)
+  declare rate: RateModel;
+
+  @ForeignKey(() => CourierModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare courierId: number | null;
+
+  @BelongsTo(() => CourierModel)
+  declare courier: CourierModel;
+
+  @ForeignKey(() => RouteModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare routeId: number | null;
+
+  @BelongsTo(() => RouteModel)
+  declare route: RouteModel;
+
+  @ForeignKey(() => InvoiceModel)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare invoiceId: number | null;
+
+  @BelongsTo(() => InvoiceModel)
+  declare invoice: InvoiceModel;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(ShipmentPriority)),
+    allowNull: false,
+    defaultValue: ShipmentPriority.NORMAL,
+  })
+  declare priority: ShipmentPriority;
+
+  @Column({ type: DataType.DECIMAL(8, 2), allowNull: false })
+  declare totalWeightKg: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: false })
+  declare declaredValue: number;
+
+  @Column({ type: DataType.DECIMAL(14, 2), allowNull: true })
+  declare calculatedCost: number | null;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(ShipmentStatus)),
+    allowNull: false,
+    defaultValue: ShipmentStatus.CREATED,
+  })
+  declare status: ShipmentStatus;
+
+  @Column({ type: DataType.DATE, allowNull: false })
+  declare requestDate: Date;
+
+  @Column({ type: DataType.DATE, allowNull: false })
+  declare estimatedDeliveryDate: Date;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare actualDeliveryDate: Date | null;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean;
+
+  @CreatedAt
+  declare createdAt: Date;
+
+  @UpdatedAt
+  declare updatedAt: Date;
+
+  @HasMany(() => PackageModel)
+  declare packages: PackageModel[];
+
+  @HasMany(() => TrackingEventModel)
+  declare trackingEvents: TrackingEventModel[];
+
+  @HasOne(() => ProofOfDeliveryModel)
+  declare proofOfDelivery: ProofOfDeliveryModel;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: add proofOfDelivery HasOne association to shipment.model.ts"
+```
+
+#### 17.26 — Actualizar sequelize.factory.ts (registrar ProofOfDeliveryModel — último modelo)
+
+**Archivo:** `src/infrastructure/database/sequelize/sequelize.factory.ts`
+
+```bash
+mkdir -p src/infrastructure/database/sequelize
+cat > src/infrastructure/database/sequelize/sequelize.factory.ts <<'EOF_BACKEND_IA'
+import { Sequelize } from 'sequelize-typescript';
+import { DatabaseDialect } from '../../../config/environment/env.interface.js';
+import { getSequelizeOptions } from './sequelize.options.js';
+
+import { CompanyModel } from '../../../features/shipping/companies/infrastructure/persistence/models/company.model.js';
+import { ContactModel } from '../../../features/shipping/contacts/infrastructure/persistence/models/contact.model.js';
+import { AddressModel } from '../../../features/shipping/addresses/infrastructure/persistence/models/address.model.js';
+import { RateModel } from '../../../features/shipping/rates/infrastructure/persistence/models/rate.model.js';
+import { CourierModel } from '../../../features/shipping/couriers/infrastructure/persistence/models/courier.model.js';
+import { RouteModel } from '../../../features/shipping/routes/infrastructure/persistence/models/route.model.js';
+import { InvoiceModel } from '../../../features/shipping/invoices/infrastructure/persistence/models/invoice.model.js';
+import { ShipmentModel } from '../../../features/shipping/shipments/infrastructure/persistence/models/shipment.model.js';
+import { PackageModel } from '../../../features/shipping/packages/infrastructure/persistence/models/package.model.js';
+import { TrackingEventModel } from '../../../features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.js';
+import { ProofOfDeliveryModel } from '../../../features/shipping/delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.js';
+
+export const ALL_MODELS = [
+  CompanyModel,
+  ContactModel,
+  AddressModel,
+  RateModel,
+  CourierModel,
+  RouteModel,
+  InvoiceModel,
+  ShipmentModel,
+  PackageModel,
+  TrackingEventModel,
+  ProofOfDeliveryModel,
+];
+
+async function loadDialectModule(moduleName: string): Promise<any> {
+  // Proyecto ESM: require() no existe como global, se usa import() dinámico.
+  const mod: any = await import(moduleName);
+  return mod.default ?? mod;
+}
+
+export async function createSequelizeInstance(
+  dialect: DatabaseDialect,
+): Promise<Sequelize> {
+  const options = getSequelizeOptions(dialect);
+
+  let dialectModule: any;
+
+  switch (dialect) {
+    case DatabaseDialect.MySQL:
+      dialectModule = await loadDialectModule('mysql2');
+      break;
+    case DatabaseDialect.Postgres:
+      dialectModule = await loadDialectModule('pg');
+      break;
+    case DatabaseDialect.MSSQL:
+      dialectModule = await loadDialectModule('tedious');
+      break;
+    case DatabaseDialect.Oracle:
+      dialectModule = await loadDialectModule('oracledb');
+      break;
+    default:
+      throw new Error(`Dialecto no soportado: ${dialect}`);
+  }
+
+  const sequelize = new Sequelize({
+    ...options,
+    dialectModule,
+    models: ALL_MODELS,
+  } as any);
+
+  try {
+    await sequelize.authenticate();
+    console.log(`✅ Conexión exitosa a ${dialect.toUpperCase()}`);
+  } catch (error: any) {
+    console.error(
+      `❌ Error conectando a ${dialect.toUpperCase()}:`,
+      error.message,
+    );
+    throw error;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    await sequelize.sync({ alter: false });
+    console.log('✅ Tablas sincronizadas');
+  }
+
+  return sequelize;
+}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: register ProofOfDeliveryModel in sequelize factory (11/11 entities)"
+```
+
+#### 17.27 — Actualizar shipping.module.ts (final: las 11 entidades)
+
+**Archivo:** `src/features/shipping/shipping.module.ts`
+
+```bash
+mkdir -p src/features/shipping
+cat > src/features/shipping/shipping.module.ts <<'EOF_BACKEND_IA'
+import { Module } from '@nestjs/common';
+import { CompaniesModule } from './companies/companies.module.js';
+import { ContactsModule } from './contacts/contacts.module.js';
+import { AddressesModule } from './addresses/addresses.module.js';
+import { RatesModule } from './rates/rates.module.js';
+import { CouriersModule } from './couriers/couriers.module.js';
+import { RoutesModule } from './routes/routes.module.js';
+import { InvoicesModule } from './invoices/invoices.module.js';
+import { ShipmentsModule } from './shipments/shipments.module.js';
+import { PackagesModule } from './packages/packages.module.js';
+import { TrackingEventsModule } from './tracking-events/tracking-events.module.js';
+import { DeliveryProofsModule } from './delivery-proofs/delivery-proofs.module.js';
+
+@Module({
+  imports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+    InvoicesModule,
+    ShipmentsModule,
+    PackagesModule,
+    TrackingEventsModule,
+    DeliveryProofsModule,
+  ],
+  exports: [
+    CompaniesModule,
+    ContactsModule,
+    AddressesModule,
+    RatesModule,
+    CouriersModule,
+    RoutesModule,
+    InvoicesModule,
+    ShipmentsModule,
+    PackagesModule,
+    TrackingEventsModule,
+    DeliveryProofsModule,
+  ],
+})
+export class ShippingModule {}
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "feat: export DeliveryProofsModule from ShippingModule — all 11 entities wired"
+```
+
+#### 17.28 — Actualizar database-seeder.service.ts y verificar el flujo completo
+
+**Archivo:** `src/infrastructure/database/seeders/database-seeder.service.ts`
+
+```bash
+mkdir -p src/infrastructure/database/seeders
+cat > src/infrastructure/database/seeders/database-seeder.service.ts <<'EOF_BACKEND_IA'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { seedCompanies } from '../../../features/shipping/companies/infrastructure/persistence/seeders/companies.seeder.js';
+import { seedContacts } from '../../../features/shipping/contacts/infrastructure/persistence/seeders/contacts.seeder.js';
+import { seedAddresses } from '../../../features/shipping/addresses/infrastructure/persistence/seeders/addresses.seeder.js';
+import { seedRates } from '../../../features/shipping/rates/infrastructure/persistence/seeders/rates.seeder.js';
+import { seedCouriers } from '../../../features/shipping/couriers/infrastructure/persistence/seeders/couriers.seeder.js';
+import { seedRoutes } from '../../../features/shipping/routes/infrastructure/persistence/seeders/routes.seeder.js';
+import { seedInvoices } from '../../../features/shipping/invoices/infrastructure/persistence/seeders/invoices.seeder.js';
+import { seedShipments } from '../../../features/shipping/shipments/infrastructure/persistence/seeders/shipments.seeder.js';
+import { seedPackages } from '../../../features/shipping/packages/infrastructure/persistence/seeders/packages.seeder.js';
+import { seedTrackingEvents } from '../../../features/shipping/tracking-events/infrastructure/persistence/seeders/tracking-events.seeder.js';
+import { seedProofsOfDelivery } from '../../../features/shipping/delivery-proofs/infrastructure/persistence/seeders/delivery-proofs.seeder.js';
+
+/**
+ * Ejecuta seeders en orden de dependencias.
+ * Solo en entornos no productivos.
+ */
+@Injectable()
+export class DatabaseSeederService implements OnModuleInit {
+  private readonly logger = new Logger(DatabaseSeederService.name);
+
+  async onModuleInit(): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    try {
+      await seedCompanies();
+      await seedContacts();
+      await seedAddresses();
+      await seedRates();
+      await seedCouriers();
+      await seedRoutes();
+      await seedInvoices();
+      await seedShipments();
+      await seedPackages();
+      await seedTrackingEvents();
+      await seedProofsOfDelivery();
+      this.logger.log('✅ Seeders ejecutados — 11/11 entidades');
+    } catch (error: any) {
+      this.logger.error(`❌ Error en seeders: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+}
+EOF_BACKEND_IA
+```
+
+`app.module.ts` no necesita cambios. Arranca la app y recorre el flujo end-to-end sobre el envío sembrado (queda en `creado` tras el seeder):
+
+```bash
+npm run start:dev
+```
+
+1. `PATCH /api/shipments/:id/quote` → `cotizado`.
+2. `PATCH /api/shipments/:id/assign` con `{courierId, routeId}` → `asignado`.
+3. `PATCH /api/shipments/:id/start-transit` → `en_ruta`.
+4. Confirma que `PATCH /api/shipments/:id/deliver` **ya no existe** (404 de ruta, no de negocio).
+5. `POST /api/delivery-proofs` con `{shipmentId, receiverName, receiverDocument, photoUrl}` → crea la prueba **y** el envío pasa a `entregado`. Verifícalo con `GET /api/shipments/:id`.
+6. Repite el mismo `POST /api/delivery-proofs` para el mismo `shipmentId` → debe fallar con `ProofOfDeliveryAlreadyExistsException` (409).
+7. Intenta `POST /api/delivery-proofs` para un envío que sigue en `creado` → debe fallar porque `shipment.deliver()` rechaza la transición (`InvalidShipmentTransitionException`, 400).
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: run seedProofsOfDelivery and verify end-to-end delivery flow (11/11 entities)"
+```
