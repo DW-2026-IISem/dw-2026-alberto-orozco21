@@ -16393,7 +16393,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/TrackingEventsModule.png)
 
-#### 16.24 — Actualizar database-seeder.service.ts y verificar tabla `tracking_events`
+### 16.24 — Actualizar database-seeder.service.ts y verificar tabla `tracking_events`
 
 **Archivo:** `src/infrastructure/database/seeders/database-seeder.service.ts`
 
@@ -16446,6 +16446,8 @@ export class DatabaseSeederService implements OnModuleInit {
 EOF_BACKEND_IA
 ```
 
+![alt text](imagenes/database-seeder.service_trevents.png)
+
 `app.module.ts` no necesita cambios. Arranca la app y confirma:
 
 ```bash
@@ -16456,9 +16458,11 @@ npm run start:dev
 - `GET /api/tracking-events?shipmentId=1` → debe traer el evento del seeder ordenado por `eventDate`.
 - No existen rutas `PATCH`/`DELETE` para este recurso — confírmalo en Swagger.
 
-**Sugerencia de commit (issue):**
+**Consola**
 
-```bash
-git add .
-git commit -m "chore: run seedTrackingEvents and verify append-only endpoints"
-```
+![alt text](imagenes/trevents_consola.png)
+
+
+**/api/tracking-events**
+
+![alt text](imagenes/api_tracking-events.png)

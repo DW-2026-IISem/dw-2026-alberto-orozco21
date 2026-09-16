@@ -27,7 +27,7 @@ export class InvoiceModel extends Model {
   declare companyId: number;
 
   @BelongsTo(() => CompanyModel)
-  declare company: CompanyModel;
+  declare company: Model;
 
   @Column({ type: DataType.STRING(30), allowNull: false, unique: true })
   declare number: string;
@@ -65,4 +65,7 @@ export class InvoiceModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
+
+  @HasMany(() => ShipmentModel)
+  declare shipments: Model[];
 }

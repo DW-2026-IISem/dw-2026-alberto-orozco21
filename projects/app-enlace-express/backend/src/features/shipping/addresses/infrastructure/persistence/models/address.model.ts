@@ -25,7 +25,7 @@ export class AddressModel extends Model {
   declare companyId: number;
 
   @BelongsTo(() => CompanyModel)
-  declare company: CompanyModel;
+  declare company: Model;
 
   @Column({ type: DataType.STRING(100), allowNull: false })
   declare alias: string;

@@ -27,7 +27,7 @@ export class RouteModel extends Model {
   declare courierId: number;
 
   @BelongsTo(() => CourierModel)
-  declare courier: CourierModel;
+  declare courier: Model;
 
   @Column({ type: DataType.STRING(150), allowNull: false })
   declare name: string;
@@ -59,4 +59,7 @@ export class RouteModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
+
+  @HasMany(() => ShipmentModel)
+  declare shipments: Model[];
 }

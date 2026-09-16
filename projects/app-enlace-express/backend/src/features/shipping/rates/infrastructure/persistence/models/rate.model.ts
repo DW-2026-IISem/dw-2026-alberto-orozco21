@@ -54,4 +54,7 @@ export class RateModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
+
+  @HasMany(() => ShipmentModel)
+  declare shipments: Model[];
 }

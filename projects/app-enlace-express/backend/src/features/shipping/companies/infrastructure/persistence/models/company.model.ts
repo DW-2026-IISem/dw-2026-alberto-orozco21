@@ -35,4 +35,16 @@ export class CompanyModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
+
+  @HasMany(() => ShipmentModel)
+  declare shipments: Model[];
+
+  @HasMany(() => InvoiceModel)
+  declare invoices: Model[];
+  
+  @HasMany(() => ContactModel)
+  declare contacts: Model[];
+
+  @HasMany(() => AddressModel)
+  declare addresses: Model[];
 }

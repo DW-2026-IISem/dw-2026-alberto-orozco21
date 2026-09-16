@@ -49,4 +49,10 @@ export class CourierModel extends Model {
 
   @UpdatedAt
   declare updatedAt: Date;
+
+  @HasMany(() => RouteModel)
+  declare routes: Model[];
+  
+  @HasMany(() => ShipmentModel)
+  declare shipments: Model[];
 }

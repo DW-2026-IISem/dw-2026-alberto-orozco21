@@ -27,7 +27,7 @@ export class TrackingEventModel extends Model {
   declare shipmentId: number;
 
   @BelongsTo(() => ShipmentModel)
-  declare shipment: ShipmentModel;
+  declare shipment: Model;
 
   @Column({
     type: DataType.ENUM(...Object.values(TrackingEventType)),
@@ -56,7 +56,7 @@ export class TrackingEventModel extends Model {
   declare recordedByCourierId: number | null;
 
   @BelongsTo(() => CourierModel)
-  declare recordedByCourier: CourierModel;
+  declare recordedByCourier: Model;
 
   @CreatedAt
   declare createdAt: Date;

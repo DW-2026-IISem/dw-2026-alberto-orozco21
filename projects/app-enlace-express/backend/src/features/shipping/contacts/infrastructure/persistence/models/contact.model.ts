@@ -24,7 +24,7 @@ export class ContactModel extends Model {
   declare companyId: number;
 
   @BelongsTo(() => CompanyModel)
-  declare company: CompanyModel;
+  declare company: Model;
 
   @Column({ type: DataType.STRING(150), allowNull: false })
   declare name: string;
