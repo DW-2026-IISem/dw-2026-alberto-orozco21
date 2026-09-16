@@ -16820,7 +16820,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/proof-of-delivery.repository.png)
 
-#### 17.8 — features/shipping/delivery-proofs/infrastructure/persistence/migrations/create-delivery-proofs-table.migration.ts
+### 17.8 — features/shipping/delivery-proofs/infrastructure/persistence/migrations/create-delivery-proofs-table.migration.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/infrastructure/persistence/migrations/create-delivery-proofs-table.migration.ts`
 
@@ -16842,12 +16842,7 @@ export const createDeliveryProofsTableMigration = {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add migration create-delivery-proofs-table.migration.ts"
-```
+![alt text](imagenes/create-delivery-proofs-table.migration.png)
 
 #### 17.9 — features/shipping/delivery-proofs/infrastructure/persistence/seeders/delivery-proofs.seeder.ts
 
