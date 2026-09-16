@@ -17366,7 +17366,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/proof-of-delivery.serializer.png)
 
-#### 17.21 — features/shipping/delivery-proofs/presentation/http/controllers/delivery-proofs.controller.ts
+### 17.21 — features/shipping/delivery-proofs/presentation/http/controllers/delivery-proofs.controller.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/presentation/http/controllers/delivery-proofs.controller.ts`
 
@@ -17448,12 +17448,7 @@ export class DeliveryProofsController {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add controller delivery-proofs.controller.ts"
-```
+![alt text](imagenes/delivery-proofs.controller.png)
 
 #### 17.22 — features/shipping/delivery-proofs/index.ts
 
