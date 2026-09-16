@@ -16818,12 +16818,7 @@ export class ProofOfDeliveryRepository implements IProofOfDeliveryRepository {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add sequelize repository proof-of-delivery.repository.ts"
-```
+![alt text](imagenes/proof-of-delivery.repository.png)
 
 #### 17.8 — features/shipping/delivery-proofs/infrastructure/persistence/migrations/create-delivery-proofs-table.migration.ts
 
