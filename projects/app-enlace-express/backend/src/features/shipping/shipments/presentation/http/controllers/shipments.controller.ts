@@ -32,7 +32,6 @@ import { QuoteShipmentUseCase } from '../../../application/use-cases/quote-shipm
 import { AssignShipmentUseCase } from '../../../application/use-cases/assign-shipment.use-case.js';
 import { StartTransitShipmentUseCase } from '../../../application/use-cases/start-transit-shipment.use-case.js';
 import { ReportShipmentIssueUseCase } from '../../../application/use-cases/report-shipment-issue.use-case.js';
-import { DeliverShipmentUseCase } from '../../../application/use-cases/deliver-shipment.use-case.js';
 import { CancelShipmentUseCase } from '../../../application/use-cases/cancel-shipment.use-case.js';
 
 @ApiTags('Shipments')
@@ -48,7 +47,6 @@ export class ShipmentsController {
     private readonly assignShipmentUseCase: AssignShipmentUseCase,
     private readonly startTransitShipmentUseCase: StartTransitShipmentUseCase,
     private readonly reportShipmentIssueUseCase: ReportShipmentIssueUseCase,
-    private readonly deliverShipmentUseCase: DeliverShipmentUseCase,
     private readonly cancelShipmentUseCase: CancelShipmentUseCase,
   ) {}
 
@@ -114,12 +112,8 @@ export class ShipmentsController {
     return this.reportShipmentIssueUseCase.execute(id);
   }
 
-  @Patch(':id/deliver')
-  @ApiOperation({ summary: 'Marcar como entregado (en_ruta → entregado)' })
-  @ApiOkResponse({ type: ShipmentResponseDto })
-  deliver(@Param('id', ParsePositiveIntPipe) id: number) {
-    return this.deliverShipmentUseCase.execute(id);
-  }
+  // La transición en_ruta → entregado ya NO vive aquí.
+  // Ver POST /delivery-proofs (fase 17): registrar la evidencia es lo que entrega el envío.
 
   @Patch(':id/cancel')
   @ApiOperation({ summary: 'Cancelar el envío' })

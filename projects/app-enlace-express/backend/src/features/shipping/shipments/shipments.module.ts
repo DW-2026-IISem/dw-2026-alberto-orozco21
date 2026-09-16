@@ -16,7 +16,6 @@ import { QuoteShipmentUseCase } from './application/use-cases/quote-shipment.use
 import { AssignShipmentUseCase } from './application/use-cases/assign-shipment.use-case.js';
 import { StartTransitShipmentUseCase } from './application/use-cases/start-transit-shipment.use-case.js';
 import { ReportShipmentIssueUseCase } from './application/use-cases/report-shipment-issue.use-case.js';
-import { DeliverShipmentUseCase } from './application/use-cases/deliver-shipment.use-case.js';
 import { CancelShipmentUseCase } from './application/use-cases/cancel-shipment.use-case.js';
 import { ShipmentsController } from './presentation/http/controllers/shipments.controller.js';
 
@@ -42,7 +41,6 @@ import { ShipmentsController } from './presentation/http/controllers/shipments.c
     AssignShipmentUseCase,
     StartTransitShipmentUseCase,
     ReportShipmentIssueUseCase,
-    DeliverShipmentUseCase,
     CancelShipmentUseCase,
   ],
   exports: [SHIPMENT_REPOSITORY],

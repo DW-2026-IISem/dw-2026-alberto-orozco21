@@ -17501,7 +17501,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/delivery-proofs.module.png)
 
-#### 17.24 — Cerrar el TODO: eliminar el endpoint `/deliver` de Envio
+### 17.24 — Cerrar el TODO: eliminar el endpoint `/deliver` de Envio
 
 Ahora que `CreateProofOfDeliveryUseCase` es quien entrega el envío, `DeliverShipmentUseCase` y la ruta `PATCH /shipments/:id/deliver` (fase 14) quedan **eliminados** — mantenerlos permitiría entregar un envío sin evidencia, justo lo que la narrativa del proyecto prohíbe.
 
@@ -17648,6 +17648,8 @@ export class ShipmentsController {
 EOF_BACKEND_IA
 ```
 
+![alt text](imagenes/CreateProofOfDeliveryUseCase_1.png)
+
 **Archivo (reescrito):** `src/features/shipping/shipments/shipments.module.ts`
 
 ```bash
@@ -17703,12 +17705,7 @@ export class ShipmentsModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "refactor: remove standalone deliver endpoint; delivery now requires proof-of-delivery"
-```
+![alt text](imagenes/CreateProofOfDeliveryUseCase_2.png)
 
 #### 17.25 — Actualizar shipment.model.ts (asociación 1:1 con `@HasOne`)
 
