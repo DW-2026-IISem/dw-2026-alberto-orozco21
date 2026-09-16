@@ -17345,7 +17345,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/mark-proof-rejected.use-case.png)
 
-#### 17.20 — features/shipping/delivery-proofs/presentation/http/serializers/proof-of-delivery.serializer.ts
+### 17.20 — features/shipping/delivery-proofs/presentation/http/serializers/proof-of-delivery.serializer.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/presentation/http/serializers/proof-of-delivery.serializer.ts`
 
@@ -17364,12 +17364,7 @@ export class ProofOfDeliverySerializer {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add serializer proof-of-delivery.serializer.ts"
-```
+![alt text](imagenes/proof-of-delivery.serializer.png)
 
 #### 17.21 — features/shipping/delivery-proofs/presentation/http/controllers/delivery-proofs.controller.ts
 
