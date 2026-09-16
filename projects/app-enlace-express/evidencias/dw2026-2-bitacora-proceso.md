@@ -18155,7 +18155,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/vitest_e2e.png)
 
-#### 18.3 — Prueba e2e de bootstrap
+### 18.3 — Prueba e2e de bootstrap
 
 Adaptada a tu proyecto: la ruta raíz vive bajo el prefijo global `api` (fase 6), y la respuesta viene envuelta por `ResponseInterceptor` (fase 6) — no es texto plano como en la plantilla, es JSON con `{ statusCode, message, data, timestamp }`.
 
@@ -18212,12 +18212,7 @@ describe('AppController (e2e)', () => {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "test: add e2e smoke test for bootstrap and companies listing"
-```
+![alt text](imagenes/test.png)
 
 #### 18.4 — Scripts de test en `package.json`
 
