@@ -18214,7 +18214,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/test.png)
 
-#### 18.4 — Scripts de test en `package.json`
+### 18.4 — Scripts de test en `package.json`
 
 Si tu `package.json` no tiene ya estos scripts, agrégalos manualmente (no se sobreescribe el archivo completo para no pisar otras dependencias que ya tengas):
 
