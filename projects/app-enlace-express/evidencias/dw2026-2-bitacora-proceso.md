@@ -18104,3 +18104,241 @@ npm run start:dev
 **api/delivery-proofs**
 
 ![alt text](imagenes/api_delivery-proofs.png)
+
+----------------------------------------------------------------------------------------------------
+
+# FASE 18 — Integración final: pruebas y demo
+
+> **Objetivo de la fase:** dejar el proyecto probado (Vitest unit + e2e) y con un script de demo que recorre el flujo de negocio completo de EnlaceExpress. Las secciones 9.1–9.3 de la plantilla original (`business.module.ts`, seeders runner, `app.module.ts` final) **ya están resueltas** desde las fases 6–17 con `shipping.module.ts` y `database-seeder.service.ts` — no hay nada que repetir ahí.
+
+#### 18.1 — Configuración de Vitest (unit)
+
+**Archivo:** `vitest.config.ts`
+
+```bash
+cat > vitest.config.ts <<'EOF_BACKEND_IA'
+import { defineConfig } from 'vitest/config';
+import tsconfigPaths from 'vite-tsconfig-paths';
+
+export default defineConfig({
+  plugins: [tsconfigPaths()],
+  test: {
+    globals: true,
+    root: './',
+    include: ['**/*.spec.ts'],
+  },
+});
+EOF_BACKEND_IA
+```
+
+![alt text](imagenes/vitest.png)
+
+#### 18.2 — Configuración de Vitest (e2e)
+
+**Archivo:** `vitest.config.e2e.ts`
+
+```bash
+cat > vitest.config.e2e.ts <<'EOF_BACKEND_IA'
+import { defineConfig } from 'vitest/config';
+import tsconfigPaths from 'vite-tsconfig-paths';
+
+export default defineConfig({
+  plugins: [tsconfigPaths()],
+  test: {
+    globals: true,
+    root: './',
+    include: ['**/*.e2e-spec.ts'],
+  },
+});
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add vitest e2e test config"
+```
+
+#### 18.3 — Prueba e2e de bootstrap
+
+Adaptada a tu proyecto: la ruta raíz vive bajo el prefijo global `api` (fase 6), y la respuesta viene envuelta por `ResponseInterceptor` (fase 6) — no es texto plano como en la plantilla, es JSON con `{ statusCode, message, data, timestamp }`.
+
+**Archivo:** `test/app.e2e-spec.ts`
+
+```bash
+mkdir -p test
+cat > test/app.e2e-spec.ts <<'EOF_BACKEND_IA'
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import { App } from 'supertest/types';
+import { AppModule } from '../src/app.module.js';
+import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter.js';
+import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor.js';
+import { GLOBAL_PREFIX } from '../src/common/constants/app.constants.js';
+
+describe('AppController (e2e)', () => {
+  let app: INestApplication<App>;
+
+  beforeEach(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix(GLOBAL_PREFIX);
+    app.useGlobalFilters(new GlobalExceptionFilter());
+    app.useGlobalInterceptors(new ResponseInterceptor());
+    await app.init();
+  });
+
+  it('/api (GET) responde con el envelope estándar', async () => {
+    const response = await request(app.getHttpServer()).get('/api').expect(200);
+
+    expect(response.body).toHaveProperty('statusCode', 200);
+    expect(response.body).toHaveProperty('data');
+    expect(response.body).toHaveProperty('timestamp');
+  });
+
+  it('/api/companies (GET) responde paginado', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/companies')
+      .expect(200);
+
+    expect(response.body.data).toHaveProperty('items');
+    expect(response.body.data).toHaveProperty('meta');
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+});
+EOF_BACKEND_IA
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "test: add e2e smoke test for bootstrap and companies listing"
+```
+
+#### 18.4 — Scripts de test en `package.json`
+
+Si tu `package.json` no tiene ya estos scripts, agrégalos manualmente (no se sobreescribe el archivo completo para no pisar otras dependencias que ya tengas):
+
+```json
+{
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "test:e2e": "vitest run --config vitest.config.e2e.ts"
+  }
+}
+```
+
+Verifica también que tengas instalados `vitest`, `vite-tsconfig-paths` y `supertest` como devDependencies:
+
+```bash
+npm install -D vitest vite-tsconfig-paths supertest @types/supertest
+```
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "chore: add test and test:e2e npm scripts"
+```
+
+#### 18.5 — Demo: flujo de negocio completo de EnlaceExpress
+
+A diferencia de la plantilla (4 entidades simples: cliente → tipo de producto → producto → venta), tu flujo real cruza **8 de las 11 entidades** en una sola operación de extremo a extremo. Este script asume base de datos limpia recién sembrada (`npm run start:dev` ya corrió los seeders).
+
+```bash
+npm run start:dev
+```
+
+En otra terminal:
+
+```bash
+# Salud / bootstrap
+curl http://localhost:3002/api
+
+# Listar empresas (ya sembradas)
+curl http://localhost:3002/api/companies
+
+# Crear una empresa nueva
+curl -X POST http://localhost:3002/api/companies -H 'Content-Type: application/json' \
+  -d '{"nit":"900555444-1","razonSocial":"Textiles del Atlántico S.A.S."}'
+
+# Crear un contacto para esa empresa (usa el id que te devolvió el paso anterior)
+curl -X POST http://localhost:3002/api/contacts -H 'Content-Type: application/json' \
+  -d '{"companyId":1,"name":"Mario Salcedo","phone":"+57 300 9998877","email":"mario@textiles.com","isPrimary":true}'
+
+# Crear una dirección de origen para esa empresa
+curl -X POST http://localhost:3002/api/addresses -H 'Content-Type: application/json' \
+  -d '{"companyId":1,"alias":"Planta de producción","addressLine1":"Cra 38 # 72-10","city":"Barranquilla","type":"recogida"}'
+
+# Ver tarifas disponibles (ya sembradas)
+curl http://localhost:3002/api/rates
+
+# Crear el envío (usa los IDs reales de company/contact/address/rate)
+curl -X POST http://localhost:3002/api/shipments -H 'Content-Type: application/json' \
+  -d '{
+    "companyId":1,
+    "originContactId":1,
+    "originAddressId":1,
+    "destinationContactId":1,
+    "destinationAddressId":1,
+    "rateId":1,
+    "priority":"urgente",
+    "totalWeightKg":8,
+    "declaredValue":300000,
+    "estimatedDeliveryDate":"2026-09-20"
+  }'
+
+# Agregar un paquete al envío (solo funciona mientras el envío esté 'creado')
+curl -X POST http://localhost:3002/api/packages -H 'Content-Type: application/json' \
+  -d '{"shipmentId":1,"contentDescription":"Rollos de tela","weightKg":8,"heightCm":30,"widthCm":30,"lengthCm":100,"declaredValue":300000}'
+
+# Cotizar (creado → cotizado, calcula costo con recargo urgente)
+curl -X PATCH http://localhost:3002/api/shipments/1/quote
+
+# Ver mensajeros y rutas disponibles (ya sembrados)
+curl http://localhost:3002/api/couriers
+curl http://localhost:3002/api/routes
+
+# Asignar mensajero + ruta (cotizado → asignado)
+curl -X PATCH http://localhost:3002/api/shipments/1/assign -H 'Content-Type: application/json' \
+  -d '{"courierId":1,"routeId":1}'
+
+# Poner en ruta (asignado → en_ruta)
+curl -X PATCH http://localhost:3002/api/shipments/1/start-transit
+
+# Registrar un evento de tracking
+curl -X POST http://localhost:3002/api/tracking-events -H 'Content-Type: application/json' \
+  -d '{"shipmentId":1,"type":"en_reparto","location":"Zona norte, Barranquilla"}'
+
+# Entregar: registrar la prueba de entrega (esto ES lo que marca el envío como 'entregado')
+curl -X POST http://localhost:3002/api/delivery-proofs -H 'Content-Type: application/json' \
+  -d '{"shipmentId":1,"receiverName":"Mario Salcedo","receiverDocument":"1042567890","photoUrl":"https://example.com/evidence/photo.jpg"}'
+
+# Confirmar que el envío quedó 'entregado'
+curl http://localhost:3002/api/shipments/1
+
+# Facturar: crear la factura del periodo para la empresa
+curl -X POST http://localhost:3002/api/invoices -H 'Content-Type: application/json' \
+  -d '{"companyId":1,"number":"FAC-2026-0099","periodStart":"2026-09-01","periodEnd":"2026-09-30","issueDate":"2026-10-01","subtotal":300000,"taxes":57000}'
+
+# Marcar la factura como pagada
+curl -X PATCH http://localhost:3002/api/invoices/1/pay
+```
+
+> ✅ **Fin de la fase 18**: EnlaceExpress con sus 11 entidades, probado con Vitest y con un flujo de negocio completo demostrable de punta a punta — desde crear una empresa hasta cobrarle la factura de un envío entregado con evidencia.
+
+**Sugerencia de commit (issue):**
+
+```bash
+git add .
+git commit -m "docs: add end-to-end demo script covering all 11 entities"
+```
