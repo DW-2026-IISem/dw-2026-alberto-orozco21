@@ -16599,12 +16599,7 @@ export class ProofOfDelivery {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add domain entity proof-of-delivery.entity.ts"
-```
+![alt text](imagenes/proof-of-delivery.entity.png)
 
 #### 17.3 — features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-already-exists.exception.ts
 
