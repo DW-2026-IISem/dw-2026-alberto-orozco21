@@ -16620,7 +16620,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/proof-of-delivery-already-exists.exception.png)
 
-#### 17.4 — features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-not-found.exception.ts
+### 17.4 — features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-not-found.exception.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-not-found.exception.ts`
 
@@ -16637,14 +16637,9 @@ export class ProofOfDeliveryNotFoundException extends EntityNotFoundException {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/proof-of-delivery-not-found.exception.png)
 
-```bash
-git add .
-git commit -m "feat: add domain exception proof-of-delivery-not-found.exception.ts"
-```
-
-#### 17.5 — features/shipping/delivery-proofs/domain/interfaces/proof-of-delivery-repository.interface.ts
+### 17.5 — features/shipping/delivery-proofs/domain/interfaces/proof-of-delivery-repository.interface.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/domain/interfaces/proof-of-delivery-repository.interface.ts`
 
