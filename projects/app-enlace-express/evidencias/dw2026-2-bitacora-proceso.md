@@ -17042,7 +17042,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/create-proof-of-delivery.dto.png)
 
-#### 17.13 — features/shipping/delivery-proofs/application/dto/review-proof-of-delivery.dto.ts
+### 17.13 — features/shipping/delivery-proofs/application/dto/review-proof-of-delivery.dto.ts
 
 Usado tanto por `/observe` como por `/reject`.
 
@@ -17063,12 +17063,7 @@ export class ReviewProofOfDeliveryDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto review-proof-of-delivery.dto.ts"
-```
+![alt text](imagenes/review-proof-of-delivery.dto.png)
 
 #### 17.14 — features/shipping/delivery-proofs/application/mappers/proof-of-delivery.mapper.ts
 
