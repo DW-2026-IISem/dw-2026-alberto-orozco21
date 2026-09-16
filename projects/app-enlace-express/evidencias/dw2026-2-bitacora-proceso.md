@@ -17707,7 +17707,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/CreateProofOfDeliveryUseCase_2.png)
 
-#### 17.25 — Actualizar shipment.model.ts (asociación 1:1 con `@HasOne`)
+### 17.25 — Actualizar shipment.model.ts (asociación 1:1 con `@HasOne`)
 
 A diferencia de todas las anteriores, esta es `@HasOne`, no `@HasMany` — es la única relación 1:1 del proyecto.
 
@@ -17757,21 +17757,21 @@ export class ShipmentModel extends Model {
   declare companyId: number;
 
   @BelongsTo(() => CompanyModel)
-  declare company: CompanyModel;
+  declare company: Model;
 
   @ForeignKey(() => ContactModel)
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare originContactId: number;
 
   @BelongsTo(() => ContactModel, { foreignKey: 'originContactId', as: 'originContact' })
-  declare originContact: ContactModel;
+  declare originContact: Model;
 
   @ForeignKey(() => AddressModel)
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare originAddressId: number;
 
   @BelongsTo(() => AddressModel, { foreignKey: 'originAddressId', as: 'originAddress' })
-  declare originAddress: AddressModel;
+  declare originAddress: Model;
 
   @ForeignKey(() => ContactModel)
   @Column({ type: DataType.INTEGER, allowNull: false })
@@ -17781,7 +17781,7 @@ export class ShipmentModel extends Model {
     foreignKey: 'destinationContactId',
     as: 'destinationContact',
   })
-  declare destinationContact: ContactModel;
+  declare destinationContact: Model;
 
   @ForeignKey(() => AddressModel)
   @Column({ type: DataType.INTEGER, allowNull: false })
@@ -17791,35 +17791,35 @@ export class ShipmentModel extends Model {
     foreignKey: 'destinationAddressId',
     as: 'destinationAddress',
   })
-  declare destinationAddress: AddressModel;
+  declare destinationAddress: Model;
 
   @ForeignKey(() => RateModel)
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare rateId: number;
 
   @BelongsTo(() => RateModel)
-  declare rate: RateModel;
+  declare rate: Model;
 
   @ForeignKey(() => CourierModel)
   @Column({ type: DataType.INTEGER, allowNull: true })
   declare courierId: number | null;
 
   @BelongsTo(() => CourierModel)
-  declare courier: CourierModel;
+  declare courier: Model;
 
   @ForeignKey(() => RouteModel)
   @Column({ type: DataType.INTEGER, allowNull: true })
   declare routeId: number | null;
 
   @BelongsTo(() => RouteModel)
-  declare route: RouteModel;
+  declare route: Model;
 
   @ForeignKey(() => InvoiceModel)
   @Column({ type: DataType.INTEGER, allowNull: true })
   declare invoiceId: number | null;
 
   @BelongsTo(() => InvoiceModel)
-  declare invoice: InvoiceModel;
+  declare invoice: Model;
 
   @Column({
     type: DataType.ENUM(...Object.values(ShipmentPriority)),
@@ -17863,23 +17863,18 @@ export class ShipmentModel extends Model {
   declare updatedAt: Date;
 
   @HasMany(() => PackageModel)
-  declare packages: PackageModel[];
+  declare packages: Model[];
 
   @HasMany(() => TrackingEventModel)
-  declare trackingEvents: TrackingEventModel[];
+  declare trackingEvents: Model[];
 
   @HasOne(() => ProofOfDeliveryModel)
-  declare proofOfDelivery: ProofOfDeliveryModel;
+  declare proofOfDelivery: Model;
 }
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add proofOfDelivery HasOne association to shipment.model.ts"
-```
+![alt text](imagenes/shipment.model_proo.png)
 
 #### 17.26 — Actualizar sequelize.factory.ts (registrar ProofOfDeliveryModel — último modelo)
 

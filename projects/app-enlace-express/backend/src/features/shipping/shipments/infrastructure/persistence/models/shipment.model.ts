@@ -6,6 +6,7 @@ import {
   DataType,
   ForeignKey,
   HasMany,
+  HasOne,
   Model,
   PrimaryKey,
   Table,
@@ -20,6 +21,7 @@ import { RouteModel } from '../../../../routes/infrastructure/persistence/models
 import { InvoiceModel } from '../../../../invoices/infrastructure/persistence/models/invoice.model.js';
 import { PackageModel } from '../../../../packages/infrastructure/persistence/models/package.model.js';
 import { TrackingEventModel } from '../../../../tracking-events/infrastructure/persistence/models/tracking-event.model.js';
+import { ProofOfDeliveryModel } from '../../../../delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.js';
 import { ShipmentPriority } from '../../../domain/enums/shipment-priority.enum.js';
 import { ShipmentStatus } from '../../../domain/enums/shipment-status.enum.js';
 
@@ -148,4 +150,7 @@ export class ShipmentModel extends Model {
 
   @HasMany(() => TrackingEventModel)
   declare trackingEvents: Model[];
+
+  @HasOne(() => ProofOfDeliveryModel)
+  declare proofOfDelivery: Model;
 }
