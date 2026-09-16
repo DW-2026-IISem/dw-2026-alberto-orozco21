@@ -16973,7 +16973,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/proof-of-delivery-response.dto.png)
 
-#### 17.12 — features/shipping/delivery-proofs/application/dto/create-proof-of-delivery.dto.ts
+### 17.12 — features/shipping/delivery-proofs/application/dto/create-proof-of-delivery.dto.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/application/dto/create-proof-of-delivery.dto.ts`
 
@@ -17040,12 +17040,7 @@ export class CreateProofOfDeliveryDto {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add dto create-proof-of-delivery.dto.ts"
-```
+![alt text](imagenes/create-proof-of-delivery.dto.png)
 
 #### 17.13 — features/shipping/delivery-proofs/application/dto/review-proof-of-delivery.dto.ts
 
