@@ -17065,7 +17065,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/review-proof-of-delivery.dto.png)
 
-#### 17.14 — features/shipping/delivery-proofs/application/mappers/proof-of-delivery.mapper.ts
+### 17.14 — features/shipping/delivery-proofs/application/mappers/proof-of-delivery.mapper.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/application/mappers/proof-of-delivery.mapper.ts`
 
@@ -17132,14 +17132,9 @@ export class ProofOfDeliveryMapper {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/proof-of-delivery.mapper.png)
 
-```bash
-git add .
-git commit -m "feat: add mapper proof-of-delivery.mapper.ts"
-```
-
-#### 17.15 — features/shipping/delivery-proofs/application/use-cases/create-proof-of-delivery.use-case.ts
+### 17.15 — features/shipping/delivery-proofs/application/use-cases/create-proof-of-delivery.use-case.ts
 
 El caso de uso que cierra el ciclo: valida el envío, la unicidad de la prueba, crea la evidencia y **entrega el envío** (`shipment.deliver()`), todo en una sola operación.
 
