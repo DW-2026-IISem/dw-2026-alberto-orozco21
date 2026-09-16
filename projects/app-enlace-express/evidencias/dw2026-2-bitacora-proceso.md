@@ -16668,7 +16668,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/proof-of-delivery-repository.interface.png)
 
-#### 17.6 — features/shipping/delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.ts
+### 17.6 — features/shipping/delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.ts
 
 `shipmentId` es `unique` — refleja la relación 1:1 a nivel de base de datos, no solo en el dominio.
 
@@ -16746,14 +16746,9 @@ export class ProofOfDeliveryModel extends Model {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
+![alt text](imagenes/proof-of-delivery.model.png)
 
-```bash
-git add .
-git commit -m "feat: add sequelize model proof-of-delivery.model.ts with unique shipment FK"
-```
-
-#### 17.7 — features/shipping/delivery-proofs/infrastructure/persistence/repositories/proof-of-delivery.repository.ts
+### 17.7 — features/shipping/delivery-proofs/infrastructure/persistence/repositories/proof-of-delivery.repository.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/infrastructure/persistence/repositories/proof-of-delivery.repository.ts`
 
