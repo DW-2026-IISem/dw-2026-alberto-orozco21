@@ -17199,12 +17199,7 @@ export class CreateProofOfDeliveryUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case create-proof-of-delivery.use-case.ts that delivers the shipment"
-```
+![alt text](imagenes/create-proof-of-delivery.use-case.png)
 
 #### 17.16 — features/shipping/delivery-proofs/application/use-cases/get-proof-of-delivery.use-case.ts
 
