@@ -18133,7 +18133,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/vitest.png)
 
-#### 18.2 — Configuración de Vitest (e2e)
+### 18.2 — Configuración de Vitest (e2e)
 
 **Archivo:** `vitest.config.e2e.ts`
 
@@ -18153,12 +18153,7 @@ export default defineConfig({
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add vitest e2e test config"
-```
+![alt text](imagenes/vitest_e2e.png)
 
 #### 18.3 — Prueba e2e de bootstrap
 
