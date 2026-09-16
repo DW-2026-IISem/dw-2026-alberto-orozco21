@@ -16844,7 +16844,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/create-delivery-proofs-table.migration.png)
 
-#### 17.9 — features/shipping/delivery-proofs/infrastructure/persistence/seeders/delivery-proofs.seeder.ts
+### 17.9 — features/shipping/delivery-proofs/infrastructure/persistence/seeders/delivery-proofs.seeder.ts
 
 Sin efecto por ahora: solo crea una prueba si hay un envío `en_ruta`, y el envío sembrado en fase 14 quedó en `creado`. Queda listo para cuando el flujo de pruebas de entrega se ejercite manualmente.
 
@@ -16885,12 +16885,7 @@ export async function seedProofsOfDelivery(): Promise<void> {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "chore: add seeder delivery-proofs.seeder.ts"
-```
+![alt text](imagenes/delivery-proofs.seeder.png)
 
 #### 17.10 — features/shipping/delivery-proofs/application/dto/proof-of-delivery-filter.dto.ts
 
