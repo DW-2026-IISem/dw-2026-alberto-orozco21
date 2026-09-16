@@ -17876,7 +17876,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/shipment.model_proo.png)
 
-#### 17.26 — Actualizar sequelize.factory.ts (registrar ProofOfDeliveryModel — último modelo)
+### 17.26 — Actualizar sequelize.factory.ts (registrar ProofOfDeliveryModel — último modelo)
 
 **Archivo:** `src/infrastructure/database/sequelize/sequelize.factory.ts`
 
@@ -17970,12 +17970,7 @@ export async function createSequelizeInstance(
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: register ProofOfDeliveryModel in sequelize factory (11/11 entities)"
-```
+![alt text](imagenes/ProofOfDeliveryModel.png)
 
 #### 17.27 — Actualizar shipping.module.ts (final: las 11 entidades)
 

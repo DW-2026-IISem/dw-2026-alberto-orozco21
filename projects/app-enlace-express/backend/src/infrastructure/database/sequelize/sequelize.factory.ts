@@ -12,6 +12,7 @@ import { InvoiceModel } from '../../../features/shipping/invoices/infrastructure
 import { ShipmentModel } from '../../../features/shipping/shipments/infrastructure/persistence/models/shipment.model.js';
 import { PackageModel } from '../../../features/shipping/packages/infrastructure/persistence/models/package.model.js';
 import { TrackingEventModel } from '../../../features/shipping/tracking-events/infrastructure/persistence/models/tracking-event.model.js';
+import { ProofOfDeliveryModel } from '../../../features/shipping/delivery-proofs/infrastructure/persistence/models/proof-of-delivery.model.js';
 
 export const ALL_MODELS = [
   CompanyModel,
@@ -24,6 +25,7 @@ export const ALL_MODELS = [
   ShipmentModel,
   PackageModel,
   TrackingEventModel,
+  ProofOfDeliveryModel,
 ];
 
 async function loadDialectModule(moduleName: string): Promise<any> {
