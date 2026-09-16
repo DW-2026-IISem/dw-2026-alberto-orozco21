@@ -18026,7 +18026,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/ShippingModule_proof.png)
 
-#### 17.28 — Actualizar database-seeder.service.ts y verificar el flujo completo
+### 17.28 — Actualizar database-seeder.service.ts y verificar el flujo completo
 
 **Archivo:** `src/infrastructure/database/seeders/database-seeder.service.ts`
 
@@ -18081,6 +18081,8 @@ export class DatabaseSeederService implements OnModuleInit {
 EOF_BACKEND_IA
 ```
 
+![alt text](imagenes/proof.png)
+
 `app.module.ts` no necesita cambios. Arranca la app y recorre el flujo end-to-end sobre el envío sembrado (queda en `creado` tras el seeder):
 
 ```bash
@@ -18095,9 +18097,10 @@ npm run start:dev
 6. Repite el mismo `POST /api/delivery-proofs` para el mismo `shipmentId` → debe fallar con `ProofOfDeliveryAlreadyExistsException` (409).
 7. Intenta `POST /api/delivery-proofs` para un envío que sigue en `creado` → debe fallar porque `shipment.deliver()` rechaza la transición (`InvalidShipmentTransitionException`, 400).
 
-**Sugerencia de commit (issue):**
+**Consola**
 
-```bash
-git add .
-git commit -m "chore: run seedProofsOfDelivery and verify end-to-end delivery flow (11/11 entities)"
-```
+![alt text](imagenes/proof_consola.png)
+
+**api/delivery-proofs**
+
+![alt text](imagenes/api_delivery-proofs.png)

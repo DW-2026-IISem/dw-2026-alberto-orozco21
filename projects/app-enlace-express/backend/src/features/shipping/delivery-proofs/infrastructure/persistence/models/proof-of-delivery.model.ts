@@ -25,7 +25,7 @@ export class ProofOfDeliveryModel extends Model {
   declare shipmentId: number;
 
   @BelongsTo(() => ShipmentModel)
-  declare shipment: ShipmentModel;
+  declare shipment: Model;
 
   @Column({ type: DataType.DATE, allowNull: false })
   declare deliveredAt: Date;
