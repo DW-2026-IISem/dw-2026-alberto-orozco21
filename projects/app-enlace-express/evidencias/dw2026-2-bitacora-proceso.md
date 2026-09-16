@@ -16601,7 +16601,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/proof-of-delivery.entity.png)
 
-#### 17.3 — features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-already-exists.exception.ts
+### 17.3 — features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-already-exists.exception.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-already-exists.exception.ts`
 
@@ -16618,12 +16618,7 @@ export class ProofOfDeliveryAlreadyExistsException extends DomainException {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add domain exception proof-of-delivery-already-exists.exception.ts"
-```
+![alt text](imagenes/proof-of-delivery-already-exists.exception.png)
 
 #### 17.4 — features/shipping/delivery-proofs/domain/exceptions/proof-of-delivery-not-found.exception.ts
 
