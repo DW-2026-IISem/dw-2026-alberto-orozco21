@@ -17972,7 +17972,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/ProofOfDeliveryModel.png)
 
-#### 17.27 — Actualizar shipping.module.ts (final: las 11 entidades)
+### 17.27 — Actualizar shipping.module.ts (final: las 11 entidades)
 
 **Archivo:** `src/features/shipping/shipping.module.ts`
 
@@ -18024,12 +18024,7 @@ export class ShippingModule {}
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: export DeliveryProofsModule from ShippingModule — all 11 entities wired"
-```
+![alt text](imagenes/ShippingModule_proof.png)
 
 #### 17.28 — Actualizar database-seeder.service.ts y verificar el flujo completo
 

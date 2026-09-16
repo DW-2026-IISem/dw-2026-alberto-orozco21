@@ -9,6 +9,7 @@ import { InvoicesModule } from './invoices/invoices.module.js';
 import { ShipmentsModule } from './shipments/shipments.module.js';
 import { PackagesModule } from './packages/packages.module.js';
 import { TrackingEventsModule } from './tracking-events/tracking-events.module.js';
+import { DeliveryProofsModule } from './delivery-proofs/delivery-proofs.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TrackingEventsModule } from './tracking-events/tracking-events.module.j
     ShipmentsModule,
     PackagesModule,
     TrackingEventsModule,
+    DeliveryProofsModule,
   ],
   exports: [
     CompaniesModule,
@@ -34,6 +36,7 @@ import { TrackingEventsModule } from './tracking-events/tracking-events.module.j
     ShipmentsModule,
     PackagesModule,
     TrackingEventsModule,
+    DeliveryProofsModule,
   ],
 })
 export class ShippingModule {}
