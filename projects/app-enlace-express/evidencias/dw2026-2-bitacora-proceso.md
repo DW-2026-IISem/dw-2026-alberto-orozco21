@@ -17307,7 +17307,7 @@ EOF_BACKEND_IA
 
 ![alt text](imagenes/mark-proof-observed.use-case.png)
 
-#### 17.19 — features/shipping/delivery-proofs/application/use-cases/mark-proof-rejected.use-case.ts
+### 17.19 — features/shipping/delivery-proofs/application/use-cases/mark-proof-rejected.use-case.ts
 
 **Archivo:** `src/features/shipping/delivery-proofs/application/use-cases/mark-proof-rejected.use-case.ts`
 
@@ -17343,12 +17343,7 @@ export class MarkProofRejectedUseCase {
 EOF_BACKEND_IA
 ```
 
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "feat: add use case mark-proof-rejected.use-case.ts"
-```
+![alt text](imagenes/mark-proof-rejected.use-case.png)
 
 #### 17.20 — features/shipping/delivery-proofs/presentation/http/serializers/proof-of-delivery.serializer.ts
 
