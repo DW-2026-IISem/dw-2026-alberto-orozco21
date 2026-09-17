@@ -10,6 +10,7 @@ export interface AddressFindAllParams {
   search?: string;
   companyId?: number;
   type?: AddressType;
+  includeInactive?: boolean;
 }
 
 export interface IAddressRepository {

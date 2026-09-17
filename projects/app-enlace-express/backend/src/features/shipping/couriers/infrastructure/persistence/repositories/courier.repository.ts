@@ -66,6 +66,10 @@ export class CourierRepository implements ICourierRepository {
       ];
     }
 
+    if (!params.includeInactive) {
+      where.isActive = true;
+    }
+
     const { rows, count } = await CourierModel.findAndCountAll({
       where,
       limit,

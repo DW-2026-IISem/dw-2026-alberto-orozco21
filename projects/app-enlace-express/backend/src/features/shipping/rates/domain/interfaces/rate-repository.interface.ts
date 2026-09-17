@@ -10,6 +10,7 @@ export interface RateFindAllParams {
   search?: string;
   calculationRule?: RateCalculationRule;
   zone?: string;
+  includeInactive?: boolean;
 }
 
 export interface IRateRepository {

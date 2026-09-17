@@ -18,6 +18,7 @@ export class DeleteContactUseCase {
       throw new ContactNotFoundException(id);
     }
 
-    await this.contactRepository.delete(id);
+    contact.deactivate();
+    await this.contactRepository.update(contact);
   }
 }

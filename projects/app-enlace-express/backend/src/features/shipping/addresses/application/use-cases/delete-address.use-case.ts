@@ -18,6 +18,7 @@ export class DeleteAddressUseCase {
       throw new AddressNotFoundException(id);
     }
 
-    await this.addressRepository.delete(id);
+    address.deactivate();
+    await this.addressRepository.update(address);
   }
 }

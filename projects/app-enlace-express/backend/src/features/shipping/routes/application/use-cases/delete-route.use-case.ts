@@ -18,6 +18,7 @@ export class DeleteRouteUseCase {
       throw new RouteNotFoundException(id);
     }
 
-    await this.routeRepository.delete(id);
+    route.deactivate();
+    await this.routeRepository.update(route);
   }
 }

@@ -10,6 +10,7 @@ export interface RouteFindAllParams {
   search?: string;
   courierId?: number;
   status?: RouteStatus;
+  includeInactive?: boolean;
 }
 
 export interface IRouteRepository {

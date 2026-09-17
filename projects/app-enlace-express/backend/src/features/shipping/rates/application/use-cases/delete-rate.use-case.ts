@@ -18,6 +18,7 @@ export class DeleteRateUseCase {
       throw new RateNotFoundException(id);
     }
 
-    await this.rateRepository.delete(id);
+    rate.deactivate();
+    await this.rateRepository.update(rate);
   }
 }

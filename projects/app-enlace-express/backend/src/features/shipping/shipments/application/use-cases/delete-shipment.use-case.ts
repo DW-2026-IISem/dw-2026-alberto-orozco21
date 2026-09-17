@@ -23,6 +23,7 @@ export class DeleteShipmentUseCase {
       );
     }
 
-    await this.shipmentRepository.delete(id);
+    shipment.deactivate();
+    await this.shipmentRepository.update(shipment);
   }
 }

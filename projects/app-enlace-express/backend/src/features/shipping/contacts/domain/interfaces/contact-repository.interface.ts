@@ -8,6 +8,7 @@ export interface ContactFindAllParams {
   limit?: number;
   search?: string;
   companyId?: number;
+  includeInactive?: boolean;
 }
 
 export interface IContactRepository {

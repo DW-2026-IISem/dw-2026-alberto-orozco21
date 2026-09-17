@@ -18240,27 +18240,13 @@ git add .
 git commit -m "chore: add test and test:e2e npm scripts"
 ```
 
-#### 18.5 — Demo: flujo de negocio completo de EnlaceExpress
-
-A diferencia de la plantilla (4 entidades simples: cliente → tipo de producto → producto → venta), tu flujo real cruza **8 de las 11 entidades** en una sola operación de extremo a extremo. Este script asume base de datos limpia recién sembrada (`npm run start:dev` ya corrió los seeders).
+### 18.5 — Demo: flujo de negocio completo de EnlaceExpress
 
 ```bash
 npm run start:dev
 ```
 
-En otra terminal:
-
 ```bash
-# Salud / bootstrap
-curl http://localhost:3002/api
-
-# Listar empresas (ya sembradas)
-curl http://localhost:3002/api/companies
-
-# Crear una empresa nueva
-curl -X POST http://localhost:3002/api/companies -H 'Content-Type: application/json' \
-  -d '{"nit":"900555444-1","razonSocial":"Textiles del Atlántico S.A.S."}'
-
 # Crear un contacto para esa empresa (usa el id que te devolvió el paso anterior)
 curl -X POST http://localhost:3002/api/contacts -H 'Content-Type: application/json' \
   -d '{"companyId":1,"name":"Mario Salcedo","phone":"+57 300 9998877","email":"mario@textiles.com","isPrimary":true}'

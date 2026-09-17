@@ -10,6 +10,7 @@ export interface CourierFindAllParams {
   search?: string;
   vehicleType?: VehicleType;
   assignedZone?: string;
+  includeInactive?: boolean;
 }
 
 export interface ICourierRepository {

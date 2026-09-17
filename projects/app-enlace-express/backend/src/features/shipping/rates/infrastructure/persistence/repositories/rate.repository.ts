@@ -59,6 +59,10 @@ export class RateRepository implements IRateRepository {
       ];
     }
 
+    if (!params.includeInactive) {
+      where.isActive = true;
+    }
+
     const { rows, count } = await RateModel.findAndCountAll({
       where,
       limit,

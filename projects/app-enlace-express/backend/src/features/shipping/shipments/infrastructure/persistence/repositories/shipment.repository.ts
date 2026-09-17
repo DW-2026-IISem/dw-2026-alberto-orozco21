@@ -57,6 +57,10 @@ export class ShipmentRepository implements IShipmentRepository {
       ];
     }
 
+    if (!params.includeInactive) {
+      where.isActive = true;
+    }
+
     const { rows, count } = await ShipmentModel.findAndCountAll({
       where,
       limit,

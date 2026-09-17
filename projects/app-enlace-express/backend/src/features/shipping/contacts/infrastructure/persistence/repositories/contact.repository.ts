@@ -57,6 +57,10 @@ export class ContactRepository implements IContactRepository {
       ];
     }
 
+    if (!params.includeInactive) {
+      where.isActive = true;
+    }    
+
     const { rows, count } = await ContactModel.findAndCountAll({
       where,
       limit,

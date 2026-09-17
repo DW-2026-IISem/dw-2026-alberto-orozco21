@@ -59,6 +59,10 @@ export class RouteRepository implements IRouteRepository {
       ];
     }
 
+    if (!params.includeInactive) {
+      where.isActive = true;
+    }
+
     const { rows, count } = await RouteModel.findAndCountAll({
       where,
       limit,

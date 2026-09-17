@@ -30,6 +30,7 @@ export class DeletePackageUseCase {
       );
     }
 
-    await this.packageRepository.delete(id);
+    pkg.deactivate();
+    await this.packageRepository.update(pkg);
   }
 }

@@ -13,6 +13,7 @@ export interface ShipmentFindAllParams {
   courierId?: number;
   status?: ShipmentStatus;
   priority?: ShipmentPriority;
+  includeInactive?: boolean;
 }
 
 export interface IShipmentRepository {

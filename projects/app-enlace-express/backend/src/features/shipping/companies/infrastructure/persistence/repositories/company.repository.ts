@@ -49,14 +49,18 @@ export class CompanyRepository implements ICompanyRepository {
       params.limit,
     );
 
-    const where = params.search
-      ? {
-          [Op.or]: [
-            { razonSocial: { [Op.like]: `%${params.search}%` } },
-            { nit: { [Op.like]: `%${params.search}%` } },
-          ],
-        }
-      : {};
+    const where: Record<string, unknown> = {};
+
+    if (!params.includeInactive) {
+      where.isActive = true;
+    }
+
+    if (params.search) {
+      where[Op.or as unknown as string] = [
+        { razonSocial: { [Op.like]: `%${params.search}%` } },
+        { nit: { [Op.like]: `%${params.search}%` } },
+      ];
+    }
 
     const { rows, count } = await CompanyModel.findAndCountAll({
       where,

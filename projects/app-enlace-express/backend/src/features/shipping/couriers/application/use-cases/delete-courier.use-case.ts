@@ -18,6 +18,7 @@ export class DeleteCourierUseCase {
       throw new CourierNotFoundException(id);
     }
 
-    await this.courierRepository.delete(id);
+    courier.deactivate();
+    await this.courierRepository.update(courier);
   }
 }

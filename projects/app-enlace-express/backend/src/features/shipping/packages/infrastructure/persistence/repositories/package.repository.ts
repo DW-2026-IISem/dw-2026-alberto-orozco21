@@ -46,6 +46,10 @@ export class PackageRepository implements IPackageRepository {
       where.shipmentId = params.shipmentId;
     }
 
+    if (!params.includeInactive) {
+      where.isActive = true;
+    }
+
     const { rows, count } = await PackageModel.findAndCountAll({
       where,
       limit,

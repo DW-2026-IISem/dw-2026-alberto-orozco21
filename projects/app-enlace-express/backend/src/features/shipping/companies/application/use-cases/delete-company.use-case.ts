@@ -18,6 +18,7 @@ export class DeleteCompanyUseCase {
       throw new CompanyNotFoundException(id);
     }
 
-    await this.companyRepository.delete(id);
+    company.deactivate();
+    await this.companyRepository.update(company);
   }
 }

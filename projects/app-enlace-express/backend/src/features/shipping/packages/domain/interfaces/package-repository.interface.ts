@@ -7,6 +7,7 @@ export interface PackageFindAllParams {
   page?: number;
   limit?: number;
   shipmentId?: number;
+  includeInactive?: boolean;
 }
 
 export interface IPackageRepository {

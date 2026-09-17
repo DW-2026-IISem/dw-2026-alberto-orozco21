@@ -62,6 +62,10 @@ export class AddressRepository implements IAddressRepository {
       ];
     }
 
+    if (!params.includeInactive) {
+      where.isActive = true;
+    }  
+
     const { rows, count } = await AddressModel.findAndCountAll({
       where,
       limit,

@@ -7,6 +7,7 @@ export interface CompanyFindAllParams {
   page?: number;
   limit?: number;
   search?: string;
+  includeInactive?: boolean;
 }
 
 export interface ICompanyRepository {
