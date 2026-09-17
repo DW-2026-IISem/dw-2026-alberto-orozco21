@@ -18246,24 +18246,81 @@ git commit -m "chore: add test and test:e2e npm scripts"
 npm run start:dev
 ```
 
-```bash
-# Crear un contacto para esa empresa (usa el id que te devolvió el paso anterior)
-curl -X POST http://localhost:3002/api/contacts -H 'Content-Type: application/json' \
-  -d '{"companyId":1,"name":"Mario Salcedo","phone":"+57 300 9998877","email":"mario@textiles.com","isPrimary":true}'
+Prueba realizada con `Thunder Client`
 
-# Crear una dirección de origen para esa empresa
-curl -X POST http://localhost:3002/api/addresses -H 'Content-Type: application/json' \
-  -d '{"companyId":1,"alias":"Planta de producción","addressLine1":"Cra 38 # 72-10","city":"Barranquilla","type":"recogida"}'
 
-# Ver tarifas disponibles (ya sembradas)
-curl http://localhost:3002/api/rates
+### Salud / bootstrap
 
-# Crear el envío (usa los IDs reales de company/contact/address/rate)
-curl -X POST http://localhost:3002/api/shipments -H 'Content-Type: application/json' \
-  -d '{
-    "companyId":1,
-    "originContactId":1,
-    "originAddressId":1,
+**Metodo GET** `http://localhost:3000/api`
+
+![alt text](imagenes/prueba1.png)
+
+### Listar empresas (ya sembradas)
+
+**Metodo GET** `http://localhost:3000/api/companies`
+
+![alt text](imagenes/prueba2.png)
+
+### Crear una empresa nueva
+
+**Metodo POST** `http://localhost:3000/api/companies`
+
+```json
+{
+  "nit":"900823156-1",
+  "razonSocial":"Distribuidora Riohacha S.A.S."
+}
+```
+
+![alt text](imagenes/prueba3.png)
+
+### Crear un contacto para esa empresa (usa el id que te devolvió el paso anterior)
+
+**Metodo POST** `http://localhost:3000/api/contacts`
+
+```json
+{
+  "companyId":5,
+  "name":"Alberto Orozco",
+  "phone":"3046327209",
+  "email":"alberto_distribuidora_riohacha@gmail.com",
+  "isPrimary":true
+}
+```
+
+![alt text](imagenes/prueba4.png)
+
+### Crear una dirección de origen para esa empresa
+
+**Metodo POST** `http://localhost:3000/api/addresses`
+
+```json
+{
+  "companyId":5,
+  "alias":"Planta de producción",
+  "addressLine1":"Cra 38 # 72-10",
+  "city":"Rioacha",
+  "type":"recogida"
+}
+```
+
+![alt text](imagenes/prueba5.png)
+
+### Ver tarifas disponibles (ya sembradas)
+
+**Metodo GET** `http://localhost:3000/api/rates`
+
+![alt text](imagenes/prueba6.png)
+
+### Crear el envío (usa los IDs reales de company/contact/address/rate)
+
+**Metodo POST** `http://localhost:3000/api/shipments`
+
+```json
+{
+  "companyId":5,
+    "originContactId":4,
+    "originAddressId":4,
     "destinationContactId":1,
     "destinationAddressId":1,
     "rateId":1,
@@ -18271,50 +18328,121 @@ curl -X POST http://localhost:3002/api/shipments -H 'Content-Type: application/j
     "totalWeightKg":8,
     "declaredValue":300000,
     "estimatedDeliveryDate":"2026-09-20"
-  }'
-
-# Agregar un paquete al envío (solo funciona mientras el envío esté 'creado')
-curl -X POST http://localhost:3002/api/packages -H 'Content-Type: application/json' \
-  -d '{"shipmentId":1,"contentDescription":"Rollos de tela","weightKg":8,"heightCm":30,"widthCm":30,"lengthCm":100,"declaredValue":300000}'
-
-# Cotizar (creado → cotizado, calcula costo con recargo urgente)
-curl -X PATCH http://localhost:3002/api/shipments/1/quote
-
-# Ver mensajeros y rutas disponibles (ya sembrados)
-curl http://localhost:3002/api/couriers
-curl http://localhost:3002/api/routes
-
-# Asignar mensajero + ruta (cotizado → asignado)
-curl -X PATCH http://localhost:3002/api/shipments/1/assign -H 'Content-Type: application/json' \
-  -d '{"courierId":1,"routeId":1}'
-
-# Poner en ruta (asignado → en_ruta)
-curl -X PATCH http://localhost:3002/api/shipments/1/start-transit
-
-# Registrar un evento de tracking
-curl -X POST http://localhost:3002/api/tracking-events -H 'Content-Type: application/json' \
-  -d '{"shipmentId":1,"type":"en_reparto","location":"Zona norte, Barranquilla"}'
-
-# Entregar: registrar la prueba de entrega (esto ES lo que marca el envío como 'entregado')
-curl -X POST http://localhost:3002/api/delivery-proofs -H 'Content-Type: application/json' \
-  -d '{"shipmentId":1,"receiverName":"Mario Salcedo","receiverDocument":"1042567890","photoUrl":"https://example.com/evidence/photo.jpg"}'
-
-# Confirmar que el envío quedó 'entregado'
-curl http://localhost:3002/api/shipments/1
-
-# Facturar: crear la factura del periodo para la empresa
-curl -X POST http://localhost:3002/api/invoices -H 'Content-Type: application/json' \
-  -d '{"companyId":1,"number":"FAC-2026-0099","periodStart":"2026-09-01","periodEnd":"2026-09-30","issueDate":"2026-10-01","subtotal":300000,"taxes":57000}'
-
-# Marcar la factura como pagada
-curl -X PATCH http://localhost:3002/api/invoices/1/pay
+}
 ```
+
+![alt text](imagenes/prueba7.png)
+
+### Agregar un paquete al envío (solo funciona mientras el envío esté 'creado')
+
+**Metodo POST** `http://localhost:3000/api/packages`
+
+```json
+{
+  "shipmentId":2,
+  "contentDescription":"Rollos de tela",
+  "weightKg":8,
+  "heightCm":30,
+  "widthCm":30,
+  "lengthCm":100,
+  "declaredValue":300000
+}
+```
+
+![alt text](imagenes/prueba8.png)
+
+### Cotizar (creado → cotizado, calcula costo con recargo urgente)
+
+**Metodo PATCH** `http://localhost:3000/api/shipments/2/quote`
+
+![alt text](imagenes/prueba9.png)
+
+### Ver mensajeros y rutas disponibles (ya sembrados)
+
+**Metodo GET** `http://localhost:3000/api/couriers`
+
+![alt text](imagenes/prueba10.png)
+
+**Metodo GET** `http://localhost:3000/api/routes`
+
+![alt text](imagenes/prueba11.png)
+
+### Asignar mensajero + ruta (cotizado → asignado)
+
+**Metodo PATCH** `http://localhost:3000/api/shipments/2/assign`
+
+```json
+{
+  "courierId":1,
+  "routeId":1
+}
+```
+
+![alt text](imagenes/prueba12.png)
+
+### Poner en ruta (asignado → en_ruta)
+
+**Metodo PATCH** `http://localhost:3000/api/shipments/2/start-transit`
+
+![alt text](imagenes/prueba13.png)
+
+### Registrar un evento de tracking
+
+**Metodo POST** `http://localhost:3000/api/tracking-events`
+
+```json
+{
+  "shipmentId":2,
+  "type":"en_reparto",
+  "location":"Zona norte, Riohacha"
+}
+```
+
+![alt text](imagenes/prueba14.png)
+
+### Entregar: registrar la prueba de entrega (esto ES lo que marca el envío como 'entregado')
+
+**Metodo POST** `http://localhost:3000/api/delivery-proofs`
+
+```json
+{
+  "shipmentId":2,
+  "receiverName":"Mario Salcedo",
+  "receiverDocument":"1042567890",
+  "photoUrl":"https://example.com/evidence/photo.jpg"
+}
+```
+
+![alt text](imagenes/prueba15.png)
+
+### Confirmar que el envío quedó 'entregado'
+
+**Metodo GET** `http://localhost:3000/api/shipments/2`
+
+![alt text](imagenes/prueba16.png)
+
+### Facturar: crear la factura del periodo para la empresa
+
+**Metodo POST** `http://localhost:3000/api/invoices`
+
+```json
+{
+  "companyId":5,
+  "number":"FAC-2026-0099",
+  "periodStart":"2026-09-01",
+  "periodEnd":"2026-09-30",
+  "issueDate":"2026-10-01",
+  "subtotal":300000,
+  "taxes":57000
+}
+```
+
+![alt text](imagenes/prueba17.png)
+
+### Marcar la factura como pagada
+
+**Metodo PATCH** `http://localhost:3000/api/invoices/3/pay`
+
+![alt text](imagenes/prueba18.png)
 
 > ✅ **Fin de la fase 18**: EnlaceExpress con sus 11 entidades, probado con Vitest y con un flujo de negocio completo demostrable de punta a punta — desde crear una empresa hasta cobrarle la factura de un envío entregado con evidencia.
-
-**Sugerencia de commit (issue):**
-
-```bash
-git add .
-git commit -m "docs: add end-to-end demo script covering all 11 entities"
-```

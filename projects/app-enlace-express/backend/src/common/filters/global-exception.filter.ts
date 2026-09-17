@@ -8,6 +8,13 @@ import {
 import { Request, Response } from 'express';
 import { ApplicationException } from '../exceptions/application.exception.js';
 
+const SEQUELIZE_ERROR_STATUS: Record<string, number> = {
+  SequelizeUniqueConstraintError: 409,
+  SequelizeForeignKeyConstraintError: 400,
+  SequelizeConnectionError: 503,
+  SequelizeValidationError: 422,
+};
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
@@ -25,6 +32,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
       const res = exception.getResponse();
       message = typeof res === 'string' ? res : (res as any).message;
+    } else if (
+      exception instanceof Error &&
+      exception.name in SEQUELIZE_ERROR_STATUS
+    ) {
+      status = SEQUELIZE_ERROR_STATUS[exception.name];
+      message = exception.message || 'Error de base de datos';
+    } else if (exception instanceof Error && exception.constructor === Error) {
+      status = HttpStatus.BAD_REQUEST;
+      message = exception.message;
     }
 
     response.status(status).json({
