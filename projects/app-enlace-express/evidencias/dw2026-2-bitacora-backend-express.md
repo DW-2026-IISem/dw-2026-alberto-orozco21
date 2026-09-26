@@ -255,3 +255,183 @@ npm run dev
 ![alt text](img-express/cierre_iss-01.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 3. ISS-02 — Infraestructura de base de datos
+
+**Objetivo:** drivers + `.env` + módulo Sequelize + carpeta `seeders/`.
+**Bloqueado por:** ISS-01.
+
+### Criterios de aceptación (ISS-02)
+
+- [ ] **3.1** Paquetes Sequelize/drivers instalados; existe `.env` con `DB_ENGINE` y bloques de motores
+- [ ] **3.2** Existe `src/database/db.ts` exportando `sequelize`, `getDatabaseInfo`, `testConnection`
+- [ ] **3.3** Existe carpeta `src/database/seeders/` **sin** lógica implementada aún
+- [ ] `npx tsc --noEmit` OK
+
+---
+
+## 3.1 Drivers Sequelize y `.env`
+
+```bash
+npm install sequelize@^6.37.8 mysql2@^3.24.4 pg@^8.23.0 pg-hstore@^2.3.4 \
+  tedious@^20.0.0 oracledb@^7.0.1
+npm install -D @types/sequelize@^6.12.0
+```
+
+```bash
+: > .env
+cat >> .env << 'EOF'
+PORT=4000
+
+# Variable para seleccionar el motor de base de datos
+DB_ENGINE=mysql
+
+# --- MYSQL ---
+DB_MYSQL_HOST=localhost
+DB_MYSQL_PORT=3306
+DB_MYSQL_USERNAME=root
+DB_MYSQL_PASSWORD=AlbertoMySQL3306
+DB_MYSQL_NAME=express
+
+# --- POSTGRES ---
+DB_POSTGRES_HOST=localhost
+DB_POSTGRES_PORT=5433
+DB_POSTGRES_USERNAME=alberto
+DB_POSTGRES_PASSWORD=PostgreSQL5433
+DB_POSTGRES_NAME=express
+
+# --- MSSQL (SQL Server) ---
+DB_MSSQL_HOST=localhost
+DB_MSSQL_PORT=1433
+DB_MSSQL_USERNAME=sa
+DB_MSSQL_PASSWORD=sqlServer1433
+DB_MSSQL_NAME=express
+
+# --- ORACLE ---
+DB_ORACLE_HOST=localhost
+DB_ORACLE_PORT=1521
+DB_ORACLE_USERNAME=system
+DB_ORACLE_PASSWORD=OracleXe1521
+DB_ORACLE_NAME=express
+DB_ORACLE_CONNECT_STRING=localhost:1521/XEPDB1
+EOF
+```
+
+```bash
+test -f .env && grep DB_ENGINE .env
+npm ls sequelize mysql2 --depth=0
+```
+
+![alt text](img-express/sequelize_env.png)
+
+---
+
+## 3.2 Configuración Sequelize (`database/db.ts`)
+
+```bash
+: > src/database/db.ts
+cat >> src/database/db.ts << 'EOF'
+import { Sequelize } from "sequelize";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+interface DatabaseConfig {
+  dialect: string;
+  host: string;
+  username: string;
+  password: string;
+  database: string;
+  port: number;
+}
+
+const dbConfigurations: Record<string, DatabaseConfig> = {
+  mysql: {
+    dialect: "mysql",
+    host: process.env.MYSQL_HOST || "localhost",
+    username: process.env.MYSQL_USER || "root",
+    password: process.env.MYSQL_PASSWORD || "",
+    database: process.env.MYSQL_NAME || "test",
+    port: parseInt(process.env.MYSQL_PORT || "3306")
+  },
+  postgres: {
+    dialect: "postgres",
+    host: process.env.POSTGRES_HOST || "localhost",
+    username: process.env.POSTGRES_USER || "postgres",
+    password: process.env.POSTGRES_PASSWORD || "",
+    database: process.env.POSTGRES_NAME || "test",
+    port: parseInt(process.env.POSTGRES_PORT || "5432")
+  }
+};
+
+const selectedEngine = process.env.DB_ENGINE || "mysql";
+const selectedConfig = dbConfigurations[selectedEngine];
+
+if (!selectedConfig) {
+  throw new Error(`Motor de base de datos no soportado: ${selectedEngine}`);
+}
+
+console.log(`🔌 Conectando a base de datos: ${selectedEngine.toUpperCase()}`);
+
+export const sequelize = new Sequelize(
+  selectedConfig.database,
+  selectedConfig.username,
+  selectedConfig.password,
+  {
+    host: selectedConfig.host,
+    port: selectedConfig.port,
+    dialect: selectedConfig.dialect as any,
+    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  }
+);
+
+export const getDatabaseInfo = () => {
+  return {
+    engine: selectedEngine,
+    config: selectedConfig,
+    connectionString: `${selectedConfig.dialect}://${selectedConfig.username}@${selectedConfig.host}:${selectedConfig.port}/${selectedConfig.database}`
+  };
+};
+
+export const testConnection = async (): Promise<boolean> => {
+  try {
+    await sequelize.authenticate();
+    console.log(`✅ Conexión exitosa a ${selectedEngine.toUpperCase()}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error de conexión a ${selectedEngine.toUpperCase()}:`, error);
+    return false;
+  }
+};
+EOF
+```
+
+```bash
+test -f src/database/db.ts && npx tsc --noEmit
+```
+
+---
+
+## 3.3 Carpeta seeders (reservada)
+
+```bash
+touch src/database/seeders/.gitkeep
+```
+
+> La lógica de seeders (runner + counts) llega en ISS-04.
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+> El servidor debe arrancar sin error (sin BD conectada aún es esperado si no hay motor disponible). Detenerlo con Ctrl+C.
