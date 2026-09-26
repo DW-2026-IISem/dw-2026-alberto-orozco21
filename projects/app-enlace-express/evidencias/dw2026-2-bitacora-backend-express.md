@@ -265,10 +265,10 @@ npm run dev
 
 ### Criterios de aceptación (ISS-02)
 
-- [ ] **3.1** Paquetes Sequelize/drivers instalados; existe `.env` con `DB_ENGINE` y bloques de motores
-- [ ] **3.2** Existe `src/database/db.ts` exportando `sequelize`, `getDatabaseInfo`, `testConnection`
-- [ ] **3.3** Existe carpeta `src/database/seeders/` **sin** lógica implementada aún
-- [ ] `npx tsc --noEmit` OK
+- [X] **3.1** Paquetes Sequelize/drivers instalados; existe `.env` con `DB_ENGINE` y bloques de motores
+- [X] **3.2** Existe `src/database/db.ts` exportando `sequelize`, `getDatabaseInfo`, `testConnection`
+- [X] **3.3** Existe carpeta `src/database/seeders/` **sin** lógica implementada aún
+- [X] `npx tsc --noEmit` OK
 
 ---
 
@@ -431,5 +431,7 @@ touch src/database/seeders/.gitkeep
 ```bash
 npm run dev
 ```
+
+![alt text](img-express/run_iss-02.png)
 
 > El servidor debe arrancar sin error (sin BD conectada aún es esperado si no hay motor disponible). Detenerlo con Ctrl+C.
