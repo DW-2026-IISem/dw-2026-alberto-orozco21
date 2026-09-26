@@ -1,7 +1,7 @@
 import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../../../database/db";
 
-export interface CompaniesI {
+export interface CompanyI {
   id?: number;
   nit: string;
   razon_social: string;
@@ -10,7 +10,7 @@ export interface CompaniesI {
   updatedAt?: Date;
 }
 
-export class Companies extends Model {
+export class Company extends Model {
   public id!: number;
   public nit!: string;
   public razon_social!: string;
@@ -19,7 +19,7 @@ export class Companies extends Model {
   public readonly updatedAt!: Date;
 }
 
-Companies.init(
+Company.init(
   {
     nit: {
       type: DataTypes.STRING,
@@ -38,7 +38,7 @@ Companies.init(
   },
   {
     sequelize,
-    modelName: "Companies",
+    modelName: "Company",
     tableName: "companies",
     timestamps: true,
   }

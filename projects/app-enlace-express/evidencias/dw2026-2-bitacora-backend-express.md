@@ -464,7 +464,7 @@ cat >> src/features/business/companies/companies.model.ts << 'EOF'
 import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../../../database/db";
 
-export interface CompaniesI {
+export interface CompanyI {
   id?: number;
   nit: string;
   razon_social: string;
@@ -473,7 +473,7 @@ export interface CompaniesI {
   updatedAt?: Date;
 }
 
-export class Companies extends Model {
+export class Company extends Model {
   public id!: number;
   public nit!: string;
   public razon_social!: string;
@@ -482,7 +482,7 @@ export class Companies extends Model {
   public readonly updatedAt!: Date;
 }
 
-Companies.init(
+Company.init(
   {
     nit: {
       type: DataTypes.STRING,
@@ -506,5 +506,196 @@ Companies.init(
     timestamps: true,
   }
 );
+EOF
+```
+
+---
+
+## 4.2 Controller + routes (CRUD completo)
+
+### 4.2.1 Controller
+
+```bash
+: > src/features/business/companies/companies.controller.ts
+cat >> src/features/business/companies/companies.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { Company, CompanyI } from "./companies.model";
+
+function paramId(req: Request): number {
+  const raw = req.params.id;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return Number(value);
+}
+
+export class CompaniesController {
+  // ================== READ ==================
+  public async getAll(req: Request, res: Response) {
+    try {
+      const companies = await Company.findAll({
+        where: { is_active: true },
+      });
+      res.status(200).json({ companies });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching Companies", detail: String(error) });
+    }
+  }
+
+  public async getOne(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const companies = await Company.findByPk(id);
+      if (!companies) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+      res.status(200).json({ companies });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching Company", detail: String(error) });
+    }
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response) {
+    try {
+      const body = req.body as CompanyI;
+
+
+      const companies = await Company.create({
+        nit: body.nit,
+        razon_social: body.razon_social,
+        is_active: body.is_active ?? true,
+      });
+      res.status(201).json({ companies });
+    } catch (error) {
+      res.status(500).json({ error: "Error creating Company", detail: String(error) });
+    }
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as CompanyI;
+      const companies = await Company.findByPk(id);
+      if (!companies) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+
+
+      await companies.update({
+        nit: body.nit,
+        razon_social: body.razon_social,
+        is_active: body.is_active ?? companies.is_active,
+      });
+
+      res.status(200).json({ companies });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating Company (PUT)", detail: String(error) });
+    }
+  }
+
+  public async updatePatch(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as Partial<CompanyI>;
+      const companies = await Company.findByPk(id);
+      if (!companies) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+
+      await companies.update(body);
+      res.status(200).json({ companies });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating Company (PATCH)", detail: String(error) });
+    }
+  }
+
+  // ================== DELETE ==================
+  /** Eliminacion fisica */
+  public async deletePhysical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const companies = await Company.findByPk(id);
+      if (!companies) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+      await companies.destroy();
+      res.status(200).json({ message: "Company permanently deleted", id });
+    } catch (error) {
+      res.status(500).json({ error: "Error deleting Company", detail: String(error) });
+    }
+  }
+
+  /** Eliminacion logica -> is_active = false */
+  public async deleteLogical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const companies = await Company.findByPk(id);
+      if (!companies) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+      await companies.update({ is_active: false });
+      res.status(200).json({
+        message: "Company deactivated (logical delete)",
+        companies,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error deactivating Company", detail: String(error) });
+    }
+  }
+}
+EOF
+```
+
+### 4.2.1 Routes
+
+```bash
+: > src/features/business/companies/companies.routes.ts
+cat >> src/features/business/companies/companies.routes.ts << 'EOF'
+import { Application } from "express";
+import { CompaniesController } from "./companies.controller";
+
+export class CompaniesRoutes {
+  public companiesController: CompaniesController = new CompaniesController();
+
+  public routes(app: Application): void {
+    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
+
+    // getAll
+    app
+      .route("/api/companies")
+      .get(this.companiesController.getAll.bind(this.companiesController));
+
+    // getOne
+    app
+      .route("/api/companies/:id")
+      .get(this.companiesController.getOne.bind(this.companiesController));
+
+    // create
+    app
+      .route("/api/companies")
+      .post(this.companiesController.create.bind(this.companiesController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/companies/:id")
+      .put(this.companiesController.updatePut.bind(this.companiesController))
+      .patch(this.companiesController.updatePatch.bind(this.companiesController));
+
+    // delete fisico
+    app
+      .route("/api/companies/:id")
+      .delete(this.companiesController.deletePhysical.bind(this.companiesController));
+
+    // delete logico
+    app
+      .route("/api/companies/:id/deactivate")
+      .patch(this.companiesController.deleteLogical.bind(this.companiesController));
+  }
+}
 EOF
 ```
