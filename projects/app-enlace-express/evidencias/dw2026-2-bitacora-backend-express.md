@@ -699,3 +699,98 @@ export class CompaniesRoutes {
 }
 EOF
 ```
+
+## 4.3 HTTP
+
+**GET**
+
+```bash
+: > src/features/business/companies/http/companies.get.http
+cat >> src/features/business/companies/http/companies.get.http << 'EOF'
+### Feature Companies — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllCompanies
+GET {{baseUrl}}/api/companies
+
+###
+
+# @name getOneEmpresa
+GET {{baseUrl}}/api/companies/{{id}}
+EOF
+```
+
+**CREATE**
+
+```bash
+: > src/features/business/companies/http/companies.create.http
+cat >> src/features/business/companies/http/companies.create.http << 'EOF'
+### Feature Companies — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createCompany
+POST {{baseUrl}}/api/companies
+Content-Type: application/json
+
+{
+  "nit": "Ejemplo nit",
+  "razon_social": "Ejemplo razon_social",
+  "is_active": true
+}
+EOF
+```
+
+**UPDATE**
+
+```bash
+: > src/features/business/companies/http/companies.update.http
+cat >> src/features/business/companies/http/companies.update.http << 'EOF'
+### Feature Company — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateCompanyPut
+PUT {{baseUrl}}/api/companies/{{id}}
+Content-Type: application/json
+
+{
+  "nit": "Ejemplo nit",
+  "razon_social": "Ejemplo razon_social",
+  "is_active": true
+}
+
+###
+
+# @name updateCompanyPatch
+PATCH {{baseUrl}}/api/companies/{{id}}
+Content-Type: application/json
+
+{
+  "razon_social": "Ejemplo razon_social"
+}
+EOF
+```
+
+**DELETE**
+
+```bash
+: > src/features/business/companies/http/companiess.delete.http
+cat >> src/features/business/companies/http/companiess.delete.http << 'EOF'
+### Feature Company — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteCompanyPhysical
+DELETE {{baseUrl}}/api/companies/{{id}}
+
+###
+
+# @name deleteCompanyLogical
+PATCH {{baseUrl}}/api/companies/{{id}}/deactivate
+EOF
+```

@@ -1,0 +1,12 @@
+### Feature Companies — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllCompanies
+GET {{baseUrl}}/api/companies
+
+###
+
+# @name getOneEmpresa
+GET {{baseUrl}}/api/companies/{{id}}

@@ -1,0 +1,13 @@
+### Feature Companies — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createCompany
+POST {{baseUrl}}/api/companies
+Content-Type: application/json
+
+{
+  "nit": "Ejemplo nit",
+  "razon_social": "Ejemplo razon_social",
+  "is_active": true
+}

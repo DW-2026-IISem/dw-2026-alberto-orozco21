@@ -1,0 +1,12 @@
+### Feature Company — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteCompanyPhysical
+DELETE {{baseUrl}}/api/companies/{{id}}
+
+###
+
+# @name deleteCompanyLogical
+PATCH {{baseUrl}}/api/companies/{{id}}/deactivate
