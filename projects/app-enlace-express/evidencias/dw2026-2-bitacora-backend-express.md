@@ -112,3 +112,21 @@ src/
 | `database/seeders/` | counts + SeedersRunner (`npm run db:seed`) |
 | `routes/index.ts` | Agregador de features |
 | `config/` · `database/` | Arranque e infraestructura |
+
+---
+
+## 2.3 Dependencias base (Express + TypeScript)
+
+```bash
+npm install express@^5.2.1 cors@^2.8.6 dotenv@^17.4.2 morgan@^1.12.1
+
+npm install -D typescript@~5.9.2 ts-node@^10.9.2 nodemon@^3.1.14 \
+  @types/node@^22.20.3 @types/express@^5.0.6 \
+  @types/cors@^2.8.19 @types/morgan@^1.9.10
+```
+
+```bash
+npm ls --depth=0
+```
+
+![alt text](img-express/depth1.png)
