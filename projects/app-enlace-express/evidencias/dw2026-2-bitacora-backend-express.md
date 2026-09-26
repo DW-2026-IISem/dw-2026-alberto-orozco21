@@ -38,11 +38,11 @@ node -v && npm -v
 ### Criterios de aceptación (ISS-01)
 
 - [X] **2.1** Existe `package.json` con `"type": "commonjs"` y scripts `build` / `dev`
-- [ ] **2.2** Árbol `src/` con `config`, `database/seeders`, `routes`, `features/business/empresa`
-- [ ] **2.3** Dependencias Express/TS instaladas
-- [ ] **2.4** Existe `tsconfig.json` (`rootDir: ./src`, `outDir: ./dist`, `strict: true`)
-- [ ] **2.5** Existen `src/server.ts` y `src/config/index.ts` (esqueleto App)
-- [ ] `npx tsc --noEmit` sin errores al cerrar el ISS
+- [X] **2.2** Árbol `src/` con `config`, `database/seeders`, `routes`, `features/business/empresa`
+- [X] **2.3** Dependencias Express/TS instaladas
+- [X] **2.4** Existe `tsconfig.json` (`rootDir: ./src`, `outDir: ./dist`, `strict: true`)
+- [X] **2.5** Existen `src/server.ts` y `src/config/index.ts` (esqueleto App)
+- [X] `npx tsc --noEmit` sin errores al cerrar el ISS
 
 ---
 
@@ -236,3 +236,22 @@ EOF
 ```
 
 ![alt text](img-express/src-config-index.png)
+
+### Verificación del ISS-01
+
+```bash
+npx tsc --noEmit
+find src -type f | sort
+```
+
+![alt text](img-express/iss-01-verificar.png)
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+![alt text](img-express/cierre_iss-01.png)
+
+> El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
