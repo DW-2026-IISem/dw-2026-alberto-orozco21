@@ -414,9 +414,7 @@ export const testConnection = async (): Promise<boolean> => {
 EOF
 ```
 
-```bash
-test -f src/database/db.ts && npx tsc --noEmit
-```
+![alt text](img-express/db.png)
 
 ---
 
