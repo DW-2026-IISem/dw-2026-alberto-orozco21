@@ -38,7 +38,7 @@ node -v && npm -v
 ### Criterios de aceptación (ISS-01)
 
 - [X] **2.1** Existe `package.json` con `"type": "commonjs"` y scripts `build` / `dev`
-- [X] **2.2** Árbol `src/` con `config`, `database/seeders`, `routes`, `features/business/empresa`
+- [X] **2.2** Árbol `src/` con `config`, `database/seeders`, `routes`, `features/business/companies`
 - [X] **2.3** Dependencias Express/TS instaladas
 - [X] **2.4** Existe `tsconfig.json` (`rootDir: ./src`, `outDir: ./dist`, `strict: true`)
 - [X] **2.5** Existen `src/server.ts` y `src/config/index.ts` (esqueleto App)
@@ -89,7 +89,7 @@ mkdir -p \
   src/config \
   src/database/seeders \
   src/routes \
-  src/features/business/company
+  src/features/business/companies
 ```
 
 ![alt text](img-express/features.png)
@@ -102,7 +102,7 @@ src/
 ├── routes/
 ├── features/
 │   └── business/
-│       └── empresa/      # más features en ISS-06…16
+│       └── companies/      # más features en ISS-06…16
 └── server.ts             # §2.5
 ```
 
@@ -435,3 +435,76 @@ npm run dev
 ![alt text](img-express/run_iss-02.png)
 
 > El servidor debe arrancar sin error (sin BD conectada aún es esperado si no hay motor disponible). Detenerlo con Ctrl+C.
+
+## 4. ISS-03 — Feature companies (fundación)
+
+**Objetivo:** primera feature de negocio: modelo, controller/routes CRUD completo, carpeta `http/` y cableado en `routes/index.ts` + `config/index.ts`. Es la entidad base del dominio (no tiene FKs propias todavía — `contacto_principal_id` y `direccion_facturacion_id` se agregan más adelante por PARCHE en ISS-08, cuando existan `Contacto` y `Direccion`).  
+**Bloqueado por:** ISS-02.
+
+### Criterios de aceptación (ISS-03)
+
+- [ ] **4.1** Modelo `companies.model.ts` (`is_active` boolean + `timestamps: true`)
+- [ ] **4.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [ ] **4.3** Carpeta `http/` con get, create, update, delete
+- [ ] **4.4** Cableado en `routes/index.ts` + `config/index.ts` (import modelo + `sync`)
+- [ ] Con BD: `npm run dev` → conexión OK + sync OK + tabla `companies`
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/companies/http
+```
+
+## 4.1 Modelo companies
+
+```bash
+: > src/features/business/companies/companies.model.ts
+cat >> src/features/business/companies/companies.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface CompaniesI {
+  id?: number;
+  nit: string;
+  razon_social: string;
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Companies extends Model {
+  public id!: number;
+  public nit!: string;
+  public razon_social!: string;
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Companies.init(
+  {
+    nit: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    razon_social: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Companies",
+    tableName: "companies",
+    timestamps: true,
+  }
+);
+EOF
+```
