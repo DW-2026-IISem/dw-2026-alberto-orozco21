@@ -794,3 +794,61 @@ DELETE {{baseUrl}}/api/companies/{{id}}
 PATCH {{baseUrl}}/api/companies/{{id}}/deactivate
 EOF
 ```
+
+---
+
+## 4.4 Agregador Routes + cableado en Config
+
+```bash
+: > src/routes/index.ts
+cat >> src/routes/index.ts << 'EOF'
+import { CompaniesRoutes } from "../features/business/companies/companies.routes";
+
+export class Routes {
+  public companiesRoutes: CompaniesRoutes = new CompaniesRoutes();
+}
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe** (ISS-01, esqueleto).
+
+1. **Debajo de** `var cors = require("cors");` **añadir**:
+
+```ts
+import { sequelize, getDatabaseInfo, testConnection } from "../database/db";
+import "../features/business/companies/companies.model";
+import { Routes } from "../routes/index";
+```
+
+2. **Dentro de** `export class App`, **debajo de** `public app: Application;` **añadir**:
+
+```ts
+  public routePrv: Routes = new Routes();
+```
+
+3. **Dentro de** `routes()`, **reemplazar** el comentario `// ISS-03 §4.3` por:
+
+```ts
+    this.routePrv.companiesRoutes.routes(this.app);
+```
+
+4. **Dentro de** `dbConnection()`, **reemplazar** el comentario `// ISS-02 / ISS-03` por:
+
+```ts
+    try {
+      const dbInfo = getDatabaseInfo();
+      console.log(`🔗 Intentando conectar a: ${dbInfo.engine.toUpperCase()}`);
+
+      const isConnected = await testConnection();
+      if (!isConnected) {
+        throw new Error(`No se pudo conectar a la base de datos ${dbInfo.engine.toUpperCase()}`);
+      }
+
+      // alter: true actualiza columnas faltantes (ej. createdAt/updatedAt tras timestamps: true).
+      // force: false no recrea tablas; no borra datos. En producción preferir migraciones.
+      await sequelize.sync({ force: false, alter: true });
+      console.log(`📦 Base de datos sincronizada exitosamente`);
+    } catch (error) {
+      console.error("❌ Error al conectar con la base de datos:", error);
+      process.exit(1);
+    }
+```

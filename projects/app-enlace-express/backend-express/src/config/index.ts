@@ -2,11 +2,15 @@ import dotenv from "dotenv";
 import express, { Application } from "express";
 import morgan from "morgan";
 var cors = require("cors");
+import { sequelize, getDatabaseInfo, testConnection } from "../database/db";
+import "../features/business/companies/companies.model";
+import { Routes } from "../routes/index";
 
 dotenv.config();
 
 export class App {
   public app: Application;
+  public routePrv: Routes = new Routes();
 
   constructor(private port?: number | string) {
     this.app = express();
@@ -28,11 +32,27 @@ export class App {
   }
 
   private routes(): void {
-    // ISS-03 §4.3
+    this.routePrv.companiesRoutes.routes(this.app);
   }
 
   private async dbConnection(): Promise<void> {
-    // ISS-02 / ISS-03
+    try {
+      const dbInfo = getDatabaseInfo();
+      console.log(`🔗 Intentando conectar a: ${dbInfo.engine.toUpperCase()}`);
+
+      const isConnected = await testConnection();
+      if (!isConnected) {
+        throw new Error(`No se pudo conectar a la base de datos ${dbInfo.engine.toUpperCase()}`);
+      }
+
+      // alter: true actualiza columnas faltantes (ej. createdAt/updatedAt tras timestamps: true).
+      // force: false no recrea tablas; no borra datos. En producción preferir migraciones.
+      await sequelize.sync({ force: false, alter: true });
+      console.log(`📦 Base de datos sincronizada exitosamente`);
+    } catch (error) {
+      console.error("❌ Error al conectar con la base de datos:", error);
+      process.exit(1);
+    }
   }
 
   async listen() {
