@@ -37,7 +37,7 @@ node -v && npm -v
 
 ### Criterios de aceptación (ISS-01)
 
-- [ ] **2.1** Existe `package.json` con `"type": "commonjs"` y scripts `build` / `dev`
+- [X] **2.1** Existe `package.json` con `"type": "commonjs"` y scripts `build` / `dev`
 - [ ] **2.2** Árbol `src/` con `config`, `database/seeders`, `routes`, `features/business/empresa`
 - [ ] **2.3** Dependencias Express/TS instaladas
 - [ ] **2.4** Existe `tsconfig.json` (`rootDir: ./src`, `outDir: ./dist`, `strict: true`)
@@ -79,3 +79,36 @@ node -e "const p=require('./package.json'); console.log(p.scripts)"
 ```
 
 ![alt text](img-express/p.scripts.png)
+
+---
+
+## 2.2 Estructura de carpetas (features)
+
+```bash
+mkdir -p \
+  src/config \
+  src/database/seeders \
+  src/routes \
+  src/features/business/company
+```
+
+![alt text](img-express/features.png)
+
+```text
+src/
+├── config/
+├── database/
+│   └── seeders/          # solo carpeta (ISS-02 §3.3); runner en ISS-04
+├── routes/
+├── features/
+│   └── business/
+│       └── empresa/      # más features en ISS-06…16
+└── server.ts             # §2.5
+```
+
+| Carpeta | Uso |
+|---------|-----|
+| `features/business/<entidad>/` | model + controller + routes (+ seeder, swagger, http, associations) |
+| `database/seeders/` | counts + SeedersRunner (`npm run db:seed`) |
+| `routes/index.ts` | Agregador de features |
+| `config/` · `database/` | Arranque e infraestructura |
