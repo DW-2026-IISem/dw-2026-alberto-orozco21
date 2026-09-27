@@ -2650,3 +2650,35 @@ DELETE {{baseUrl}}/api/address/{{id}}
 PATCH {{baseUrl}}/api/address/{{id}}/deactivate
 EOF
 ```
+
+---
+
+## 8.4 Cableado Routes + Config
+
+**PARCHE** — `src/routes/index.ts` **ya existe**.
+
+1. **Debajo de** `import { ContactRoutes } ...`, **añadir**:
+
+```ts
+import { AddressRoutes } from "../features/business/address/address.routes";
+```
+
+2. **Dentro de** `export class Routes`, **debajo de** `contactRoutes`, **añadir**:
+
+```ts
+  public addressRoutes: AddressRoutes = new AddressRoutes();
+```
+
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import "../features/business/contact/contact.model";`, **añadir**:
+
+```ts
+import "../features/business/address/address.model";
+```
+
+2. **Dentro de** `routes()`, **debajo de** `this.routePrv.contactRoutes.routes(this.app);`, **añadir**:
+
+```ts
+    this.routePrv.addressRoutes.routes(this.app);
+```
