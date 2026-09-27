@@ -1303,7 +1303,7 @@ export type FeatureSwaggerModule = {
  */
 const featureSwaggerModules: FeatureSwaggerModule[] = [
   companiesSwagger,
-  // contactoSwagger,
+  // contactSwagger,
   // direccionSwagger,
 ];
 
@@ -1404,13 +1404,13 @@ npm run dev
 
 ### Criterios de aceptación (ISS-06)
 
-- [ ] **7.1** Modelo `contact.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
-- [ ] **7.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
-- [ ] **7.3** Carpeta `http/` con get, create, update, delete
-- [ ] **7.4** Cableado en `routes/index.ts` + `config/index.ts`
-- [ ] **7.5** Asociaciones (`contact.associations.ts`) + PARCHE `config`
-- [ ] **7.6** Seeder + registro en SeedersRunner / `counts.ts`
-- [ ] **7.7** Swagger + registro en `src/swagger`
+- [X] **7.1** Modelo `contact.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [X] **7.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [X] **7.3** Carpeta `http/` con get, create, update, delete
+- [X] **7.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [X] **7.5** Asociaciones (`contact.associations.ts`) + PARCHE `config`
+- [X] **7.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [X] **7.7** Swagger + registro en `src/swagger`
 
 ---
 
@@ -1870,3 +1870,312 @@ EOF
 ```ts
 import "../features/business/contact/contact.associations";
 ```
+
+---
+
+## 7.6 Seeder Contact
+
+```bash
+: > src/features/business/contact/contact.seeder.ts
+cat >> src/features/business/contact/contact.seeder.ts << 'EOF'
+import { faker } from "@faker-js/faker";
+import { Contact } from "./contact.model";
+import { Company } from "../companies/companies.model";
+
+/**
+ * Seeder del feature Contact (datos falsos con @faker-js/faker).
+ * Se invoca desde `src/database/seeders` (SeedersRunner), no desde la App.
+ *
+ * Idempotente: si ya hay filas, no vuelve a insertar.
+ */
+export async function seedContacts(count: number): Promise<number> {
+  if (count <= 0) {
+    console.log("\u23ed\ufe0f  contacts: count=0, se omite");
+    return 0;
+  }
+
+  const existing = await Contact.count();
+  if (existing > 0) {
+    console.log(`\u23ed\ufe0f  contacts: ya hay ${existing} registro(s), se omite seeder`);
+    return 0;
+  }
+
+  const companyList = await Company.findAll({ where: { is_active: true } });
+  if (companyList.length === 0) {
+    console.log("\u23ed\ufe0f  contacts: faltan dependencias activas (companyList), se omite seeder");
+    return 0;
+  }
+
+  const rows = Array.from({ length: count }, () => ({
+      empresa_id: faker.helpers.arrayElement(companyList).id,
+      nombre: faker.person.fullName(),
+      cargo: faker.person.jobTitle(),
+      telefono: faker.phone.number({ style: "national" }),
+      email: faker.internet.email().toLowerCase(),
+      is_principal: faker.datatype.boolean(),
+      is_active: true,
+  }));
+
+  await Contact.bulkCreate(rows);
+  console.log(`\u2705 contacts: insertados ${count} registro(s) falsos`);
+  return count;
+}
+EOF
+```
+
+**PARCHE** — `src/database/seeders/counts.ts` **ya existe**.
+
+- **Dentro de** `SeedCounts`, **añadir** `contacts: number;`
+- **Dentro de** `DEFAULT_SEED_COUNTS`, **añadir** `contacts: 15,`
+- Lectura opcional por env: `SEED_CONTACTS`.
+
+**PARCHE** — `src/database/seeders/index.ts` **ya existe**.
+
+1. **Debajo de** el import del seeder anterior, **añadir** `import { seedContacts } from "../../features/business/contact/contact.seeder";`
+2. **Debajo de** `await seedCompanies(counts.companies);`, **añadir** `await seedContacts(counts.contacts);`
+
+---
+
+## 7.7 Swagger Contact
+
+```bash
+: > src/features/business/contact/contact.swagger.ts
+cat >> src/features/business/contact/contact.swagger.ts << 'EOF'
+/**
+ * Documentacion OpenAPI del feature Contact.
+ * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
+ *
+ * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ */
+
+export const contactSwagger = {
+  tags: [
+    {
+      name: "Contacts",
+      description: "CRUD de contacts — **SIN AUTH** (sin middleware JWT)",
+    },
+  ],
+  paths: {
+    "/api/contacts": {
+      get: {
+        tags: ["Contacts"],
+        summary: "Listar contacts activos",
+        description: "SIN AUTH — retorna registros con is_active=true",
+        security: [],
+        responses: {
+          "200": {
+            description: "Lista de contacts",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    contacts: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Contact" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Contacts"],
+        summary: "Crear contact",
+        description: "SIN AUTH",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContactCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Contact creado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    contact: { $ref: "#/components/schemas/Contact" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/contacts/{id}": {
+      get: {
+        tags: ["Contacts"],
+        summary: "Obtener contact por id",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "Contact encontrado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    contact: { $ref: "#/components/schemas/Contact" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No encontrado" },
+        },
+      },
+      put: {
+        tags: ["Contacts"],
+        summary: "Actualizar contact (PUT — reemplazo)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContactCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      patch: {
+        tags: ["Contacts"],
+        summary: "Actualizar contact (PATCH — parcial)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContactPatch" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      delete: {
+        tags: ["Contacts"],
+        summary: "Eliminar contact (fisico)",
+        description: "SIN AUTH — borra la fila",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+    "/api/contacts/{id}/deactivate": {
+      patch: {
+        tags: ["Contacts"],
+        summary: "Eliminar contact (logico)",
+        description: "SIN AUTH — is_active = false",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Contact: {
+        type: "object",
+        properties: {
+      id: { type: "integer", example: 1 },
+      empresa_id: { type: "integer", example: 1 },
+      nombre: { type: "string", example: "nombre" },
+      cargo: { type: "string", example: "cargo" },
+      telefono: { type: "string", example: "telefono" },
+      email: { type: "string", example: "email" },
+      is_principal: { type: "boolean", example: true },
+      is_active: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      ContactCreate: {
+        type: "object",
+        required: ["empresa_id", "nombre"],
+        properties: {
+      empresa_id: { type: "integer", example: 1 },
+      nombre: { type: "string", example: "nombre" },
+      cargo: { type: "string", example: "cargo" },
+      telefono: { type: "string", example: "telefono" },
+      email: { type: "string", example: "email" },
+      is_principal: { type: "boolean", example: true },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+      ContactPatch: {
+        type: "object",
+        properties: {
+      empresa_id: { type: "integer", example: 1 },
+      nombre: { type: "string", example: "nombre" },
+      cargo: { type: "string", example: "cargo" },
+      telefono: { type: "string", example: "telefono" },
+      email: { type: "string", example: "email" },
+      is_principal: { type: "boolean", example: true },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+
+**PARCHE** — `src/swagger/index.ts` **ya existe**.
+
+1. **Debajo de** `import { companySwagger } ...`
+
+**añadir** 
+
+`import { contactSwagger } from "../features/business/contact/contact.swagger";`
+
+2. **Dentro de** `featureSwaggerModules`, **debajo de** `companySwagger,`
+
+**añadir** `contactSwagger,`
+
+### Verificación
+
+```bash
+npx tsc --noEmit
+curl -s http://localhost:4000/api/contacts
+```
+
+![alt text](img-express/curl_contacts.png)
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_contacts.png)
+
+![alt text](img-express/contacts_docs.png)
+
+> El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.

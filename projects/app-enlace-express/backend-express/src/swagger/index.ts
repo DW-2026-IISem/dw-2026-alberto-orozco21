@@ -1,6 +1,7 @@
 import { Application } from "express";
 import swaggerUi from "swagger-ui-express";
 import { companiesSwagger } from "../features/business/companies/companies.swagger";
+import { contactSwagger } from "../features/business/contact/contact.swagger";
 
 export type FeatureSwaggerModule = {
   tags: unknown[];
@@ -14,8 +15,7 @@ export type FeatureSwaggerModule = {
  */
 const featureSwaggerModules: FeatureSwaggerModule[] = [
   companiesSwagger,
-  // contactoSwagger,
-  // direccionSwagger,
+  contactSwagger
 ];
 
 export function buildOpenApiDocument() {

@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { sequelize, testConnection } from "../db";
 import "../../features/business/companies/companies.model";
 import { seedCompanies } from "../../features/business/companies/companies.seeder";
+import { seedContacts } from "../../features/business/contact/contact.seeder";
 import { resolveSeedCounts } from "./counts";
 
 dotenv.config();
@@ -29,7 +30,8 @@ export async function runAllSeeders(): Promise<void> {
   await sequelize.sync({ force: false, alter: true });
 
   // Orden: business (padres → hijos)
-  await seedCompanies(counts.Companies);
+  await seedCompanies(counts.companies);
+  await seedContacts(counts.contacts);
 
   console.log("🌱 SeedersRunner finalizado");
 }
