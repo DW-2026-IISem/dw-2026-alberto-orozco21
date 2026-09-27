@@ -6,6 +6,7 @@ import { sequelize, getDatabaseInfo, testConnection } from "../database/db";
 import "../features/business/companies/companies.model";
 import "../features/business/contact/contact.model";
 import { Routes } from "../routes/index";
+import "../features/business/contact/contact.associations";
 import { setupSwagger } from "../swagger/index";
 
 dotenv.config();

@@ -1846,3 +1846,27 @@ import "../features/business/contact/contact.model";
 ```ts
     this.routePrv.contactRoutes.routes(this.app);
 ```
+
+---
+
+## 7.5 Relación / asociaciones Contact
+
+> `Contact` referencia: **Company**. Norma FK: `<tabla_singular>_id`.
+
+```bash
+: > src/features/business/contact/contact.associations.ts
+cat >> src/features/business/contact/contact.associations.ts << 'EOF'
+import { Contact } from "./contact.model";
+import { Company } from "../company/company.model";
+
+Contact.belongsTo(Company, { foreignKey: "empresa_id", as: "company" });
+Company.hasMany(Contact, { foreignKey: "empresa_id", as: "contacts" });
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+**Debajo de** `import "../features/business/contact/contact.model";` (y **encima de** `import { Routes }`), **añadir**:
+
+```ts
+import "../features/business/contact/contact.associations";
+```
