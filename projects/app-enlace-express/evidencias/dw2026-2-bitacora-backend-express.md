@@ -870,3 +870,187 @@ npm run dev
 ![alt text](img-express/run_companies.png)
 
 > Sync OK y tabla `companies` (con `createdAt` / `updatedAt`). Detenerlo con Ctrl+C antes de continuar.
+
+## 5. ISS-04 — Seeders con Faker (feature + runner externo)
+
+**Objetivo:** datos falsos por feature (Faker) y un orquestador externo que ejecuta todos los seeders enviando la cantidad por entidad.  
+**Bloqueado por:** ISS-03.
+
+### Criterios de aceptación (ISS-04)
+
+- [ ] **5.1** `features/business/companies/companies.seeder.ts` con `@faker-js/faker`, idempotente
+- [ ] **5.2** `database/seeders/index.ts` (SeedersRunner) + `database/seeders/counts.ts`
+- [ ] Script `npm run db:seed` funciona; cantidad configurable por CLI/env
+
+---
+
+## 5.1 Seeder dentro del feature Companies
+
+```bash
+npm install -D @faker-js/faker@^10.6.0
+```
+
+```bash
+: > src/features/business/companies/companies.seeder.ts
+cat >> src/features/business/companies/companies.seeder.ts << 'EOF'
+import { faker } from "@faker-js/faker";
+import { Company } from "./companies.model";
+
+
+/**
+ * Seeder del feature Companies (datos falsos con @faker-js/faker).
+ * Se invoca desde `src/database/seeders` (SeedersRunner), no desde la App.
+ *
+ * Idempotente: si ya hay filas, no vuelve a insertar.
+ */
+export async function seedCompanies(count: number): Promise<number> {
+  if (count <= 0) {
+    console.log("\u23ed\ufe0f  Companies: count=0, se omite");
+    return 0;
+  }
+
+  const existing = await Company.count();
+  if (existing > 0) {
+    console.log(`\u23ed\ufe0f  Companies: ya hay ${existing} registro(s), se omite seeder`);
+    return 0;
+  }
+
+
+
+
+  const rows = Array.from({ length: count }, () => ({
+      nit: faker.string.numeric(10),
+      razon_social: faker.company.name(),
+      is_active: true,
+  }));
+
+  await Company.bulkCreate(rows);
+  console.log(`\u2705 Companies: insertados ${count} registro(s) falsos`);
+  return count;
+}
+EOF
+```
+
+---
+
+## 5.2 SeedersRunner + conteos por entidad
+
+```bash
+: > src/database/seeders/counts.ts
+cat >> src/database/seeders/counts.ts << 'EOF'
+export type SeedCounts = {
+  Companies: number;
+};
+
+export const DEFAULT_SEED_COUNTS: SeedCounts = {
+  Companies: 15,
+};
+
+export function resolveSeedCounts(argv: string[] = process.argv.slice(2)): SeedCounts {
+  const counts: SeedCounts = { ...DEFAULT_SEED_COUNTS };
+
+  const envCompanies = process.env.SEED_COMPANIES;
+  if (envCompanies !== undefined && envCompanies !== "") {
+    counts.Companies = Number(envCompanies);
+  }
+
+  for (const arg of argv) {
+    const m = arg.match(/^--([a-zA-Z_]+)=(\d+)$/);
+    if (!m) continue;
+    const key = m[1] as keyof SeedCounts;
+    const value = Number(m[2]);
+    if (key in counts) {
+      counts[key] = value;
+    }
+  }
+
+  return counts;
+}
+EOF
+```
+
+```bash
+: > src/database/seeders/index.ts
+cat >> src/database/seeders/index.ts << 'EOF'
+import dotenv from "dotenv";
+import { sequelize, testConnection } from "../db";
+import "../../features/business/companies/companies.model";
+import { seedCompanies } from "../../features/business/companies/companies.seeder";
+import { resolveSeedCounts } from "./counts";
+
+dotenv.config();
+
+/**
+ * SeedersRunner — ejecuta TODOS los seeders de features, en orden de dependencias
+ * (padres antes que hijos): empresa -> contacto -> direccion -> mensajero -> tarifa
+ * -> ruta -> envio -> paquete -> evento_tracking -> prueba_entrega -> factura.
+ *
+ * Uso:
+ *   npm run db:seed
+ *   npm run db:seed -- --empresas=20
+ *   SEED_EMPRESAS=5 npm run db:seed
+ */
+export async function runAllSeeders(): Promise<void> {
+  const counts = resolveSeedCounts();
+  console.log("🌱 Iniciando SeedersRunner...");
+  console.log("📊 Conteos:", counts);
+
+  const ok = await testConnection();
+  if (!ok) {
+    throw new Error("No hay conexión a la base de datos");
+  }
+
+  await sequelize.sync({ force: false, alter: true });
+
+  // Orden: business (padres → hijos)
+  await seedCompanies(counts.Companies);
+
+  console.log("🌱 SeedersRunner finalizado");
+}
+
+if (require.main === module) {
+  runAllSeeders()
+    .then(async () => {
+      await sequelize.close();
+      process.exit(0);
+    })
+    .catch(async (err) => {
+      console.error("❌ Error en seeders:", err);
+      await sequelize.close();
+      process.exit(1);
+    });
+}
+EOF
+```
+
+**PARCHE** — `package.json` **ya existe**.
+
+**Dentro de** `"scripts"`, **debajo de** `"dev": "..."`, **añadir**:
+
+```json
+    "db:seed": "ts-node -- src/database/seeders/index.ts"
+```
+
+### Verificación
+```bash
+npm run db:seed
+npm run db:seed -- --empresas=20
+SEED_EMPRESAS=5 npm run db:seed
+```
+
+![alt text](img-express/run_sedder_companies.png)
+
+**Al agregar otra entidad (patrón, repetido en cada ISS siguiente):**
+
+1. Archivo nuevo `features/.../<entidad>.seeder.ts`.
+2. **PARCHE** `counts.ts`: añadir clave dentro de `SeedCounts` / `DEFAULT_SEED_COUNTS`.
+3. **PARCHE** `database/seeders/index.ts`: añadir import + llamada `await seedX(counts.x);` debajo de la anterior.
+
+### Cierre del ISS
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_companies_sedder.png)
+
+![alt text](img-express/companies_data.png)
