@@ -2682,3 +2682,27 @@ import "../features/business/address/address.model";
 ```ts
     this.routePrv.addressRoutes.routes(this.app);
 ```
+
+---
+
+## 8.5 Relación / asociaciones Address
+
+> `Address` referencia: **Company**. Norma FK: `<tabla_singular>_id`.
+
+```bash
+: > src/features/business/address/address.associations.ts
+cat >> src/features/business/address/address.associations.ts << 'EOF'
+import { Address } from "./address.model";
+import { Company } from "../companies/companies.model";
+
+Address.belongsTo(Company, { foreignKey: "empresa_id", as: "company" });
+Company.hasMany(Address, { foreignKey: "empresa_id", as: "addresss" });
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+**Debajo de** `import "../features/business/address/address.model";` (y **encima de** `import { Routes }`), **añadir**:
+
+```ts
+import "../features/business/address/address.associations";
+```
