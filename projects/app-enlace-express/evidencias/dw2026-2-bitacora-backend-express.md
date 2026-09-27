@@ -2179,3 +2179,137 @@ npm run dev
 ![alt text](img-express/contacts_docs.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 8. ISS-07 — Feature Address
+
+**Objetivo:** CRUD completo + seeder + swagger de **Address** (tabla `addresses`).  
+**Bloqueado por:** ISS-06.  
+**API:** `/api/direcciones` — **SIN AUTH**.  
+**Patrón:** mismo que las features anteriores (modelo → controller/routes → http → cableado → relación → seeder → swagger).
+
+### Criterios de aceptación (ISS-07)
+
+- [ ] **8.1** Modelo `address.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [ ] **8.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [ ] **8.3** Carpeta `http/` con get, create, update, delete
+- [ ] **8.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [ ] **8.5** Asociaciones (`address.associations.ts`) + PARCHE `config`
+- [ ] **8.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [ ] **8.7** Swagger + registro en `src/swagger`
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/address/http
+```
+
+## 8.1 Modelo Address
+
+```bash
+: > src/features/business/address/address.model.ts
+cat >> src/features/business/address/address.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface AddressI {
+  id?: number;
+  empresa_id: number;
+  alias: string;
+  linea1: string;
+  linea2?: string | null;
+  ciudad: string;
+  departamento?: string | null;
+  pais?: string | null;
+  codigo_postal?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  tipo: "recogida" | "entrega" | "mixta";
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Address extends Model {
+  public id!: number;
+  public empresa_id!: number;
+  public alias!: string;
+  public linea1!: string;
+  public linea2!: string | null;
+  public ciudad!: string;
+  public departamento!: string | null;
+  public pais!: string | null;
+  public codigo_postal!: string | null;
+  public latitud!: number | null;
+  public longitud!: number | null;
+  public tipo!: "recogida" | "entrega" | "mixta";
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Address.init(
+  {
+    empresa_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "companies", key: "id" },
+      allowNull: false,
+    },
+    alias: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    linea1: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    linea2: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    ciudad: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    departamento: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    pais: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    codigo_postal: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    latitud: {
+      type: DataTypes.DECIMAL(10, 7),
+      allowNull: true,
+    },
+    longitud: {
+      type: DataTypes.DECIMAL(10, 7),
+      allowNull: true,
+    },
+    tipo: {
+      type: DataTypes.ENUM("recogida", "entrega", "mixta"),
+      allowNull: false,
+      defaultValue: "recogida",
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Address",
+    tableName: "addresses",
+    timestamps: true,
+  }
+);
+EOF
+```
