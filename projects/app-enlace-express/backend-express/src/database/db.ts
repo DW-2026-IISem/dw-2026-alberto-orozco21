@@ -15,19 +15,19 @@ interface DatabaseConfig {
 const dbConfigurations: Record<string, DatabaseConfig> = {
   mysql: {
     dialect: "mysql",
-    host: process.env.MYSQL_HOST || "localhost",
-    username: process.env.MYSQL_USER || "root",
-    password: process.env.MYSQL_PASSWORD || "",
-    database: process.env.MYSQL_NAME || "test",
-    port: parseInt(process.env.MYSQL_PORT || "3306")
+    host: process.env.DB_MYSQL_HOST || process.env.MYSQL_HOST || "localhost",
+    username: process.env.DB_MYSQL_USERNAME || process.env.MYSQL_USER || "root",
+    password: process.env.DB_MYSQL_PASSWORD || process.env.MYSQL_PASSWORD || "",
+    database: process.env.DB_MYSQL_NAME || process.env.MYSQL_NAME || "test",
+    port: parseInt(process.env.DB_MYSQL_PORT || process.env.MYSQL_PORT || "3306")
   },
   postgres: {
     dialect: "postgres",
-    host: process.env.POSTGRES_HOST || "localhost",
-    username: process.env.POSTGRES_USER || "postgres",
-    password: process.env.POSTGRES_PASSWORD || "",
-    database: process.env.POSTGRES_NAME || "test",
-    port: parseInt(process.env.POSTGRES_PORT || "5433")
+    host: process.env.DB_POSTGRES_HOST || process.env.POSTGRES_HOST || "localhost",
+    username: process.env.DB_POSTGRES_USERNAME || process.env.POSTGRES_USER || "postgres",
+    password: process.env.DB_POSTGRES_PASSWORD || process.env.POSTGRES_PASSWORD || "",
+    database: process.env.DB_POSTGRES_NAME || process.env.POSTGRES_NAME || "test",
+    port: parseInt(process.env.DB_POSTGRES_PORT || process.env.POSTGRES_PORT || "5433")
   }
 };
 

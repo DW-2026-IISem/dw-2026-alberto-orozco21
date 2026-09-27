@@ -443,11 +443,11 @@ npm run dev
 
 ### Criterios de aceptación (ISS-03)
 
-- [ ] **4.1** Modelo `companies.model.ts` (`is_active` boolean + `timestamps: true`)
-- [ ] **4.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
-- [ ] **4.3** Carpeta `http/` con get, create, update, delete
-- [ ] **4.4** Cableado en `routes/index.ts` + `config/index.ts` (import modelo + `sync`)
-- [ ] Con BD: `npm run dev` → conexión OK + sync OK + tabla `companies`
+- [X] **4.1** Modelo `companies.model.ts` (`is_active` boolean + `timestamps: true`)
+- [X] **4.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [X] **4.3** Carpeta `http/` con get, create, update, delete
+- [X] **4.4** Cableado en `routes/index.ts` + `config/index.ts` (import modelo + `sync`)
+- [X] Con BD: `npm run dev` → conexión OK + sync OK + tabla `companies`
 
 ---
 
@@ -852,3 +852,21 @@ import { Routes } from "../routes/index";
       process.exit(1);
     }
 ```
+
+### Verificación
+
+```bash
+test -d src/features/business/companies/http && echo HTTP_FOLDER_OK
+curl -s http://localhost:4000/api/companies
+```
+
+![alt text](img-express/v_companies.png)
+
+### Cierre del ISS
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_companies.png)
+
+> Sync OK y tabla `companies` (con `createdAt` / `updatedAt`). Detenerlo con Ctrl+C antes de continuar.
