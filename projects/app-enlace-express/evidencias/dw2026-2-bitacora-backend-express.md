@@ -436,7 +436,7 @@ npm run dev
 
 > El servidor debe arrancar sin error (sin BD conectada aún es esperado si no hay motor disponible). Detenerlo con Ctrl+C.
 
-## 4. ISS-03 — Feature companies (fundación)
+## 4. ISS-03 — Feature Company
 
 **Objetivo:** primera feature de negocio: modelo, controller/routes CRUD completo, carpeta `http/` y cableado en `routes/index.ts` + `config/index.ts`. Es la entidad base del dominio (no tiene FKs propias todavía — `contacto_principal_id` y `direccion_facturacion_id` se agregan más adelante por PARCHE en ISS-08, cuando existan `Contacto` y `Direccion`).  
 **Bloqueado por:** ISS-02.
@@ -1392,3 +1392,108 @@ npm run dev
 ![alt text](img-express/swagger_companies.png)
 
 > Abrir `http://localhost:4000/api/docs`. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 7. ISS-06 — Feature Contact
+
+**Objetivo:** CRUD completo + seeder + swagger de **Contact** (tabla `contacts`).  
+**Bloqueado por:** ISS-05.  
+**API:** `/api/contacts` — **SIN AUTH**.  
+**Patrón:** mismo que las features anteriores (modelo → controller/routes → http → cableado → relación → seeder → swagger).
+
+### Criterios de aceptación (ISS-06)
+
+- [ ] **7.1** Modelo `contact.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [ ] **7.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [ ] **7.3** Carpeta `http/` con get, create, update, delete
+- [ ] **7.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [ ] **7.5** Asociaciones (`contact.associations.ts`) + PARCHE `config`
+- [ ] **7.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [ ] **7.7** Swagger + registro en `src/swagger`
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/contact/http
+```
+
+## 7.1 Modelo Contact
+
+```bash
+: > src/features/business/contact/contact.model.ts
+cat >> src/features/business/contact/contact.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface ContactI {
+  id?: number;
+  empresa_id: number;
+  nombre: string;
+  cargo?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  is_principal?: boolean;
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Contact extends Model {
+  public id!: number;
+  public empresa_id!: number;
+  public nombre!: string;
+  public cargo!: string | null;
+  public telefono!: string | null;
+  public email!: string | null;
+  public is_principal!: boolean;
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Contact.init(
+  {
+    empresa_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "companies", key: "id" },
+      allowNull: false,
+    },
+    nombre: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    cargo: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    telefono: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    is_principal: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Contact",
+    tableName: "contacts",
+    timestamps: true,
+  }
+);
+EOF
+```
+
