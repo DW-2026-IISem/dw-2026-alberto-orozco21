@@ -1054,3 +1054,341 @@ npm run dev
 ![alt text](img-express/run_companies_sedder.png)
 
 ![alt text](img-express/companies_data.png)
+
+## 6. ISS-05 — Swagger / OpenAPI (feature + registry externo)
+
+**Objetivo:** documentar el API del feature Empresa en OpenAPI 3 y montar Swagger UI desde un registry externo (mismo patrón que seeders).  
+**Bloqueado por:** ISS-03.
+
+### Criterios de aceptación (ISS-05)
+
+- [ ] **6.1** `features/business/companies/companies.swagger.ts` con tags, paths y schemas (leyenda **SIN AUTH**)
+- [ ] **6.2** `src/swagger/index.ts` agrega módulos de features y monta UI
+- [ ] `App` llama `setupSwagger` (método `docs()`)
+- [ ] `GET /api/docs` muestra Swagger UI y `GET /api/docs.json` el documento OpenAPI
+
+---
+
+## 6.1 OpenAPI dentro del feature Companies
+
+```bash
+npm install swagger-ui-express@^5.0.1
+npm install -D @types/swagger-ui-express@^4.1.8
+```
+
+```bash
+: > src/features/business/companies/companies.swagger.ts
+cat >> src/features/business/companies/companies.swagger.ts << 'EOF'
+/**
+ * Documentacion OpenAPI del feature Companies.
+ * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
+ *
+ * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ */
+
+import { Company } from "./companies.model";
+
+export const companiesSwagger = {
+  tags: [
+    {
+      name: "Empresas",
+      description: "CRUD de empresas — **SIN AUTH** (sin middleware JWT)",
+    },
+  ],
+  paths: {
+    "/api/companies": {
+      get: {
+        tags: ["Empresas"],
+        summary: "Listar empresas activos",
+        description: "SIN AUTH — retorna registros con is_active=true",
+        security: [],
+        responses: {
+          "200": {
+            description: "Lista de empresas",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    empresas: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/company" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Empresas"],
+        summary: "Crear empresa",
+        description: "SIN AUTH",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/companyCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Empresa creada",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    empresa: { $ref: "#/components/schemas/company" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/companies/{id}": {
+      get: {
+        tags: ["Empresas"],
+        summary: "Obtener empresa por id",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "Empresa encontrada",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    empresa: { $ref: "#/components/schemas/company" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No encontrada" },
+        },
+      },
+      put: {
+        tags: ["Empresas"],
+        summary: "Actualizar empresa (PUT — reemplazo)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/companyCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizada" },
+          "404": { description: "No encontrada" },
+        },
+      },
+      patch: {
+        tags: ["Empresas"],
+        summary: "Actualizar empresa (PATCH — parcial)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/companyPatch" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizada" },
+          "404": { description: "No encontrada" },
+        },
+      },
+      delete: {
+        tags: ["Empresas"],
+        summary: "Eliminar empresa (fisico)",
+        description: "SIN AUTH — borra la fila",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminada" },
+          "404": { description: "No encontrada" },
+        },
+      },
+    },
+    "/api/companies/{id}/deactivate": {
+      patch: {
+        tags: ["Empresas"],
+        summary: "Eliminar empresa (logico)",
+        description: "SIN AUTH — is_active = false",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivada" },
+          "404": { description: "No encontrada" },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      company: {
+        type: "object",
+        properties: {
+      id: { type: "integer", example: 1 },
+      nit: { type: "string", example: "nit" },
+      razon_social: { type: "string", example: "razon_social" },
+      is_active: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      companyCreate: {
+        type: "object",
+        required: ["nit", "razon_social"],
+        properties: {
+      nit: { type: "string", example: "nit" },
+      razon_social: { type: "string", example: "razon_social" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+      companyPatch: {
+        type: "object",
+        properties: {
+      nit: { type: "string", example: "nit" },
+      razon_social: { type: "string", example: "razon_social" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+
+---
+
+## 6.2 Registry externo + montaje en Config
+
+```bash
+mkdir -p \
+  src/swagger
+```
+
+```bash
+: > src/swagger/index.ts
+cat >> src/swagger/index.ts << 'EOF'
+import { Application } from "express";
+import swaggerUi from "swagger-ui-express";
+import { companiesSwagger } from "../features/business/companies/companies.swagger";
+
+export type FeatureSwaggerModule = {
+  tags: unknown[];
+  paths: Record<string, unknown>;
+  components?: { schemas?: Record<string, unknown> };
+};
+
+/**
+ * Registry externo: importa la documentación OpenAPI de cada feature
+ * (mismo patrón que SeedersRunner).
+ */
+const featureSwaggerModules: FeatureSwaggerModule[] = [
+  companiesSwagger,
+  // contactoSwagger,
+  // direccionSwagger,
+];
+
+export function buildOpenApiDocument() {
+  const tags: unknown[] = [];
+  const paths: Record<string, unknown> = {};
+  const schemas: Record<string, unknown> = {};
+
+  for (const mod of featureSwaggerModules) {
+    tags.push(...mod.tags);
+    Object.assign(paths, mod.paths);
+    if (mod.components?.schemas) {
+      Object.assign(schemas, mod.components.schemas);
+    }
+  }
+
+  return {
+    openapi: "3.0.3",
+    info: {
+      title: "EnlaceExpress API",
+      version: "1.0.0",
+      description:
+        "API EnlaceExpress (Express + Sequelize). Todas las rutas business son **SIN AUTH** en este lab.",
+    },
+    servers: [
+      { url: `http://localhost:${process.env.PORT || 4000}`, description: "Local" },
+    ],
+    tags,
+    paths,
+    components: { schemas },
+  };
+}
+
+/** Monta Swagger UI y el JSON OpenAPI */
+export function setupSwagger(app: Application): void {
+  const document = buildOpenApiDocument();
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(document));
+  app.get("/api/docs.json", (_req, res) => {
+    res.json(document);
+  });
+  console.log("📘 Swagger UI: /api/docs  |  OpenAPI JSON: /api/docs.json");
+}
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import { Routes } from "../routes/index";`, **añadir**:
+
+```ts
+import { setupSwagger } from "../swagger/index";
+```
+
+2. **Dentro del** `constructor`, **debajo de** `this.routes();` y **encima de** `this.dbConnection();`, **añadir**:
+
+```ts
+    this.docs();
+```
+
+3. **Dentro de** la clase `App`, **debajo de** `routes()` y **encima de** `dbConnection()`, **añadir**:
+
+```ts
+  private docs(): void {
+    setupSwagger(this.app);
+  }
+```
+
+### Verificación
+```bash
+curl -s http://localhost:4000/api/docs.json | head
+```
+
+![alt text](img-express/api_docs_json.png)
+
+> Con el servidor del cierre: abrir `http://localhost:4000/api/docs`.
+
+**Al agregar otra entidad (patrón, repetido en cada ISS siguiente):**
+
+1. Archivo nuevo `features/.../<entidad>.swagger.ts`.
+2. **PARCHE** `src/swagger/index.ts`: añadir import + entrada en `featureSwaggerModules`.
+
+### Cierre del ISS
+```bash
+npm run dev
+```
+
+![alt text](img-express/swagger_companies.png)
+
+> Abrir `http://localhost:4000/api/docs`. Detenerlo con Ctrl+C antes de continuar.
