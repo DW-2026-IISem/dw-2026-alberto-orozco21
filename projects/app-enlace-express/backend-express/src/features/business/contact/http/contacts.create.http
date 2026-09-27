@@ -1,0 +1,17 @@
+### Feature Contact — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createContact
+POST {{baseUrl}}/api/contacts
+Content-Type: application/json
+
+{
+  "empresa_id": 1,
+  "nombre": "Ejemplo nombre",
+  "cargo": "Ejemplo cargo",
+  "telefono": "Ejemplo telefono",
+  "email": "Ejemplo email",
+  "is_principal": true,
+  "is_active": true
+}

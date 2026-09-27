@@ -1,0 +1,12 @@
+### Feature Contact — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteContactPhysical
+DELETE {{baseUrl}}/api/contacts/{{id}}
+
+###
+
+# @name deleteContactLogical
+PATCH {{baseUrl}}/api/contacts/{{id}}/deactivate

@@ -1,0 +1,12 @@
+### Feature Contact — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllContact
+GET {{baseUrl}}/api/contacts
+
+###
+
+# @name getOneContact
+GET {{baseUrl}}/api/contacts/{{id}}

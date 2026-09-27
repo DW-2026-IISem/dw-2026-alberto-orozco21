@@ -1676,35 +1676,141 @@ export class ContactRoutes {
 
     // getAll
     app
-      .route("/api/contactos")
+      .route("/api/contacts")
       .get(this.contactController.getAll.bind(this.contactController));
 
     // getOne
     app
-      .route("/api/contactos/:id")
+      .route("/api/contacts/:id")
       .get(this.contactController.getOne.bind(this.contactController));
 
     // create
     app
-      .route("/api/contactos")
+      .route("/api/contacts")
       .post(this.contactController.create.bind(this.contactController));
 
     // update (PUT / PATCH)
     app
-      .route("/api/contactos/:id")
+      .route("/api/contacts/:id")
       .put(this.contactController.updatePut.bind(this.contactController))
       .patch(this.contactController.updatePatch.bind(this.contactController));
 
     // delete fisico
     app
-      .route("/api/contactos/:id")
+      .route("/api/contacts/:id")
       .delete(this.contactController.deletePhysical.bind(this.contactController));
 
     // delete logico
     app
-      .route("/api/contactos/:id/deactivate")
+      .route("/api/contacts/:id/deactivate")
       .patch(this.contactController.deleteLogical.bind(this.contactController));
   }
 }
+EOF
+```
+
+---
+
+## 7.3 HTTP
+
+**GET**
+
+```bash
+: > src/features/business/contact/http/contacts.get.http
+cat >> src/features/business/contact/http/contacts.get.http << 'EOF'
+### Feature Contact — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllContact
+GET {{baseUrl}}/api/contacts
+
+###
+
+# @name getOneContact
+GET {{baseUrl}}/api/contacts/{{id}}
+EOF
+```
+
+**CREATE**
+
+```bash
+: > src/features/business/contact/http/contacts.create.http
+cat >> src/features/business/contact/http/contacts.create.http << 'EOF'
+### Feature Contact — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createContact
+POST {{baseUrl}}/api/contacts
+Content-Type: application/json
+
+{
+  "empresa_id": 1,
+  "nombre": "Ejemplo nombre",
+  "cargo": "Ejemplo cargo",
+  "telefono": "Ejemplo telefono",
+  "email": "Ejemplo email",
+  "is_principal": true,
+  "is_active": true
+}
+EOF
+```
+
+**UPDATE**
+
+```bash
+: > src/features/business/contact/http/contacts.update.http
+cat >> src/features/business/contact/http/contacts.update.http << 'EOF'
+### Feature Contact — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateContactPut
+PUT {{baseUrl}}/api/contacts/{{id}}
+Content-Type: application/json
+
+{
+  "empresa_id": 1,
+  "nombre": "Ejemplo nombre",
+  "cargo": "Ejemplo cargo",
+  "telefono": "Ejemplo telefono",
+  "email": "Ejemplo email",
+  "is_principal": true,
+  "is_active": true
+}
+
+###
+
+# @name updateContactPatch
+PATCH {{baseUrl}}/api/contacts/{{id}}
+Content-Type: application/json
+
+{
+  "nombre": "Ejemplo nombre"
+}
+
+EOF
+```
+
+**DELETE**
+
+```bash
+: > src/features/business/contact/http/contacts.delete.http
+cat >> src/features/business/contact/http/contacts.delete.http << 'EOF'
+### Feature Contact — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteContactPhysical
+DELETE {{baseUrl}}/api/contacts/{{id}}
+
+###
+
+# @name deleteContactLogical
+PATCH {{baseUrl}}/api/contacts/{{id}}/deactivate
 EOF
 ```
