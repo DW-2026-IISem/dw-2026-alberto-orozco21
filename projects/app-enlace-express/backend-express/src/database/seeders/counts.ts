@@ -1,11 +1,13 @@
 export type SeedCounts = {
   companies: number;
   contacts: number;
+  addresses: number;
 };
 
 export const DEFAULT_SEED_COUNTS: SeedCounts = {
   companies: 15,
   contacts: 15,
+  addresses: 15
 };
 
 export function resolveSeedCounts(argv: string[] = process.argv.slice(2)): SeedCounts {
