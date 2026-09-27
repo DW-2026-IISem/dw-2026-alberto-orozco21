@@ -4,6 +4,7 @@ import morgan from "morgan";
 var cors = require("cors");
 import { sequelize, getDatabaseInfo, testConnection } from "../database/db";
 import "../features/business/companies/companies.model";
+import "../features/business/contact/contact.model";
 import { Routes } from "../routes/index";
 import { setupSwagger } from "../swagger/index";
 
@@ -35,6 +36,7 @@ export class App {
 
   private routes(): void {
     this.routePrv.companiesRoutes.routes(this.app);
+    this.routePrv.contactRoutes.routes(this.app);
   }
 
   private docs(): void {

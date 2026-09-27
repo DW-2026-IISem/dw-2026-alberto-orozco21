@@ -1814,3 +1814,35 @@ DELETE {{baseUrl}}/api/contacts/{{id}}
 PATCH {{baseUrl}}/api/contacts/{{id}}/deactivate
 EOF
 ```
+
+---
+
+## 7.4 Cableado Routes + Config
+
+**PARCHE** — `src/routes/index.ts` **ya existe**.
+
+1. **Debajo de** `import { CompanyRoutes } ...`, **añadir**:
+
+```ts
+import { ContactRoutes } from "../features/business/contact/contact.routes";
+```
+
+2. **Dentro de** `export class Routes`, **debajo de** `companyRoutes`, **añadir**:
+
+```ts
+  public contactRoutes: ContactRoutes = new ContactRoutes();
+```
+
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import "../features/business/company/company.model";`, **añadir**:
+
+```ts
+import "../features/business/contact/contact.model";
+```
+
+2. **Dentro de** `routes()`, **debajo de** `this.routePrv.companyRoutes.routes(this.app);`, **añadir**:
+
+```ts
+    this.routePrv.contactRoutes.routes(this.app);
+```
