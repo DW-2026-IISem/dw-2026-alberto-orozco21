@@ -25,7 +25,7 @@ Content-Type: application/json
 ###
 
 # @name updateAddressPatch
-PATCH {{baseUrl}}/api/direcciones/{{id}}
+PATCH {{baseUrl}}/api/address/{{id}}
 Content-Type: application/json
 
 {

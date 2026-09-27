@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Address, AddressI } from "./address.model";
-import { Company } from "../company/company.model";
+import { Company } from "../companies/companies.model";
 
 function paramId(req: Request): number {
   const raw = req.params.id;
