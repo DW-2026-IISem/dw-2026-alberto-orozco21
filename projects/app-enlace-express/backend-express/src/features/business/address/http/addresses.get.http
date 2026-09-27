@@ -1,0 +1,12 @@
+### Feature Address — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllAddress
+GET {{baseUrl}}/api/address
+
+###
+
+# @name getOneAddress
+GET {{baseUrl}}/api/address/{{id}}

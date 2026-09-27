@@ -1,0 +1,22 @@
+### Feature Address — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createAddress
+POST {{baseUrl}}/api/address
+Content-Type: application/json
+
+{
+  "empresa_id": 1,
+  "alias": "Ejemplo alias",
+  "linea1": "Ejemplo linea1",
+  "linea2": "Ejemplo linea2",
+  "ciudad": "Ejemplo ciudad",
+  "departamento": "Ejemplo departamento",
+  "pais": "Ejemplo pais",
+  "codigo_postal": "Ejemplo codigo_postal",
+  "latitud": 10.5,
+  "longitud": 10.5,
+  "tipo": "recogida",
+  "is_active": true
+}

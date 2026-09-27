@@ -2535,3 +2535,118 @@ export class AddressRoutes {
 }
 EOF
 ```
+
+---
+
+## 8.3 HTTP
+
+**GET**
+
+```bash
+: > src/features/business/address/http/addresses.get.http
+cat >> src/features/business/address/http/addresses.get.http << 'EOF'
+### Feature Address — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllAddress
+GET {{baseUrl}}/api/address
+
+###
+
+# @name getOneAddress
+GET {{baseUrl}}/api/address/{{id}}
+EOF
+```
+
+**CREATE**
+
+```bash
+: > src/features/business/address/http/addresses.create.http
+cat >> src/features/business/address/http/addresses.create.http << 'EOF'
+### Feature Address — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createAddress
+POST {{baseUrl}}/api/address
+Content-Type: application/json
+
+{
+  "empresa_id": 1,
+  "alias": "Ejemplo alias",
+  "linea1": "Ejemplo linea1",
+  "linea2": "Ejemplo linea2",
+  "ciudad": "Ejemplo ciudad",
+  "departamento": "Ejemplo departamento",
+  "pais": "Ejemplo pais",
+  "codigo_postal": "Ejemplo codigo_postal",
+  "latitud": 10.5,
+  "longitud": 10.5,
+  "tipo": "recogida",
+  "is_active": true
+}
+EOF
+```
+
+**UPDATE**
+
+```bash
+: > src/features/business/address/http/addresses.update.http
+cat >> src/features/business/address/http/addresses.update.http << 'EOF'
+### Feature Address — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateAddressPut
+PUT {{baseUrl}}/api/address/{{id}}
+Content-Type: application/json
+
+{
+  "empresa_id": 1,
+  "alias": "Ejemplo alias",
+  "linea1": "Ejemplo linea1",
+  "linea2": "Ejemplo linea2",
+  "ciudad": "Ejemplo ciudad",
+  "departamento": "Ejemplo departamento",
+  "pais": "Ejemplo pais",
+  "codigo_postal": "Ejemplo codigo_postal",
+  "latitud": 10.5,
+  "longitud": 10.5,
+  "tipo": "recogida",
+  "is_active": true
+}
+
+###
+
+# @name updateAddressPatch
+PATCH {{baseUrl}}/api/direcciones/{{id}}
+Content-Type: application/json
+
+{
+  "alias": "Ejemplo alias"
+}
+EOF
+```
+
+**DELETE**
+
+```bash
+: > src/features/business/address/http/addresses.delete.http
+cat >> src/features/business/address/http/addresses.delete.http << 'EOF'
+### Feature Address — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteAddressPhysical
+DELETE {{baseUrl}}/api/address/{{id}}
+
+###
+
+# @name deleteAddressLogical
+PATCH {{baseUrl}}/api/address/{{id}}/deactivate
+EOF
+```
