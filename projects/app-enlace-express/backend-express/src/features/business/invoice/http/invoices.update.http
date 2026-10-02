@@ -1,0 +1,32 @@
+### Feature Invoice — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateInvoicePut
+PUT {{baseUrl}}/api/invoices/{{id}}
+Content-Type: application/json
+
+{
+  "numero": "FE-000001",
+  "empresa_id": 1,
+  "periodo_desde": "2026-01-01",
+  "periodo_hasta": "2026-01-31",
+  "fecha": "2026-02-01",
+  "subtotal": 100000,
+  "impuestos": 19000,
+  "total": 119000,
+  "estado": "pendiente",
+  "fecha_pago": null,
+  "is_active": true
+}
+
+###
+
+# @name updateInvoicePatch
+PATCH {{baseUrl}}/api/invoices/{{id}}
+Content-Type: application/json
+
+{
+  "estado": "pagada"
+}

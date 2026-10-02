@@ -7981,13 +7981,13 @@ npm run dev
 
 ### Criterios de aceptación (ISS-15)
 
-- [ ] **16.1** Modelo `delivery-proof.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
-- [ ] **16.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
-- [ ] **16.3** Carpeta `http/` con get, create, update, delete
-- [ ] **16.4** Cableado en `routes/index.ts` + `config/index.ts`
-- [ ] **16.5** Asociaciones (`delivery-proof.associations.ts`) + PARCHE `config`
-- [ ] **16.6** Seeder + registro en SeedersRunner / `counts.ts`
-- [ ] **16.7** Swagger + registro en `src/swagger`
+- [X] **16.1** Modelo `delivery-proof.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [X] **16.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [X] **16.3** Carpeta `http/` con get, create, update, delete
+- [X] **16.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [X] **16.5** Asociaciones (`delivery-proof.associations.ts`) + PARCHE `config`
+- [X] **16.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [X] **16.7** Swagger + registro en `src/swagger`
 
 > Relacion 1:1: `envio_id` es `unique` en `delivery_proofs` (0..1 por shipment).
 
@@ -8786,5 +8786,822 @@ npm run dev
 ![alt text](img-express/run_delivery_proofs.png)
 
 ![alt text](img-express/docs_delivery_proofs.png)
+
+> El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 17. ISS-16 — Feature Invoice
+
+**Objetivo:** CRUD completo + seeder + swagger de **Invoice** (tabla `invoices`).  
+**Bloqueado por:** ISS-15.  
+**API:** `/api/invoices` — **SIN AUTH**.  
+**Patrón:** mismo que las features anteriores (modelo → controller/routes → http → cableado → relación → seeder → swagger).
+
+### Criterios de aceptación (ISS-16)
+
+- [X] **17.1** Modelo `invoice.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [X] **17.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [X] **17.3** Carpeta `http/` con get, create, update, delete
+- [X] **17.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [X] **17.5** Asociaciones (`invoice.associations.ts`) + PARCHE `config`
+- [X] **17.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [X] **17.7** Swagger + registro en `src/swagger`
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/invoice/http
+```
+
+## 17.1 Modelo Invoice
+
+```bash
+: > src/features/business/invoice/invoice.model.ts
+cat >> src/features/business/invoice/invoice.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface InvoiceI {
+  id?: number;
+  numero: string;
+  empresa_id: number;
+  periodo_desde: string;
+  periodo_hasta: string;
+  fecha: string;
+  subtotal: number;
+  impuestos?: number | null;
+  total: number;
+  estado: "pendiente" | "pagada" | "vencida" | "anulada";
+  fecha_pago?: Date | string | null;
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Invoice extends Model {
+  public id!: number;
+  public numero!: string;
+  public empresa_id!: number;
+  public periodo_desde!: string;
+  public periodo_hasta!: string;
+  public fecha!: string;
+  public subtotal!: number;
+  public impuestos!: number | null;
+  public total!: number;
+  public estado!: "pendiente" | "pagada" | "vencida" | "anulada";
+  public fecha_pago!: Date | string | null;
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Invoice.init(
+  {
+    numero: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    empresa_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "companies", key: "id" },
+      allowNull: false,
+    },
+    periodo_desde: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+    },
+    periodo_hasta: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+    },
+    fecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+    },
+    subtotal: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+    },
+    impuestos: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    total: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+    },
+    estado: {
+      type: DataTypes.ENUM("pendiente", "pagada", "vencida", "anulada"),
+      allowNull: false,
+      defaultValue: "pendiente",
+    },
+    fecha_pago: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Invoice",
+    tableName: "invoices",
+    timestamps: true,
+  }
+);
+EOF
+```
+
+---
+
+## 17.2 Controller + routes (CRUD completo)
+
+```bash
+: > src/features/business/invoice/invoice.controller.ts
+cat >> src/features/business/invoice/invoice.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { Invoice, InvoiceI } from "./invoice.model";
+import { Company } from "../company/company.model";
+
+function paramId(req: Request): number {
+  const raw = req.params.id;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return Number(value);
+}
+
+export class InvoiceController {
+  // ================== READ ==================
+  public async getAll(req: Request, res: Response) {
+    try {
+      const invoices = await Invoice.findAll({
+        where: { is_active: true },
+      });
+      res.status(200).json({ invoices });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching invoices", detail: String(error) });
+    }
+  }
+
+  public async getOne(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const invoice = await Invoice.findByPk(id);
+      if (!invoice) {
+        res.status(404).json({ error: "Invoice not found" });
+        return;
+      }
+      res.status(200).json({ invoice: invoice });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching invoice", detail: String(error) });
+    }
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response) {
+    try {
+      const body = req.body as InvoiceI;
+      if (body.empresa_id !== undefined && body.empresa_id !== null) {
+        const found_empresa_id = await Company.findByPk(body.empresa_id);
+        if (!found_empresa_id) {
+          res.status(404).json({ error: "Company (empresa_id) not found" });
+          return;
+        }
+      }
+
+      const invoice = await Invoice.create({
+        numero: body.numero,
+        empresa_id: body.empresa_id,
+        periodo_desde: body.periodo_desde,
+        periodo_hasta: body.periodo_hasta,
+        fecha: body.fecha,
+        subtotal: body.subtotal,
+        impuestos: body.impuestos ?? null,
+        total: body.total,
+        estado: body.estado,
+        fecha_pago: body.fecha_pago ?? null,
+        is_active: body.is_active ?? true,
+      });
+      res.status(201).json({ invoice: invoice });
+    } catch (error) {
+      res.status(500).json({ error: "Error creating invoice", detail: String(error) });
+    }
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as InvoiceI;
+      const invoice = await Invoice.findByPk(id);
+      if (!invoice) {
+        res.status(404).json({ error: "Invoice not found" });
+        return;
+      }
+      if (body.empresa_id !== undefined && body.empresa_id !== null) {
+        const found_empresa_id = await Company.findByPk(body.empresa_id);
+        if (!found_empresa_id) {
+          res.status(404).json({ error: "Company (empresa_id) not found" });
+          return;
+        }
+      }
+
+      await invoice.update({
+        numero: body.numero,
+        empresa_id: body.empresa_id,
+        periodo_desde: body.periodo_desde,
+        periodo_hasta: body.periodo_hasta,
+        fecha: body.fecha,
+        subtotal: body.subtotal,
+        impuestos: body.impuestos ?? invoice.impuestos,
+        total: body.total,
+        estado: body.estado,
+        fecha_pago: body.fecha_pago ?? invoice.fecha_pago,
+        is_active: body.is_active ?? invoice.is_active,
+      });
+
+      res.status(200).json({ invoice: invoice });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating invoice (PUT)", detail: String(error) });
+    }
+  }
+
+  public async updatePatch(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as Partial<InvoiceI>;
+      const invoice = await Invoice.findByPk(id);
+      if (!invoice) {
+        res.status(404).json({ error: "Invoice not found" });
+        return;
+      }
+
+      await invoice.update(body);
+      res.status(200).json({ invoice: invoice });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating invoice (PATCH)", detail: String(error) });
+    }
+  }
+
+  // ================== DELETE ==================
+  /** Eliminacion fisica */
+  public async deletePhysical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const invoice = await Invoice.findByPk(id);
+      if (!invoice) {
+        res.status(404).json({ error: "Invoice not found" });
+        return;
+      }
+      await invoice.destroy();
+      res.status(200).json({ message: "Invoice permanently deleted", id });
+    } catch (error) {
+      res.status(500).json({ error: "Error deleting invoice", detail: String(error) });
+    }
+  }
+
+  /** Eliminacion logica -> is_active = false */
+  public async deleteLogical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const invoice = await Invoice.findByPk(id);
+      if (!invoice) {
+        res.status(404).json({ error: "Invoice not found" });
+        return;
+      }
+      await invoice.update({ is_active: false });
+      res.status(200).json({
+        message: "Invoice deactivated (logical delete)",
+        invoice: invoice,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error deactivating invoice", detail: String(error) });
+    }
+  }
+}
+EOF
+```
+```bash
+: > src/features/business/invoice/invoice.routes.ts
+cat >> src/features/business/invoice/invoice.routes.ts << 'EOF'
+import { Application } from "express";
+import { InvoiceController } from "./invoice.controller";
+
+export class InvoiceRoutes {
+  public invoiceController: InvoiceController = new InvoiceController();
+
+  public routes(app: Application): void {
+    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
+
+    // getAll
+    app
+      .route("/api/invoices")
+      .get(this.invoiceController.getAll.bind(this.invoiceController));
+
+    // getOne
+    app
+      .route("/api/invoices/:id")
+      .get(this.invoiceController.getOne.bind(this.invoiceController));
+
+    // create
+    app
+      .route("/api/invoices")
+      .post(this.invoiceController.create.bind(this.invoiceController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/invoices/:id")
+      .put(this.invoiceController.updatePut.bind(this.invoiceController))
+      .patch(this.invoiceController.updatePatch.bind(this.invoiceController));
+
+    // delete fisico
+    app
+      .route("/api/invoices/:id")
+      .delete(this.invoiceController.deletePhysical.bind(this.invoiceController));
+
+    // delete logico
+    app
+      .route("/api/invoices/:id/deactivate")
+      .patch(this.invoiceController.deleteLogical.bind(this.invoiceController));
+  }
+}
+EOF
+```
+
+---
+
+## 17.3 HTTP
+
+```bash
+: > src/features/business/invoice/http/invoices.get.http
+cat >> src/features/business/invoice/http/invoices.get.http << 'EOF'
+### Feature Invoice — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllInvoice
+GET {{baseUrl}}/api/invoices
+
+###
+
+# @name getOneInvoice
+GET {{baseUrl}}/api/invoices/{{id}}
+EOF
+```
+```bash
+: > src/features/business/invoice/http/invoices.create.http
+cat >> src/features/business/invoice/http/invoices.create.http << 'EOF'
+### Feature Invoice — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createInvoice
+POST {{baseUrl}}/api/invoices
+Content-Type: application/json
+
+{
+  "numero": "Ejemplo numero",
+  "empresa_id": 1,
+  "periodo_desde": "2026-01-15",
+  "periodo_hasta": "2026-01-15",
+  "fecha": "2026-01-15",
+  "subtotal": 10.5,
+  "impuestos": 10.5,
+  "total": 10.5,
+  "estado": "pendiente",
+  "fecha_pago": "2026-01-15T10:00:00.000Z",
+  "is_active": true
+}
+EOF
+```
+```bash
+: > src/features/business/invoice/http/invoices.update.http
+cat >> src/features/business/invoice/http/invoices.update.http << 'EOF'
+### Feature Invoice — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateInvoicePut
+PUT {{baseUrl}}/api/invoices/{{id}}
+Content-Type: application/json
+
+{
+  "numero": "Ejemplo numero",
+  "empresa_id": 1,
+  "periodo_desde": "2026-01-15",
+  "periodo_hasta": "2026-01-15",
+  "fecha": "2026-01-15",
+  "subtotal": 10.5,
+  "impuestos": 10.5,
+  "total": 10.5,
+  "estado": "pendiente",
+  "fecha_pago": "2026-01-15T10:00:00.000Z",
+  "is_active": true
+}
+
+###
+
+# @name updateInvoicePatch
+PATCH {{baseUrl}}/api/invoices/{{id}}
+Content-Type: application/json
+
+{
+  "empresa_id": 1
+}
+EOF
+```
+```bash
+: > src/features/business/invoice/http/invoices.delete.http
+cat >> src/features/business/invoice/http/invoices.delete.http << 'EOF'
+### Feature Invoice — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteInvoicePhysical
+DELETE {{baseUrl}}/api/invoices/{{id}}
+
+###
+
+# @name deleteInvoiceLogical
+PATCH {{baseUrl}}/api/invoices/{{id}}/deactivate
+EOF
+```
+
+---
+
+## 17.4 Cableado Routes + Config
+
+**PARCHE** — `src/routes/index.ts` **ya existe**.
+
+1. **Debajo de** `import { DeliveryProofRoutes } ...`, **añadir**:
+
+```ts
+import { InvoiceRoutes } from "../features/business/invoice/invoice.routes";
+```
+
+2. **Dentro de** `export class Routes`, **debajo de** `deliveryProofRoutes`, **añadir**:
+
+```ts
+  public invoiceRoutes: InvoiceRoutes = new InvoiceRoutes();
+```
+
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import "../features/business/delivery-proof/delivery-proof.model";`, **añadir**:
+
+```ts
+import "../features/business/invoice/invoice.model";
+```
+
+2. **Dentro de** `routes()`, **debajo de** `this.routePrv.deliveryProofRoutes.routes(this.app);`, **añadir**:
+
+```ts
+    this.routePrv.invoiceRoutes.routes(this.app);
+```
+
+---
+
+## 17.5 Relación / asociaciones Invoice
+
+> `Invoice` referencia: **Company**. Norma FK: `<tabla_singular>_id`.
+
+```bash
+: > src/features/business/invoice/invoice.associations.ts
+cat >> src/features/business/invoice/invoice.associations.ts << 'EOF'
+import { Invoice } from "./invoice.model";
+import { Company } from "../company/company.model";
+
+Invoice.belongsTo(Company, { foreignKey: "empresa_id", as: "company" });
+Company.hasMany(Invoice, { foreignKey: "empresa_id", as: "invoices" });
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+**Debajo de** `import "../features/business/invoice/invoice.model";` (y **encima de** `import { Routes }`), **añadir**:
+
+```ts
+import "../features/business/invoice/invoice.associations";
+```
+
+---
+
+## 17.6 Seeder Invoice
+
+```bash
+: > src/features/business/invoice/invoice.seeder.ts
+cat >> src/features/business/invoice/invoice.seeder.ts << 'EOF'
+import { faker } from "@faker-js/faker";
+import { Invoice } from "./invoice.model";
+import { Company } from "../company/company.model";
+
+/**
+ * Seeder del feature Invoice (datos falsos con @faker-js/faker).
+ * Se invoca desde `src/database/seeders` (SeedersRunner), no desde la App.
+ *
+ * Idempotente: si ya hay filas, no vuelve a insertar.
+ */
+export async function seedInvoices(count: number): Promise<number> {
+  if (count <= 0) {
+    console.log("\u23ed\ufe0f  invoices: count=0, se omite");
+    return 0;
+  }
+
+  const existing = await Invoice.count();
+  if (existing > 0) {
+    console.log(`\u23ed\ufe0f  invoices: ya hay ${existing} registro(s), se omite seeder`);
+    return 0;
+  }
+
+  const companyList = await Company.findAll({ where: { is_active: true } });
+  if (companyList.length === 0) {
+    console.log("\u23ed\ufe0f  invoices: faltan dependencias activas (companyList), se omite seeder");
+    return 0;
+  }
+
+  const rows = Array.from({ length: count }, () => ({
+      numero: "FE-" + faker.string.numeric(6),
+      empresa_id: faker.helpers.arrayElement(companyList).id,
+      periodo_desde: faker.date.past().toISOString().slice(0, 10),
+      periodo_hasta: faker.date.recent().toISOString().slice(0, 10),
+      fecha: faker.date.recent().toISOString().slice(0, 10),
+      subtotal: Number(faker.commerce.price({ min: 50000, max: 5000000, dec: 2 })),
+      impuestos: Number(faker.commerce.price({ min: 5000, max: 500000, dec: 2 })),
+      total: Number(faker.commerce.price({ min: 55000, max: 5500000, dec: 2 })),
+      estado: faker.helpers.arrayElement(["pendiente", "pagada", "vencida", "anulada"]),
+      fecha_pago: faker.date.recent(),
+      is_active: true,
+  }));
+
+  await Invoice.bulkCreate(rows);
+  console.log(`\u2705 invoices: insertados ${count} registro(s) falsos`);
+  return count;
+}
+EOF
+```
+**PARCHE** — `src/database/seeders/counts.ts` **ya existe**.
+
+- **Dentro de** `SeedCounts`, **añadir** `invoices: number;`
+- **Dentro de** `DEFAULT_SEED_COUNTS`, **añadir** `invoices: 15,`
+- Lectura opcional por env: `SEED_INVOICES`.
+
+**PARCHE** — `src/database/seeders/index.ts` **ya existe**.
+
+1. **Debajo de** el import del seeder anterior, **añadir** `import { seedInvoices } from "../../features/business/invoice/invoice.seeder";`
+2. **Debajo de** `await seedDeliveryProofs(counts.delivery_proofs);`, **añadir** `await seedInvoices(counts.invoices);`
+
+---
+
+## 17.7 Swagger Invoice
+
+```bash
+: > src/features/business/invoice/invoice.swagger.ts
+cat >> src/features/business/invoice/invoice.swagger.ts << 'EOF'
+/**
+ * Documentacion OpenAPI del feature Invoice.
+ * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
+ *
+ * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ */
+
+export const invoiceSwagger = {
+  tags: [
+    {
+      name: "Invoices",
+      description: "CRUD de invoices — **SIN AUTH** (sin middleware JWT)",
+    },
+  ],
+  paths: {
+    "/api/invoices": {
+      get: {
+        tags: ["Invoices"],
+        summary: "Listar invoices activos",
+        description: "SIN AUTH — retorna registros con is_active=true",
+        security: [],
+        responses: {
+          "200": {
+            description: "Lista de invoices",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    invoices: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Invoice" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Invoices"],
+        summary: "Crear invoice",
+        description: "SIN AUTH",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/InvoiceCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Invoice creado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    invoice: { $ref: "#/components/schemas/Invoice" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/invoices/{id}": {
+      get: {
+        tags: ["Invoices"],
+        summary: "Obtener invoice por id",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "Invoice encontrado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    invoice: { $ref: "#/components/schemas/Invoice" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No encontrado" },
+        },
+      },
+      put: {
+        tags: ["Invoices"],
+        summary: "Actualizar invoice (PUT — reemplazo)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/InvoiceCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      patch: {
+        tags: ["Invoices"],
+        summary: "Actualizar invoice (PATCH — parcial)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/InvoicePatch" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      delete: {
+        tags: ["Invoices"],
+        summary: "Eliminar invoice (fisico)",
+        description: "SIN AUTH — borra la fila",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+    "/api/invoices/{id}/deactivate": {
+      patch: {
+        tags: ["Invoices"],
+        summary: "Eliminar invoice (logico)",
+        description: "SIN AUTH — is_active = false",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Invoice: {
+        type: "object",
+        properties: {
+      id: { type: "integer", example: 1 },
+      numero: { type: "string", example: "numero" },
+      empresa_id: { type: "integer", example: 1 },
+      periodo_desde: { type: "string", format: "date", example: "2026-01-15" },
+      periodo_hasta: { type: "string", format: "date", example: "2026-01-15" },
+      fecha: { type: "string", format: "date", example: "2026-01-15" },
+      subtotal: { type: "number", example: 10.5 },
+      impuestos: { type: "number", example: 10.5 },
+      total: { type: "number", example: 10.5 },
+      estado: { type: "string", enum: ["pendiente", "pagada", "vencida", "anulada"], example: "pendiente" },
+      fecha_pago: { type: "string", format: "date-time" },
+      is_active: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      InvoiceCreate: {
+        type: "object",
+        required: ["numero", "empresa_id", "periodo_desde", "periodo_hasta", "fecha", "subtotal", "total", "estado"],
+        properties: {
+      numero: { type: "string", example: "numero" },
+      empresa_id: { type: "integer", example: 1 },
+      periodo_desde: { type: "string", format: "date", example: "2026-01-15" },
+      periodo_hasta: { type: "string", format: "date", example: "2026-01-15" },
+      fecha: { type: "string", format: "date", example: "2026-01-15" },
+      subtotal: { type: "number", example: 10.5 },
+      impuestos: { type: "number", example: 10.5 },
+      total: { type: "number", example: 10.5 },
+      estado: { type: "string", enum: ["pendiente", "pagada", "vencida", "anulada"], example: "pendiente" },
+      fecha_pago: { type: "string", format: "date-time" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+      InvoicePatch: {
+        type: "object",
+        properties: {
+      numero: { type: "string", example: "numero" },
+      empresa_id: { type: "integer", example: 1 },
+      periodo_desde: { type: "string", format: "date", example: "2026-01-15" },
+      periodo_hasta: { type: "string", format: "date", example: "2026-01-15" },
+      fecha: { type: "string", format: "date", example: "2026-01-15" },
+      subtotal: { type: "number", example: 10.5 },
+      impuestos: { type: "number", example: 10.5 },
+      total: { type: "number", example: 10.5 },
+      estado: { type: "string", enum: ["pendiente", "pagada", "vencida", "anulada"], example: "pendiente" },
+      fecha_pago: { type: "string", format: "date-time" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+**PARCHE** — `src/swagger/index.ts` **ya existe**.
+
+1. **Debajo de** `import { deliveryProofSwagger } ...`, **añadir** `import { invoiceSwagger } from "../features/business/invoice/invoice.swagger";`
+2. **Dentro de** `featureSwaggerModules`, **debajo de** `deliveryProofSwagger,`, **añadir** `invoiceSwagger,`
+
+### Verificación
+
+```bash
+curl -s http://localhost:4000/api/invoices
+```
+
+![alt text](img-express/api_invoice.png)
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_invoice.png)
+
+![alt text](img-express/docs_invoice.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
