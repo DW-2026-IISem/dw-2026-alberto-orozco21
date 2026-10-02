@@ -11,9 +11,11 @@ import "../features/business/rate/rate.model";
 import "../features/business/route/route.model";
 import "../features/business/shipment/shipment.model";
 import "../features/business/package/package.model";
+import "../features/business/tracking-event/tracking-event.model";
 import "../features/business/route/route.associations";
 import "../features/business/shipment/shipment.associations";
 import "../features/business/package/package.associations";
+import "../features/business/tracking-event/tracking-event.associations";
 import { Routes } from "../routes/index";
 import "../features/business/contact/contact.associations";
 import "../features/business/address/address.associations";
@@ -55,6 +57,7 @@ export class App {
     this.routePrv.routeRoutes.routes(this.app);
     this.routePrv.shipmentRoutes.routes(this.app);
     this.routePrv.packageRoutes.routes(this.app);
+    this.routePrv.trackingEventRoutes.routes(this.app);
   }
 
   private docs(): void {

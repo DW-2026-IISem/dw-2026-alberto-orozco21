@@ -1,0 +1,18 @@
+### Feature TrackingEvent — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createTrackingEvent
+POST {{baseUrl}}/api/tracking_events
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "tipo": "recogido",
+  "fecha": "2026-01-15T10:00:00.000Z",
+  "ubicacion": "Centro",
+  "observaciones": "Paquete recogido en la dirección de origen.",
+  "estado": "informativo",
+  "registrado_por_id": 1,
+  "is_active": true
+}

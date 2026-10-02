@@ -6411,13 +6411,13 @@ npm run dev
 
 ### Criterios de aceptación (ISS-13)
 
-- [ ] **14.1** Modelo `package.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
-- [ ] **14.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
-- [ ] **14.3** Carpeta `http/` con get, create, update, delete
-- [ ] **14.4** Cableado en `routes/index.ts` + `config/index.ts`
-- [ ] **14.5** Asociaciones (`package.associations.ts`) + PARCHE `config`
-- [ ] **14.6** Seeder + registro en SeedersRunner / `counts.ts`
-- [ ] **14.7** Swagger + registro en `src/swagger`
+- [X] **14.1** Modelo `package.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [X] **14.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [X] **14.3** Carpeta `http/` con get, create, update, delete
+- [X] **14.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [X] **14.5** Asociaciones (`package.associations.ts`) + PARCHE `config`
+- [X] **14.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [X] **14.7** Swagger + registro en `src/swagger`
 
 ---
 
@@ -7186,5 +7186,786 @@ npm run dev
 ![alt text](img-express/run_packages.png)
 
 ![alt text](img-express/docs_packages.png)
+
+> El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 15. ISS-14 — Feature TrackingEvent
+
+**Objetivo:** CRUD completo + seeder + swagger de **TrackingEvent** (tabla `tracking_events`).  
+**Bloqueado por:** ISS-13.  
+**API:** `/api/tracking_events` — **SIN AUTH**.  
+**Patrón:** mismo que las features anteriores (modelo → controller/routes → http → cableado → relación → seeder → swagger).
+
+### Criterios de aceptación (ISS-14)
+
+- [X] **15.1** Modelo `tracking-event.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [X] **15.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [X] **15.3** Carpeta `http/` con get, create, update, delete
+- [X] **15.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [X] **15.5** Asociaciones (`tracking-event.associations.ts`) + PARCHE `config`
+- [X] **15.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [X] **15.7** Swagger + registro en `src/swagger`
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/tracking-event/http
+```
+
+## 15.1 Modelo TrackingEvent
+
+```bash
+: > src/features/business/tracking-event/tracking-event.model.ts
+cat >> src/features/business/tracking-event/tracking-event.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface TrackingEventI {
+  id?: number;
+  envio_id: number;
+  tipo: "recogido" | "en_transito" | "en_reparto" | "novedad" | "entregado" | "devuelto";
+  fecha: Date | string;
+  ubicacion?: string | null;
+  observaciones?: string | null;
+  estado: "informativo" | "novedad_leve" | "novedad_critica";
+  registrado_por_id?: number | null;
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class TrackingEvent extends Model {
+  public id!: number;
+  public envio_id!: number;
+  public tipo!: "recogido" | "en_transito" | "en_reparto" | "novedad" | "entregado" | "devuelto";
+  public fecha!: Date | string;
+  public ubicacion!: string | null;
+  public observaciones!: string | null;
+  public estado!: "informativo" | "novedad_leve" | "novedad_critica";
+  public registrado_por_id!: number | null;
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+TrackingEvent.init(
+  {
+    envio_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "shipments", key: "id" },
+      allowNull: false,
+    },
+    tipo: {
+      type: DataTypes.ENUM("recogido", "en_transito", "en_reparto", "novedad", "entregado", "devuelto"),
+      allowNull: false,
+      defaultValue: "recogido",
+    },
+    fecha: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    ubicacion: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    observaciones: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    estado: {
+      type: DataTypes.ENUM("informativo", "novedad_leve", "novedad_critica"),
+      allowNull: false,
+      defaultValue: "informativo",
+    },
+    registrado_por_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "messengers", key: "id" },
+      allowNull: true,
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "TrackingEvent",
+    tableName: "tracking_events",
+    timestamps: true,
+  }
+);
+EOF
+```
+
+---
+
+## 15.2 Controller + routes (CRUD completo)
+
+```bash
+: > src/features/business/tracking-event/tracking-event.controller.ts
+cat >> src/features/business/tracking-event/tracking-event.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { TrackingEvent, TrackingEventI } from "./tracking-event.model";
+import { Shipment } from "../shipment/shipment.model";
+
+function paramId(req: Request): number {
+  const raw = req.params.id;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return Number(value);
+}
+
+export class TrackingEventController {
+  // ================== READ ==================
+  public async getAll(req: Request, res: Response) {
+    try {
+      const tracking_events = await TrackingEvent.findAll({
+        where: { is_active: true },
+      });
+      res.status(200).json({ tracking_events });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching tracking_events", detail: String(error) });
+    }
+  }
+
+  public async getOne(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const trackingEvent = await TrackingEvent.findByPk(id);
+      if (!trackingEvent) {
+        res.status(404).json({ error: "TrackingEvent not found" });
+        return;
+      }
+      res.status(200).json({ trackingEvent: trackingEvent });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching trackingEvent", detail: String(error) });
+    }
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response) {
+    try {
+      const body = req.body as TrackingEventI;
+      if (body.envio_id !== undefined && body.envio_id !== null) {
+        const found_envio_id = await Shipment.findByPk(body.envio_id);
+        if (!found_envio_id) {
+          res.status(404).json({ error: "Shipment (envio_id) not found" });
+          return;
+        }
+      }
+
+      const trackingEvent = await TrackingEvent.create({
+        envio_id: body.envio_id,
+        tipo: body.tipo,
+        fecha: body.fecha,
+        ubicacion: body.ubicacion ?? null,
+        observaciones: body.observaciones ?? null,
+        estado: body.estado,
+        registrado_por_id: body.registrado_por_id ?? null,
+        is_active: body.is_active ?? true,
+      });
+      res.status(201).json({ trackingEvent: trackingEvent });
+    } catch (error) {
+      res.status(500).json({ error: "Error creating trackingEvent", detail: String(error) });
+    }
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as TrackingEventI;
+      const trackingEvent = await TrackingEvent.findByPk(id);
+      if (!trackingEvent) {
+        res.status(404).json({ error: "TrackingEvent not found" });
+        return;
+      }
+      if (body.envio_id !== undefined && body.envio_id !== null) {
+        const found_envio_id = await Shipment.findByPk(body.envio_id);
+        if (!found_envio_id) {
+          res.status(404).json({ error: "Shipment (envio_id) not found" });
+          return;
+        }
+      }
+
+      await trackingEvent.update({
+        envio_id: body.envio_id,
+        tipo: body.tipo,
+        fecha: body.fecha,
+        ubicacion: body.ubicacion ?? trackingEvent.ubicacion,
+        observaciones: body.observaciones ?? trackingEvent.observaciones,
+        estado: body.estado,
+        registrado_por_id: body.registrado_por_id ?? trackingEvent.registrado_por_id,
+        is_active: body.is_active ?? trackingEvent.is_active,
+      });
+
+      res.status(200).json({ trackingEvent: trackingEvent });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating trackingEvent (PUT)", detail: String(error) });
+    }
+  }
+
+  public async updatePatch(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as Partial<TrackingEventI>;
+      const trackingEvent = await TrackingEvent.findByPk(id);
+      if (!trackingEvent) {
+        res.status(404).json({ error: "TrackingEvent not found" });
+        return;
+      }
+
+      await trackingEvent.update(body);
+      res.status(200).json({ trackingEvent: trackingEvent });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating trackingEvent (PATCH)", detail: String(error) });
+    }
+  }
+
+  // ================== DELETE ==================
+  /** Eliminacion fisica */
+  public async deletePhysical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const trackingEvent = await TrackingEvent.findByPk(id);
+      if (!trackingEvent) {
+        res.status(404).json({ error: "TrackingEvent not found" });
+        return;
+      }
+      await trackingEvent.destroy();
+      res.status(200).json({ message: "TrackingEvent permanently deleted", id });
+    } catch (error) {
+      res.status(500).json({ error: "Error deleting trackingEvent", detail: String(error) });
+    }
+  }
+
+  /** Eliminacion logica -> is_active = false */
+  public async deleteLogical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const trackingEvent = await TrackingEvent.findByPk(id);
+      if (!trackingEvent) {
+        res.status(404).json({ error: "TrackingEvent not found" });
+        return;
+      }
+      await trackingEvent.update({ is_active: false });
+      res.status(200).json({
+        message: "TrackingEvent deactivated (logical delete)",
+        trackingEvent: trackingEvent,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error deactivating trackingEvent", detail: String(error) });
+    }
+  }
+}
+EOF
+```
+```bash
+: > src/features/business/tracking-event/tracking-event.routes.ts
+cat >> src/features/business/tracking-event/tracking-event.routes.ts << 'EOF'
+import { Application } from "express";
+import { TrackingEventController } from "./tracking-event.controller";
+
+export class TrackingEventRoutes {
+  public trackingEventController: TrackingEventController = new TrackingEventController();
+
+  public routes(app: Application): void {
+    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
+
+    // getAll
+    app
+      .route("/api/tracking_events")
+      .get(this.trackingEventController.getAll.bind(this.trackingEventController));
+
+    // getOne
+    app
+      .route("/api/tracking_events/:id")
+      .get(this.trackingEventController.getOne.bind(this.trackingEventController));
+
+    // create
+    app
+      .route("/api/tracking_events")
+      .post(this.trackingEventController.create.bind(this.trackingEventController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/tracking_events/:id")
+      .put(this.trackingEventController.updatePut.bind(this.trackingEventController))
+      .patch(this.trackingEventController.updatePatch.bind(this.trackingEventController));
+
+    // delete fisico
+    app
+      .route("/api/tracking_events/:id")
+      .delete(this.trackingEventController.deletePhysical.bind(this.trackingEventController));
+
+    // delete logico
+    app
+      .route("/api/tracking_events/:id/deactivate")
+      .patch(this.trackingEventController.deleteLogical.bind(this.trackingEventController));
+  }
+}
+EOF
+```
+
+---
+
+## 15.3 HTTP
+
+```bash
+: > src/features/business/tracking-event/http/tracking_events.get.http
+cat >> src/features/business/tracking-event/http/tracking_events.get.http << 'EOF'
+### Feature TrackingEvent — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllTrackingEvent
+GET {{baseUrl}}/api/tracking_events
+
+###
+
+# @name getOneTrackingEvent
+GET {{baseUrl}}/api/tracking_events/{{id}}
+EOF
+```
+```bash
+: > src/features/business/tracking-event/http/tracking_events.create.http
+cat >> src/features/business/tracking-event/http/tracking_events.create.http << 'EOF'
+### Feature TrackingEvent — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createTrackingEvent
+POST {{baseUrl}}/api/tracking_events
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "tipo": "recogido",
+  "fecha": "2026-01-15T10:00:00.000Z",
+  "ubicacion": "Ejemplo ubicacion",
+  "observaciones": "Ejemplo observaciones",
+  "estado": "informativo",
+  "registrado_por_id": 1,
+  "is_active": true
+}
+EOF
+```
+```bash
+: > src/features/business/tracking-event/http/tracking_events.update.http
+cat >> src/features/business/tracking-event/http/tracking_events.update.http << 'EOF'
+### Feature TrackingEvent — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateTrackingEventPut
+PUT {{baseUrl}}/api/tracking_events/{{id}}
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "tipo": "recogido",
+  "fecha": "2026-01-15T10:00:00.000Z",
+  "ubicacion": "Ejemplo ubicacion",
+  "observaciones": "Ejemplo observaciones",
+  "estado": "informativo",
+  "registrado_por_id": 1,
+  "is_active": true
+}
+
+###
+
+# @name updateTrackingEventPatch
+PATCH {{baseUrl}}/api/tracking_events/{{id}}
+Content-Type: application/json
+
+{
+  "tipo": "recogido"
+}
+EOF
+```
+```bash
+: > src/features/business/tracking-event/http/tracking_events.delete.http
+cat >> src/features/business/tracking-event/http/tracking_events.delete.http << 'EOF'
+### Feature TrackingEvent — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteTrackingEventPhysical
+DELETE {{baseUrl}}/api/tracking_events/{{id}}
+
+###
+
+# @name deleteTrackingEventLogical
+PATCH {{baseUrl}}/api/tracking_events/{{id}}/deactivate
+EOF
+```
+
+---
+
+## 15.4 Cableado Routes + Config
+
+**PARCHE** — `src/routes/index.ts` **ya existe**.
+
+1. **Debajo de** `import { PackageRoutes } ...`, **añadir**:
+
+```ts
+import { TrackingEventRoutes } from "../features/business/tracking-event/tracking-event.routes";
+```
+
+2. **Dentro de** `export class Routes`, **debajo de** `packageRoutes`, **añadir**:
+
+```ts
+  public trackingEventRoutes: TrackingEventRoutes = new TrackingEventRoutes();
+```
+
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import "../features/business/package/package.model";`, **añadir**:
+
+```ts
+import "../features/business/tracking-event/tracking-event.model";
+```
+
+2. **Dentro de** `routes()`, **debajo de** `this.routePrv.packageRoutes.routes(this.app);`, **añadir**:
+
+```ts
+    this.routePrv.trackingEventRoutes.routes(this.app);
+```
+
+---
+
+## 15.5 Relación / asociaciones TrackingEvent
+
+> `TrackingEvent` referencia: **Messenger, Shipment**. Norma FK: `<tabla_singular>_id`.
+
+```bash
+: > src/features/business/tracking-event/tracking-event.associations.ts
+cat >> src/features/business/tracking-event/tracking-event.associations.ts << 'EOF'
+import { TrackingEvent } from "./tracking-event.model";
+import { Shipment } from "../shipment/shipment.model";
+import { Messenger } from "../messenger/messenger.model";
+
+TrackingEvent.belongsTo(Shipment, { foreignKey: "envio_id", as: "shipment" });
+Shipment.hasMany(TrackingEvent, { foreignKey: "envio_id", as: "trackingEvents" });
+TrackingEvent.belongsTo(Messenger, { foreignKey: "registrado_por_id", as: "registrado_por" });
+Messenger.hasMany(TrackingEvent, { foreignKey: "registrado_por_id", as: "trackingEvents_registrado_por" });
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+**Debajo de** `import "../features/business/tracking-event/tracking-event.model";` (y **encima de** `import { Routes }`), **añadir**:
+
+```ts
+import "../features/business/tracking-event/tracking-event.associations";
+```
+
+---
+
+## 15.6 Seeder TrackingEvent
+
+```bash
+: > src/features/business/tracking-event/tracking-event.seeder.ts
+cat >> src/features/business/tracking-event/tracking-event.seeder.ts << 'EOF'
+import { faker } from "@faker-js/faker";
+import { TrackingEvent } from "./tracking-event.model";
+import { Shipment } from "../shipment/shipment.model";
+import { Messenger } from "../messenger/messenger.model";
+
+/**
+ * Seeder del feature TrackingEvent (datos falsos con @faker-js/faker).
+ * Se invoca desde `src/database/seeders` (SeedersRunner), no desde la App.
+ *
+ * Idempotente: si ya hay filas, no vuelve a insertar.
+ */
+export async function seedTrackingEvents(count: number): Promise<number> {
+  if (count <= 0) {
+    console.log("\u23ed\ufe0f  tracking_events: count=0, se omite");
+    return 0;
+  }
+
+  const existing = await TrackingEvent.count();
+  if (existing > 0) {
+    console.log(`\u23ed\ufe0f  tracking_events: ya hay ${existing} registro(s), se omite seeder`);
+    return 0;
+  }
+
+  const shipmentList = await Shipment.findAll({ where: { is_active: true } });
+  const messengerList = await Messenger.findAll({ where: { is_active: true } });
+  if (shipmentList.length === 0) {
+    console.log("\u23ed\ufe0f  tracking_events: faltan dependencias activas (shipmentList), se omite seeder");
+    return 0;
+  }
+
+  const rows = Array.from({ length: count }, () => ({
+      envio_id: faker.helpers.arrayElement(shipmentList).id,
+      tipo: faker.helpers.arrayElement(["recogido", "en_transito", "en_reparto", "novedad", "entregado", "devuelto"]),
+      fecha: faker.date.recent(),
+      ubicacion: faker.location.city() + ", " + faker.location.streetAddress(),
+      observaciones: faker.lorem.sentence(),
+      estado: faker.helpers.arrayElement(["informativo", "novedad_leve", "novedad_critica"]),
+      registrado_por_id: messengerList.length ? faker.helpers.arrayElement(messengerList).id : null,
+      is_active: true,
+  }));
+
+  await TrackingEvent.bulkCreate(rows);
+  console.log(`\u2705 tracking_events: insertados ${count} registro(s) falsos`);
+  return count;
+}
+EOF
+```
+**PARCHE** — `src/database/seeders/counts.ts` **ya existe**.
+
+- **Dentro de** `SeedCounts`, **añadir** `tracking_events: number;`
+- **Dentro de** `DEFAULT_SEED_COUNTS`, **añadir** `tracking_events: 15,`
+- Lectura opcional por env: `SEED_TRACKING_EVENTS`.
+
+**PARCHE** — `src/database/seeders/index.ts` **ya existe**.
+
+1. **Debajo de** el import del seeder anterior, **añadir** `import { seedTrackingEvents } from "../../features/business/tracking-event/tracking-event.seeder";`
+2. **Debajo de** `await seedPackages(counts.packages);`, **añadir** `await seedTrackingEvents(counts.tracking_events);`
+
+---
+
+## 15.7 Swagger TrackingEvent
+
+```bash
+: > src/features/business/tracking-event/tracking-event.swagger.ts
+cat >> src/features/business/tracking-event/tracking-event.swagger.ts << 'EOF'
+/**
+ * Documentacion OpenAPI del feature TrackingEvent.
+ * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
+ *
+ * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ */
+
+export const trackingEventSwagger = {
+  tags: [
+    {
+      name: "TrackingEvents",
+      description: "CRUD de tracking_events — **SIN AUTH** (sin middleware JWT)",
+    },
+  ],
+  paths: {
+    "/api/tracking_events": {
+      get: {
+        tags: ["TrackingEvents"],
+        summary: "Listar tracking_events activos",
+        description: "SIN AUTH — retorna registros con is_active=true",
+        security: [],
+        responses: {
+          "200": {
+            description: "Lista de tracking_events",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    tracking_events: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/TrackingEvent" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["TrackingEvents"],
+        summary: "Crear trackingEvent",
+        description: "SIN AUTH",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TrackingEventCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "TrackingEvent creado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    trackingEvent: { $ref: "#/components/schemas/TrackingEvent" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/tracking_events/{id}": {
+      get: {
+        tags: ["TrackingEvents"],
+        summary: "Obtener trackingEvent por id",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "TrackingEvent encontrado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    trackingEvent: { $ref: "#/components/schemas/TrackingEvent" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No encontrado" },
+        },
+      },
+      put: {
+        tags: ["TrackingEvents"],
+        summary: "Actualizar trackingEvent (PUT — reemplazo)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TrackingEventCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      patch: {
+        tags: ["TrackingEvents"],
+        summary: "Actualizar trackingEvent (PATCH — parcial)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TrackingEventPatch" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      delete: {
+        tags: ["TrackingEvents"],
+        summary: "Eliminar trackingEvent (fisico)",
+        description: "SIN AUTH — borra la fila",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+    "/api/tracking_events/{id}/deactivate": {
+      patch: {
+        tags: ["TrackingEvents"],
+        summary: "Eliminar trackingEvent (logico)",
+        description: "SIN AUTH — is_active = false",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      TrackingEvent: {
+        type: "object",
+        properties: {
+      id: { type: "integer", example: 1 },
+      envio_id: { type: "integer", example: 1 },
+      tipo: { type: "string", enum: ["recogido", "en_transito", "en_reparto", "novedad", "entregado", "devuelto"], example: "recogido" },
+      fecha: { type: "string", format: "date-time" },
+      ubicacion: { type: "string", example: "ubicacion" },
+      observaciones: { type: "string" },
+      estado: { type: "string", enum: ["informativo", "novedad_leve", "novedad_critica"], example: "informativo" },
+      registrado_por_id: { type: "integer", example: 1 },
+      is_active: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      TrackingEventCreate: {
+        type: "object",
+        required: ["envio_id", "tipo", "fecha", "estado"],
+        properties: {
+      envio_id: { type: "integer", example: 1 },
+      tipo: { type: "string", enum: ["recogido", "en_transito", "en_reparto", "novedad", "entregado", "devuelto"], example: "recogido" },
+      fecha: { type: "string", format: "date-time" },
+      ubicacion: { type: "string", example: "ubicacion" },
+      observaciones: { type: "string" },
+      estado: { type: "string", enum: ["informativo", "novedad_leve", "novedad_critica"], example: "informativo" },
+      registrado_por_id: { type: "integer", example: 1 },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+      TrackingEventPatch: {
+        type: "object",
+        properties: {
+      envio_id: { type: "integer", example: 1 },
+      tipo: { type: "string", enum: ["recogido", "en_transito", "en_reparto", "novedad", "entregado", "devuelto"], example: "recogido" },
+      fecha: { type: "string", format: "date-time" },
+      ubicacion: { type: "string", example: "ubicacion" },
+      observaciones: { type: "string" },
+      estado: { type: "string", enum: ["informativo", "novedad_leve", "novedad_critica"], example: "informativo" },
+      registrado_por_id: { type: "integer", example: 1 },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+**PARCHE** — `src/swagger/index.ts` **ya existe**.
+
+1. **Debajo de** `import { packageSwagger } ...`, **añadir** `import { trackingEventSwagger } from "../features/business/tracking-event/tracking-event.swagger";`
+2. **Dentro de** `featureSwaggerModules`, **debajo de** `packageSwagger,`, **añadir** `trackingEventSwagger,`
+
+### Verificación
+
+```bash
+curl -s http://localhost:4000/api/tracking_events
+```
+
+![alt text](img-express/api_tr_event.png)
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_tr_event.png)
+
+![alt text](img-express/docs_tr_event.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.

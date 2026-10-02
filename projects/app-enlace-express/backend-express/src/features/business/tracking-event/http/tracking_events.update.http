@@ -1,0 +1,29 @@
+### Feature TrackingEvent — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateTrackingEventPut
+PUT {{baseUrl}}/api/tracking_events/{{id}}
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "tipo": "en_transito",
+  "fecha": "2026-01-15T10:00:00.000Z",
+  "ubicacion": "Centro",
+  "observaciones": "Paquete en tránsito.",
+  "estado": "informativo",
+  "registrado_por_id": 1,
+  "is_active": true
+}
+
+###
+
+# @name updateTrackingEventPatch
+PATCH {{baseUrl}}/api/tracking_events/{{id}}
+Content-Type: application/json
+
+{
+  "tipo": "en_transito"
+}
