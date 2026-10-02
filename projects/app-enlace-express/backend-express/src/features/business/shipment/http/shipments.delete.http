@@ -1,0 +1,12 @@
+### Feature Shipment — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteShipmentPhysical
+DELETE {{baseUrl}}/api/shipments/{{id}}
+
+###
+
+# @name deleteShipmentLogical
+PATCH {{baseUrl}}/api/shipments/{{id}}/deactivate

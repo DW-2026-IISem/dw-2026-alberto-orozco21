@@ -9,7 +9,9 @@ import "../features/business/address/address.model";
 import "../features/business/messenger/messenger.model";
 import "../features/business/rate/rate.model";
 import "../features/business/route/route.model";
+import "../features/business/shipment/shipment.model";
 import "../features/business/route/route.associations";
+import "../features/business/shipment/shipment.associations";
 import { Routes } from "../routes/index";
 import "../features/business/contact/contact.associations";
 import "../features/business/address/address.associations";
@@ -49,6 +51,7 @@ export class App {
     this.routePrv.messengerRoutes.routes(this.app);
     this.routePrv.rateRoutes.routes(this.app);
     this.routePrv.routeRoutes.routes(this.app);
+    this.routePrv.shipmentRoutes.routes(this.app);
   }
 
   private docs(): void {

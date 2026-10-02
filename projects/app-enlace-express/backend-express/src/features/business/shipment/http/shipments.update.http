@@ -1,0 +1,39 @@
+### Feature Shipment — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateShipmentPut
+PUT {{baseUrl}}/api/shipments/{{id}}
+Content-Type: application/json
+
+{
+  "numero_guia": "EE-ABC12345",
+  "empresa_id": 1,
+  "contacto_origen_id": 1,
+  "direccion_origen_id": 1,
+  "contacto_destino_id": 1,
+  "direccion_destino_id": 1,
+  "mensajero_id": 1,
+  "ruta_id": 1,
+  "tarifa_id": 1,
+  "prioridad": "normal",
+  "peso_total_kg": 10.5,
+  "valor_declarado": 50000,
+  "costo_calculado": 12000,
+  "estado": "creado",
+  "fecha_solicitud": "2026-01-15T10:00:00.000Z",
+  "fecha_entrega_estimada": "2026-01-15T18:00:00.000Z",
+  "fecha_entrega_real": null,
+  "is_active": true
+}
+
+###
+
+# @name updateShipmentPatch
+PATCH {{baseUrl}}/api/shipments/{{id}}
+Content-Type: application/json
+
+{
+  "estado": "en_ruta"
+}

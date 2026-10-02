@@ -6,6 +6,7 @@ import { addressSwagger } from "../features/business/address/address.swagger";
 import { messengerSwagger } from "../features/business/messenger/messenger.swagger";
 import { rateSwagger } from "../features/business/rate/rate.swagger";
 import { routeSwagger } from "../features/business/route/route.swagger";
+import { shipmentSwagger } from "../features/business/shipment/shipment.swagger";
 
 export type FeatureSwaggerModule = {
   tags: unknown[];
@@ -23,7 +24,8 @@ const featureSwaggerModules: FeatureSwaggerModule[] = [
   addressSwagger,
   messengerSwagger,
   rateSwagger,
-  routeSwagger
+  routeSwagger,
+  shipmentSwagger
 ];
 
 export function buildOpenApiDocument() {

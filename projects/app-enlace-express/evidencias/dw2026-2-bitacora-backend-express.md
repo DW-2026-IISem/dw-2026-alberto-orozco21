@@ -5360,3 +5360,1042 @@ npm run dev
 ![alt text](img-express/docs_routes.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 13. ISS-12 — Feature Shipment
+
+**Objetivo:** CRUD completo + seeder + swagger de **Shipment** (tabla `shipments`).  
+**Bloqueado por:** ISS-11.  
+**API:** `/api/shipments` — **SIN AUTH**.  
+**Patrón:** mismo que las features anteriores (modelo → controller/routes → http → cableado → relación → seeder → swagger).
+
+### Criterios de aceptación (ISS-12)
+
+- [X] **13.1** Modelo `shipment.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [X] **13.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [X] **13.3** Carpeta `http/` con get, create, update, delete
+- [X] **13.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [X] **13.5** Asociaciones (`shipment.associations.ts`) + PARCHE `config`
+- [X] **13.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [X] **13.7** Swagger + registro en `src/swagger`
+
+> `factura_id` se agrega mas adelante por PARCHE en ISS-17 (Invoice todavia no existe).
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/shipment/http
+```
+
+## 13.1 Modelo Shipment
+
+```bash
+: > src/features/business/shipment/shipment.model.ts
+cat >> src/features/business/shipment/shipment.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface ShipmentI {
+  id?: number;
+  numero_guia: string;
+  empresa_id: number;
+  contacto_origen_id: number;
+  direccion_origen_id: number;
+  contacto_destino_id: number;
+  direccion_destino_id: number;
+  mensajero_id?: number | null;
+  ruta_id?: number | null;
+  tarifa_id: number;
+  prioridad: "normal" | "urgente" | "express";
+  peso_total_kg: number;
+  valor_declarado?: number | null;
+  costo_calculado?: number | null;
+  estado: "creado" | "cotizado" | "asignado" | "en_ruta" | "entregado" | "con_novedad" | "cancelado";
+  fecha_solicitud: Date | string;
+  fecha_entrega_estimada?: Date | string | null;
+  fecha_entrega_real?: Date | string | null;
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Shipment extends Model {
+  public id!: number;
+  public numero_guia!: string;
+  public empresa_id!: number;
+  public contacto_origen_id!: number;
+  public direccion_origen_id!: number;
+  public contacto_destino_id!: number;
+  public direccion_destino_id!: number;
+  public mensajero_id!: number | null;
+  public ruta_id!: number | null;
+  public tarifa_id!: number;
+  public prioridad!: "normal" | "urgente" | "express";
+  public peso_total_kg!: number;
+  public valor_declarado!: number | null;
+  public costo_calculado!: number | null;
+  public estado!: "creado" | "cotizado" | "asignado" | "en_ruta" | "entregado" | "con_novedad" | "cancelado";
+  public fecha_solicitud!: Date | string;
+  public fecha_entrega_estimada!: Date | string | null;
+  public fecha_entrega_real!: Date | string | null;
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Shipment.init(
+  {
+    numero_guia: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    empresa_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "companies", key: "id" },
+      allowNull: false,
+    },
+    contacto_origen_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "contacts", key: "id" },
+      allowNull: false,
+    },
+    direccion_origen_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "addresses", key: "id" },
+      allowNull: false,
+    },
+    contacto_destino_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "contacts", key: "id" },
+      allowNull: false,
+    },
+    direccion_destino_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "addresses", key: "id" },
+      allowNull: false,
+    },
+    mensajero_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "messengers", key: "id" },
+      allowNull: true,
+    },
+    ruta_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "routes", key: "id" },
+      allowNull: true,
+    },
+    tarifa_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "rates", key: "id" },
+      allowNull: false,
+    },
+    prioridad: {
+      type: DataTypes.ENUM("normal", "urgente", "express"),
+      allowNull: false,
+      defaultValue: "normal",
+    },
+    peso_total_kg: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+    },
+    valor_declarado: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    costo_calculado: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    estado: {
+      type: DataTypes.ENUM("creado", "cotizado", "asignado", "en_ruta", "entregado", "con_novedad", "cancelado"),
+      allowNull: false,
+      defaultValue: "creado",
+    },
+    fecha_solicitud: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    fecha_entrega_estimada: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    fecha_entrega_real: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Shipment",
+    tableName: "shipments",
+    timestamps: true,
+  }
+);
+EOF
+```
+
+---
+
+## 13.2 Controller + routes (CRUD completo)
+
+```bash
+: > src/features/business/shipment/shipment.controller.ts
+cat >> src/features/business/shipment/shipment.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { Shipment, ShipmentI } from "./shipment.model";
+import { Company } from "../company/company.model";
+import { Contact } from "../contact/contact.model";
+import { Address } from "../address/address.model";
+import { Rate } from "../rate/rate.model";
+
+function paramId(req: Request): number {
+  const raw = req.params.id;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return Number(value);
+}
+
+export class ShipmentController {
+  // ================== READ ==================
+  public async getAll(req: Request, res: Response) {
+    try {
+      const shipments = await Shipment.findAll({
+        where: { is_active: true },
+      });
+      res.status(200).json({ shipments });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching shipments", detail: String(error) });
+    }
+  }
+
+  public async getOne(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const shipment = await Shipment.findByPk(id);
+      if (!shipment) {
+        res.status(404).json({ error: "Shipment not found" });
+        return;
+      }
+      res.status(200).json({ shipment: shipment });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching shipment", detail: String(error) });
+    }
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response) {
+    try {
+      const body = req.body as ShipmentI;
+      if (body.empresa_id !== undefined && body.empresa_id !== null) {
+        const found_empresa_id = await Company.findByPk(body.empresa_id);
+        if (!found_empresa_id) {
+          res.status(404).json({ error: "Company (empresa_id) not found" });
+          return;
+        }
+      }
+      if (body.contacto_origen_id !== undefined && body.contacto_origen_id !== null) {
+        const found_contacto_origen_id = await Contact.findByPk(body.contacto_origen_id);
+        if (!found_contacto_origen_id) {
+          res.status(404).json({ error: "Contact (contacto_origen_id) not found" });
+          return;
+        }
+      }
+      if (body.direccion_origen_id !== undefined && body.direccion_origen_id !== null) {
+        const found_direccion_origen_id = await Address.findByPk(body.direccion_origen_id);
+        if (!found_direccion_origen_id) {
+          res.status(404).json({ error: "Address (direccion_origen_id) not found" });
+          return;
+        }
+      }
+      if (body.contacto_destino_id !== undefined && body.contacto_destino_id !== null) {
+        const found_contacto_destino_id = await Contact.findByPk(body.contacto_destino_id);
+        if (!found_contacto_destino_id) {
+          res.status(404).json({ error: "Contact (contacto_destino_id) not found" });
+          return;
+        }
+      }
+      if (body.direccion_destino_id !== undefined && body.direccion_destino_id !== null) {
+        const found_direccion_destino_id = await Address.findByPk(body.direccion_destino_id);
+        if (!found_direccion_destino_id) {
+          res.status(404).json({ error: "Address (direccion_destino_id) not found" });
+          return;
+        }
+      }
+      if (body.tarifa_id !== undefined && body.tarifa_id !== null) {
+        const found_tarifa_id = await Rate.findByPk(body.tarifa_id);
+        if (!found_tarifa_id) {
+          res.status(404).json({ error: "Rate (tarifa_id) not found" });
+          return;
+        }
+      }
+
+      const shipment = await Shipment.create({
+        numero_guia: body.numero_guia,
+        empresa_id: body.empresa_id,
+        contacto_origen_id: body.contacto_origen_id,
+        direccion_origen_id: body.direccion_origen_id,
+        contacto_destino_id: body.contacto_destino_id,
+        direccion_destino_id: body.direccion_destino_id,
+        mensajero_id: body.mensajero_id ?? null,
+        ruta_id: body.ruta_id ?? null,
+        tarifa_id: body.tarifa_id,
+        prioridad: body.prioridad,
+        peso_total_kg: body.peso_total_kg,
+        valor_declarado: body.valor_declarado ?? null,
+        costo_calculado: body.costo_calculado ?? null,
+        estado: body.estado,
+        fecha_solicitud: body.fecha_solicitud,
+        fecha_entrega_estimada: body.fecha_entrega_estimada ?? null,
+        fecha_entrega_real: body.fecha_entrega_real ?? null,
+        is_active: body.is_active ?? true,
+      });
+      res.status(201).json({ shipment: shipment });
+    } catch (error) {
+      res.status(500).json({ error: "Error creating shipment", detail: String(error) });
+    }
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as ShipmentI;
+      const shipment = await Shipment.findByPk(id);
+      if (!shipment) {
+        res.status(404).json({ error: "Shipment not found" });
+        return;
+      }
+      if (body.empresa_id !== undefined && body.empresa_id !== null) {
+        const found_empresa_id = await Company.findByPk(body.empresa_id);
+        if (!found_empresa_id) {
+          res.status(404).json({ error: "Company (empresa_id) not found" });
+          return;
+        }
+      }
+      if (body.contacto_origen_id !== undefined && body.contacto_origen_id !== null) {
+        const found_contacto_origen_id = await Contact.findByPk(body.contacto_origen_id);
+        if (!found_contacto_origen_id) {
+          res.status(404).json({ error: "Contact (contacto_origen_id) not found" });
+          return;
+        }
+      }
+      if (body.direccion_origen_id !== undefined && body.direccion_origen_id !== null) {
+        const found_direccion_origen_id = await Address.findByPk(body.direccion_origen_id);
+        if (!found_direccion_origen_id) {
+          res.status(404).json({ error: "Address (direccion_origen_id) not found" });
+          return;
+        }
+      }
+      if (body.contacto_destino_id !== undefined && body.contacto_destino_id !== null) {
+        const found_contacto_destino_id = await Contact.findByPk(body.contacto_destino_id);
+        if (!found_contacto_destino_id) {
+          res.status(404).json({ error: "Contact (contacto_destino_id) not found" });
+          return;
+        }
+      }
+      if (body.direccion_destino_id !== undefined && body.direccion_destino_id !== null) {
+        const found_direccion_destino_id = await Address.findByPk(body.direccion_destino_id);
+        if (!found_direccion_destino_id) {
+          res.status(404).json({ error: "Address (direccion_destino_id) not found" });
+          return;
+        }
+      }
+      if (body.tarifa_id !== undefined && body.tarifa_id !== null) {
+        const found_tarifa_id = await Rate.findByPk(body.tarifa_id);
+        if (!found_tarifa_id) {
+          res.status(404).json({ error: "Rate (tarifa_id) not found" });
+          return;
+        }
+      }
+
+      await shipment.update({
+        numero_guia: body.numero_guia,
+        empresa_id: body.empresa_id,
+        contacto_origen_id: body.contacto_origen_id,
+        direccion_origen_id: body.direccion_origen_id,
+        contacto_destino_id: body.contacto_destino_id,
+        direccion_destino_id: body.direccion_destino_id,
+        mensajero_id: body.mensajero_id ?? shipment.mensajero_id,
+        ruta_id: body.ruta_id ?? shipment.ruta_id,
+        tarifa_id: body.tarifa_id,
+        prioridad: body.prioridad,
+        peso_total_kg: body.peso_total_kg,
+        valor_declarado: body.valor_declarado ?? shipment.valor_declarado,
+        costo_calculado: body.costo_calculado ?? shipment.costo_calculado,
+        estado: body.estado,
+        fecha_solicitud: body.fecha_solicitud,
+        fecha_entrega_estimada: body.fecha_entrega_estimada ?? shipment.fecha_entrega_estimada,
+        fecha_entrega_real: body.fecha_entrega_real ?? shipment.fecha_entrega_real,
+        is_active: body.is_active ?? shipment.is_active,
+      });
+
+      res.status(200).json({ shipment: shipment });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating shipment (PUT)", detail: String(error) });
+    }
+  }
+
+  public async updatePatch(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as Partial<ShipmentI>;
+      const shipment = await Shipment.findByPk(id);
+      if (!shipment) {
+        res.status(404).json({ error: "Shipment not found" });
+        return;
+      }
+
+      await shipment.update(body);
+      res.status(200).json({ shipment: shipment });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating shipment (PATCH)", detail: String(error) });
+    }
+  }
+
+  // ================== DELETE ==================
+  /** Eliminacion fisica */
+  public async deletePhysical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const shipment = await Shipment.findByPk(id);
+      if (!shipment) {
+        res.status(404).json({ error: "Shipment not found" });
+        return;
+      }
+      await shipment.destroy();
+      res.status(200).json({ message: "Shipment permanently deleted", id });
+    } catch (error) {
+      res.status(500).json({ error: "Error deleting shipment", detail: String(error) });
+    }
+  }
+
+  /** Eliminacion logica -> is_active = false */
+  public async deleteLogical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const shipment = await Shipment.findByPk(id);
+      if (!shipment) {
+        res.status(404).json({ error: "Shipment not found" });
+        return;
+      }
+      await shipment.update({ is_active: false });
+      res.status(200).json({
+        message: "Shipment deactivated (logical delete)",
+        shipment: shipment,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error deactivating shipment", detail: String(error) });
+    }
+  }
+}
+EOF
+```
+```bash
+: > src/features/business/shipment/shipment.routes.ts
+cat >> src/features/business/shipment/shipment.routes.ts << 'EOF'
+import { Application } from "express";
+import { ShipmentController } from "./shipment.controller";
+
+export class ShipmentRoutes {
+  public shipmentController: ShipmentController = new ShipmentController();
+
+  public routes(app: Application): void {
+    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
+
+    // getAll
+    app
+      .route("/api/shipments")
+      .get(this.shipmentController.getAll.bind(this.shipmentController));
+
+    // getOne
+    app
+      .route("/api/shipments/:id")
+      .get(this.shipmentController.getOne.bind(this.shipmentController));
+
+    // create
+    app
+      .route("/api/shipments")
+      .post(this.shipmentController.create.bind(this.shipmentController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/shipments/:id")
+      .put(this.shipmentController.updatePut.bind(this.shipmentController))
+      .patch(this.shipmentController.updatePatch.bind(this.shipmentController));
+
+    // delete fisico
+    app
+      .route("/api/shipments/:id")
+      .delete(this.shipmentController.deletePhysical.bind(this.shipmentController));
+
+    // delete logico
+    app
+      .route("/api/shipments/:id/deactivate")
+      .patch(this.shipmentController.deleteLogical.bind(this.shipmentController));
+  }
+}
+EOF
+```
+
+---
+
+## 13.3 HTTP
+
+```bash
+: > src/features/business/shipment/http/shipments.get.http
+cat >> src/features/business/shipment/http/shipments.get.http << 'EOF'
+### Feature Shipment — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllShipment
+GET {{baseUrl}}/api/shipments
+
+###
+
+# @name getOneShipment
+GET {{baseUrl}}/api/shipments/{{id}}
+EOF
+```
+```bash
+: > src/features/business/shipment/http/shipments.create.http
+cat >> src/features/business/shipment/http/shipments.create.http << 'EOF'
+### Feature Shipment — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createShipment
+POST {{baseUrl}}/api/shipments
+Content-Type: application/json
+
+{
+  "numero_guia": "Ejemplo numero_guia",
+  "empresa_id": 1,
+  "contacto_origen_id": 1,
+  "direccion_origen_id": 1,
+  "contacto_destino_id": 1,
+  "direccion_destino_id": 1,
+  "mensajero_id": 1,
+  "ruta_id": 1,
+  "tarifa_id": 1,
+  "prioridad": "normal",
+  "peso_total_kg": 10.5,
+  "valor_declarado": 10.5,
+  "costo_calculado": 10.5,
+  "estado": "creado",
+  "fecha_solicitud": "2026-01-15T10:00:00.000Z",
+  "fecha_entrega_estimada": "2026-01-15T10:00:00.000Z",
+  "fecha_entrega_real": "2026-01-15T10:00:00.000Z",
+  "is_active": true
+}
+EOF
+```
+```bash
+: > src/features/business/shipment/http/shipments.update.http
+cat >> src/features/business/shipment/http/shipments.update.http << 'EOF'
+### Feature Shipment — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateShipmentPut
+PUT {{baseUrl}}/api/shipments/{{id}}
+Content-Type: application/json
+
+{
+  "numero_guia": "Ejemplo numero_guia",
+  "empresa_id": 1,
+  "contacto_origen_id": 1,
+  "direccion_origen_id": 1,
+  "contacto_destino_id": 1,
+  "direccion_destino_id": 1,
+  "mensajero_id": 1,
+  "ruta_id": 1,
+  "tarifa_id": 1,
+  "prioridad": "normal",
+  "peso_total_kg": 10.5,
+  "valor_declarado": 10.5,
+  "costo_calculado": 10.5,
+  "estado": "creado",
+  "fecha_solicitud": "2026-01-15T10:00:00.000Z",
+  "fecha_entrega_estimada": "2026-01-15T10:00:00.000Z",
+  "fecha_entrega_real": "2026-01-15T10:00:00.000Z",
+  "is_active": true
+}
+
+###
+
+# @name updateShipmentPatch
+PATCH {{baseUrl}}/api/shipments/{{id}}
+Content-Type: application/json
+
+{
+  "empresa_id": 1
+}
+EOF
+```
+```bash
+: > src/features/business/shipment/http/shipments.delete.http
+cat >> src/features/business/shipment/http/shipments.delete.http << 'EOF'
+### Feature Shipment — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteShipmentPhysical
+DELETE {{baseUrl}}/api/shipments/{{id}}
+
+###
+
+# @name deleteShipmentLogical
+PATCH {{baseUrl}}/api/shipments/{{id}}/deactivate
+EOF
+```
+
+---
+
+## 13.4 Cableado Routes + Config
+
+**PARCHE** — `src/routes/index.ts` **ya existe**.
+
+1. **Debajo de** `import { RouteRoutes } ...`, **añadir**:
+
+```ts
+import { ShipmentRoutes } from "../features/business/shipment/shipment.routes";
+```
+
+2. **Dentro de** `export class Routes`, **debajo de** `routeRoutes`, **añadir**:
+
+```ts
+  public shipmentRoutes: ShipmentRoutes = new ShipmentRoutes();
+```
+
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import "../features/business/route/route.model";`, **añadir**:
+
+```ts
+import "../features/business/shipment/shipment.model";
+```
+
+2. **Dentro de** `routes()`, **debajo de** `this.routePrv.routeRoutes.routes(this.app);`, **añadir**:
+
+```ts
+    this.routePrv.shipmentRoutes.routes(this.app);
+```
+
+---
+
+## 13.5 Relación / asociaciones Shipment
+
+> `Shipment` referencia: **Address, Company, Contact, Messenger, Rate, Route**. Norma FK: `<tabla_singular>_id`.
+
+```bash
+: > src/features/business/shipment/shipment.associations.ts
+cat >> src/features/business/shipment/shipment.associations.ts << 'EOF'
+import { Shipment } from "./shipment.model";
+import { Company } from "../company/company.model";
+import { Contact } from "../contact/contact.model";
+import { Address } from "../address/address.model";
+import { Messenger } from "../messenger/messenger.model";
+import { Route } from "../route/route.model";
+import { Rate } from "../rate/rate.model";
+
+Shipment.belongsTo(Company, { foreignKey: "empresa_id", as: "company" });
+Company.hasMany(Shipment, { foreignKey: "empresa_id", as: "shipments" });
+Shipment.belongsTo(Contact, { foreignKey: "contacto_origen_id", as: "contacto_origen" });
+Contact.hasMany(Shipment, { foreignKey: "contacto_origen_id", as: "shipments_contacto_origen" });
+Shipment.belongsTo(Address, { foreignKey: "direccion_origen_id", as: "direccion_origen" });
+Address.hasMany(Shipment, { foreignKey: "direccion_origen_id", as: "shipments_direccion_origen" });
+Shipment.belongsTo(Contact, { foreignKey: "contacto_destino_id", as: "contacto_destino" });
+Contact.hasMany(Shipment, { foreignKey: "contacto_destino_id", as: "shipments_contacto_destino" });
+Shipment.belongsTo(Address, { foreignKey: "direccion_destino_id", as: "direccion_destino" });
+Address.hasMany(Shipment, { foreignKey: "direccion_destino_id", as: "shipments_direccion_destino" });
+Shipment.belongsTo(Messenger, { foreignKey: "mensajero_id", as: "messenger" });
+Messenger.hasMany(Shipment, { foreignKey: "mensajero_id", as: "shipments" });
+Shipment.belongsTo(Route, { foreignKey: "ruta_id", as: "route" });
+Route.hasMany(Shipment, { foreignKey: "ruta_id", as: "shipments" });
+Shipment.belongsTo(Rate, { foreignKey: "tarifa_id", as: "rate" });
+Rate.hasMany(Shipment, { foreignKey: "tarifa_id", as: "shipments" });
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+**Debajo de** `import "../features/business/shipment/shipment.model";` (y **encima de** `import { Routes }`), **añadir**:
+
+```ts
+import "../features/business/shipment/shipment.associations";
+```
+
+---
+
+## 13.6 Seeder Shipment
+
+```bash
+: > src/features/business/shipment/shipment.seeder.ts
+cat >> src/features/business/shipment/shipment.seeder.ts << 'EOF'
+import { faker } from "@faker-js/faker";
+import { Shipment } from "./shipment.model";
+import { Company } from "../company/company.model";
+import { Contact } from "../contact/contact.model";
+import { Address } from "../address/address.model";
+import { Messenger } from "../messenger/messenger.model";
+import { Route } from "../route/route.model";
+import { Rate } from "../rate/rate.model";
+
+/**
+ * Seeder del feature Shipment (datos falsos con @faker-js/faker).
+ * Se invoca desde `src/database/seeders` (SeedersRunner), no desde la App.
+ *
+ * Idempotente: si ya hay filas, no vuelve a insertar.
+ */
+export async function seedShipments(count: number): Promise<number> {
+  if (count <= 0) {
+    console.log("\u23ed\ufe0f  shipments: count=0, se omite");
+    return 0;
+  }
+
+  const existing = await Shipment.count();
+  if (existing > 0) {
+    console.log(`\u23ed\ufe0f  shipments: ya hay ${existing} registro(s), se omite seeder`);
+    return 0;
+  }
+
+  const companyList = await Company.findAll({ where: { is_active: true } });
+  const contactList = await Contact.findAll({ where: { is_active: true } });
+  const addressList = await Address.findAll({ where: { is_active: true } });
+  const messengerList = await Messenger.findAll({ where: { is_active: true } });
+  const routeList = await Route.findAll({ where: { is_active: true } });
+  const rateList = await Rate.findAll({ where: { is_active: true } });
+  if (companyList.length === 0) {
+    console.log("\u23ed\ufe0f  shipments: faltan dependencias activas (companyList), se omite seeder");
+    return 0;
+  }
+  if (contactList.length === 0) {
+    console.log("\u23ed\ufe0f  shipments: faltan dependencias activas (contactList), se omite seeder");
+    return 0;
+  }
+  if (addressList.length === 0) {
+    console.log("\u23ed\ufe0f  shipments: faltan dependencias activas (addressList), se omite seeder");
+    return 0;
+  }
+  if (rateList.length === 0) {
+    console.log("\u23ed\ufe0f  shipments: faltan dependencias activas (rateList), se omite seeder");
+    return 0;
+  }
+
+  const rows = Array.from({ length: count }, () => ({
+      numero_guia: "EE-" + faker.string.alphanumeric(8).toUpperCase(),
+      empresa_id: faker.helpers.arrayElement(companyList).id,
+      contacto_origen_id: faker.helpers.arrayElement(contactList).id,
+      direccion_origen_id: faker.helpers.arrayElement(addressList).id,
+      contacto_destino_id: faker.helpers.arrayElement(contactList).id,
+      direccion_destino_id: faker.helpers.arrayElement(addressList).id,
+      mensajero_id: messengerList.length ? faker.helpers.arrayElement(messengerList).id : null,
+      ruta_id: routeList.length ? faker.helpers.arrayElement(routeList).id : null,
+      tarifa_id: faker.helpers.arrayElement(rateList).id,
+      prioridad: faker.helpers.arrayElement(["normal", "urgente", "express"]),
+      peso_total_kg: Number(faker.commerce.price({ min: 0.5, max: 50, dec: 2 })),
+      valor_declarado: Number(faker.commerce.price({ min: 10000, max: 2000000, dec: 2 })),
+      costo_calculado: Number(faker.commerce.price({ min: 5000, max: 100000, dec: 2 })),
+      estado: faker.helpers.arrayElement(["creado", "cotizado", "asignado", "en_ruta", "entregado", "con_novedad", "cancelado"]),
+      fecha_solicitud: faker.date.recent(),
+      fecha_entrega_estimada: faker.date.soon(),
+      fecha_entrega_real: faker.date.recent(),
+      is_active: true,
+  }));
+
+  await Shipment.bulkCreate(rows);
+  console.log(`\u2705 shipments: insertados ${count} registro(s) falsos`);
+  return count;
+}
+EOF
+```
+**PARCHE** — `src/database/seeders/counts.ts` **ya existe**.
+
+- **Dentro de** `SeedCounts`, **añadir** `shipments: number;`
+- **Dentro de** `DEFAULT_SEED_COUNTS`, **añadir** `shipments: 15,`
+- Lectura opcional por env: `SEED_SHIPMENTS`.
+
+**PARCHE** — `src/database/seeders/index.ts` **ya existe**.
+
+1. **Debajo de** el import del seeder anterior, **añadir** `import { seedShipments } from "../../features/business/shipment/shipment.seeder";`
+2. **Debajo de** `await seedRoutes(counts.routes);`, **añadir** `await seedShipments(counts.shipments);`
+
+---
+
+## 13.7 Swagger Shipment
+
+```bash
+: > src/features/business/shipment/shipment.swagger.ts
+cat >> src/features/business/shipment/shipment.swagger.ts << 'EOF'
+/**
+ * Documentacion OpenAPI del feature Shipment.
+ * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
+ *
+ * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ */
+
+export const shipmentSwagger = {
+  tags: [
+    {
+      name: "Shipments",
+      description: "CRUD de shipments — **SIN AUTH** (sin middleware JWT)",
+    },
+  ],
+  paths: {
+    "/api/shipments": {
+      get: {
+        tags: ["Shipments"],
+        summary: "Listar shipments activos",
+        description: "SIN AUTH — retorna registros con is_active=true",
+        security: [],
+        responses: {
+          "200": {
+            description: "Lista de shipments",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    shipments: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Shipment" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Shipments"],
+        summary: "Crear shipment",
+        description: "SIN AUTH",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ShipmentCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Shipment creado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    shipment: { $ref: "#/components/schemas/Shipment" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/shipments/{id}": {
+      get: {
+        tags: ["Shipments"],
+        summary: "Obtener shipment por id",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "Shipment encontrado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    shipment: { $ref: "#/components/schemas/Shipment" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No encontrado" },
+        },
+      },
+      put: {
+        tags: ["Shipments"],
+        summary: "Actualizar shipment (PUT — reemplazo)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ShipmentCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      patch: {
+        tags: ["Shipments"],
+        summary: "Actualizar shipment (PATCH — parcial)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ShipmentPatch" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      delete: {
+        tags: ["Shipments"],
+        summary: "Eliminar shipment (fisico)",
+        description: "SIN AUTH — borra la fila",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+    "/api/shipments/{id}/deactivate": {
+      patch: {
+        tags: ["Shipments"],
+        summary: "Eliminar shipment (logico)",
+        description: "SIN AUTH — is_active = false",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Shipment: {
+        type: "object",
+        properties: {
+      id: { type: "integer", example: 1 },
+      numero_guia: { type: "string", example: "numero_guia" },
+      empresa_id: { type: "integer", example: 1 },
+      contacto_origen_id: { type: "integer", example: 1 },
+      direccion_origen_id: { type: "integer", example: 1 },
+      contacto_destino_id: { type: "integer", example: 1 },
+      direccion_destino_id: { type: "integer", example: 1 },
+      mensajero_id: { type: "integer", example: 1 },
+      ruta_id: { type: "integer", example: 1 },
+      tarifa_id: { type: "integer", example: 1 },
+      prioridad: { type: "string", enum: ["normal", "urgente", "express"], example: "normal" },
+      peso_total_kg: { type: "number", example: 10.5 },
+      valor_declarado: { type: "number", example: 10.5 },
+      costo_calculado: { type: "number", example: 10.5 },
+      estado: { type: "string", enum: ["creado", "cotizado", "asignado", "en_ruta", "entregado", "con_novedad", "cancelado"], example: "creado" },
+      fecha_solicitud: { type: "string", format: "date-time" },
+      fecha_entrega_estimada: { type: "string", format: "date-time" },
+      fecha_entrega_real: { type: "string", format: "date-time" },
+      is_active: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      ShipmentCreate: {
+        type: "object",
+        required: ["numero_guia", "empresa_id", "contacto_origen_id", "direccion_origen_id", "contacto_destino_id", "direccion_destino_id", "tarifa_id", "prioridad", "peso_total_kg", "estado", "fecha_solicitud"],
+        properties: {
+      numero_guia: { type: "string", example: "numero_guia" },
+      empresa_id: { type: "integer", example: 1 },
+      contacto_origen_id: { type: "integer", example: 1 },
+      direccion_origen_id: { type: "integer", example: 1 },
+      contacto_destino_id: { type: "integer", example: 1 },
+      direccion_destino_id: { type: "integer", example: 1 },
+      mensajero_id: { type: "integer", example: 1 },
+      ruta_id: { type: "integer", example: 1 },
+      tarifa_id: { type: "integer", example: 1 },
+      prioridad: { type: "string", enum: ["normal", "urgente", "express"], example: "normal" },
+      peso_total_kg: { type: "number", example: 10.5 },
+      valor_declarado: { type: "number", example: 10.5 },
+      costo_calculado: { type: "number", example: 10.5 },
+      estado: { type: "string", enum: ["creado", "cotizado", "asignado", "en_ruta", "entregado", "con_novedad", "cancelado"], example: "creado" },
+      fecha_solicitud: { type: "string", format: "date-time" },
+      fecha_entrega_estimada: { type: "string", format: "date-time" },
+      fecha_entrega_real: { type: "string", format: "date-time" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+      ShipmentPatch: {
+        type: "object",
+        properties: {
+      numero_guia: { type: "string", example: "numero_guia" },
+      empresa_id: { type: "integer", example: 1 },
+      contacto_origen_id: { type: "integer", example: 1 },
+      direccion_origen_id: { type: "integer", example: 1 },
+      contacto_destino_id: { type: "integer", example: 1 },
+      direccion_destino_id: { type: "integer", example: 1 },
+      mensajero_id: { type: "integer", example: 1 },
+      ruta_id: { type: "integer", example: 1 },
+      tarifa_id: { type: "integer", example: 1 },
+      prioridad: { type: "string", enum: ["normal", "urgente", "express"], example: "normal" },
+      peso_total_kg: { type: "number", example: 10.5 },
+      valor_declarado: { type: "number", example: 10.5 },
+      costo_calculado: { type: "number", example: 10.5 },
+      estado: { type: "string", enum: ["creado", "cotizado", "asignado", "en_ruta", "entregado", "con_novedad", "cancelado"], example: "creado" },
+      fecha_solicitud: { type: "string", format: "date-time" },
+      fecha_entrega_estimada: { type: "string", format: "date-time" },
+      fecha_entrega_real: { type: "string", format: "date-time" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+**PARCHE** — `src/swagger/index.ts` **ya existe**.
+
+1. **Debajo de** `import { routeSwagger } ...`, **añadir** `import { shipmentSwagger } from "../features/business/shipment/shipment.swagger";`
+2. **Dentro de** `featureSwaggerModules`, **debajo de** `routeSwagger,`, **añadir** `shipmentSwagger,`
+
+### Verificación
+
+```bash
+curl -s http://localhost:4000/api/shipments
+```
+
+![alt text](img-express/api_shipment.png)
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_shipment.png)
+
+![alt text](img-express/docs_shipment.png)
+
+> El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
