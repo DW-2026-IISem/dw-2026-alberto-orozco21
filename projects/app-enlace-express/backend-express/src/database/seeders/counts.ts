@@ -4,6 +4,7 @@ export type SeedCounts = {
   addresses: number;
   messengers: number;
   rates: number;
+  routes: number;
 };
 
 export const DEFAULT_SEED_COUNTS: SeedCounts = {
@@ -11,7 +12,8 @@ export const DEFAULT_SEED_COUNTS: SeedCounts = {
   contacts: 15,
   addresses: 15,
   messengers: 15,
-  rates: 15
+  rates: 15,
+  routes: 15
 };
 
 export function resolveSeedCounts(argv: string[] = process.argv.slice(2)): SeedCounts {
@@ -30,6 +32,11 @@ export function resolveSeedCounts(argv: string[] = process.argv.slice(2)): SeedC
   const envRates = process.env.SEED_RATES;
   if (envRates !== undefined && envRates !== "") {
     counts.rates = Number(envRates);
+  }
+
+  const envRoutes = process.env.SEED_ROUTES;
+  if (envRoutes !== undefined && envRoutes !== "") {
+    counts.routes = Number(envRoutes);
   }
 
   for (const arg of argv) {

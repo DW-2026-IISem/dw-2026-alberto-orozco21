@@ -4586,3 +4586,777 @@ npm run dev
 ![alt text](img-express/docs_rates.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 12. ISS-11 — Feature Route
+
+**Objetivo:** CRUD completo + seeder + swagger de **Route** (tabla `routes`).  
+**Bloqueado por:** ISS-10.  
+**API:** `/api/routes` — **SIN AUTH**.  
+**Patrón:** mismo que las features anteriores (modelo → controller/routes → http → cableado → relación → seeder → swagger).
+
+### Criterios de aceptación (ISS-11)
+
+- [X] **12.1** Modelo `route.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [X] **12.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [X] **12.3** Carpeta `http/` con get, create, update, delete
+- [X] **12.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [X] **12.5** Asociaciones (`route.associations.ts`) + PARCHE `config`
+- [X] **12.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [X] **12.7** Swagger + registro en `src/swagger`
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/route/http
+```
+
+## 12.1 Modelo Route
+
+```bash
+: > src/features/business/route/route.model.ts
+cat >> src/features/business/route/route.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface RouteI {
+  id?: number;
+  nombre: string;
+  mensajero_id: number;
+  zona_cobertura?: string | null;
+  fecha: string;
+  hora_inicio?: Date | string | null;
+  hora_fin?: Date | string | null;
+  estado: "planificada" | "en_curso" | "finalizada";
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Route extends Model {
+  public id!: number;
+  public nombre!: string;
+  public mensajero_id!: number;
+  public zona_cobertura!: string | null;
+  public fecha!: string;
+  public hora_inicio!: Date | string | null;
+  public hora_fin!: Date | string | null;
+  public estado!: "planificada" | "en_curso" | "finalizada";
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Route.init(
+  {
+    nombre: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    mensajero_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "messengers", key: "id" },
+      allowNull: false,
+    },
+    zona_cobertura: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    fecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+    },
+    hora_inicio: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    hora_fin: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    estado: {
+      type: DataTypes.ENUM("planificada", "en_curso", "finalizada"),
+      allowNull: false,
+      defaultValue: "planificada",
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Route",
+    tableName: "routes",
+    timestamps: true,
+  }
+);
+EOF
+```
+
+---
+
+## 12.2 Controller + routes (CRUD completo)
+
+```bash
+: > src/features/business/route/route.controller.ts
+cat >> src/features/business/route/route.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { Route, RouteI } from "./route.model";
+import { Messenger } from "../messenger/messenger.model";
+
+function paramId(req: Request): number {
+  const raw = req.params.id;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return Number(value);
+}
+
+export class RouteController {
+  // ================== READ ==================
+  public async getAll(req: Request, res: Response) {
+    try {
+      const routes = await Route.findAll({
+        where: { is_active: true },
+      });
+      res.status(200).json({ routes });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching routes", detail: String(error) });
+    }
+  }
+
+  public async getOne(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const route = await Route.findByPk(id);
+      if (!route) {
+        res.status(404).json({ error: "Route not found" });
+        return;
+      }
+      res.status(200).json({ route: route });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching route", detail: String(error) });
+    }
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response) {
+    try {
+      const body = req.body as RouteI;
+      if (body.mensajero_id !== undefined && body.mensajero_id !== null) {
+        const found_mensajero_id = await Messenger.findByPk(body.mensajero_id);
+        if (!found_mensajero_id) {
+          res.status(404).json({ error: "Messenger (mensajero_id) not found" });
+          return;
+        }
+      }
+
+      const route = await Route.create({
+        nombre: body.nombre,
+        mensajero_id: body.mensajero_id,
+        zona_cobertura: body.zona_cobertura ?? null,
+        fecha: body.fecha,
+        hora_inicio: body.hora_inicio ?? null,
+        hora_fin: body.hora_fin ?? null,
+        estado: body.estado,
+        is_active: body.is_active ?? true,
+      });
+      res.status(201).json({ route: route });
+    } catch (error) {
+      res.status(500).json({ error: "Error creating route", detail: String(error) });
+    }
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as RouteI;
+      const route = await Route.findByPk(id);
+      if (!route) {
+        res.status(404).json({ error: "Route not found" });
+        return;
+      }
+      if (body.mensajero_id !== undefined && body.mensajero_id !== null) {
+        const found_mensajero_id = await Messenger.findByPk(body.mensajero_id);
+        if (!found_mensajero_id) {
+          res.status(404).json({ error: "Messenger (mensajero_id) not found" });
+          return;
+        }
+      }
+
+      await route.update({
+        nombre: body.nombre,
+        mensajero_id: body.mensajero_id,
+        zona_cobertura: body.zona_cobertura ?? route.zona_cobertura,
+        fecha: body.fecha,
+        hora_inicio: body.hora_inicio ?? route.hora_inicio,
+        hora_fin: body.hora_fin ?? route.hora_fin,
+        estado: body.estado,
+        is_active: body.is_active ?? route.is_active,
+      });
+
+      res.status(200).json({ route: route });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating route (PUT)", detail: String(error) });
+    }
+  }
+
+  public async updatePatch(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as Partial<RouteI>;
+      const route = await Route.findByPk(id);
+      if (!route) {
+        res.status(404).json({ error: "Route not found" });
+        return;
+      }
+
+      await route.update(body);
+      res.status(200).json({ route: route });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating route (PATCH)", detail: String(error) });
+    }
+  }
+
+  // ================== DELETE ==================
+  /** Eliminacion fisica */
+  public async deletePhysical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const route = await Route.findByPk(id);
+      if (!route) {
+        res.status(404).json({ error: "Route not found" });
+        return;
+      }
+      await route.destroy();
+      res.status(200).json({ message: "Route permanently deleted", id });
+    } catch (error) {
+      res.status(500).json({ error: "Error deleting route", detail: String(error) });
+    }
+  }
+
+  /** Eliminacion logica -> is_active = false */
+  public async deleteLogical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const route = await Route.findByPk(id);
+      if (!route) {
+        res.status(404).json({ error: "Route not found" });
+        return;
+      }
+      await route.update({ is_active: false });
+      res.status(200).json({
+        message: "Route deactivated (logical delete)",
+        route: route,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error deactivating route", detail: String(error) });
+    }
+  }
+}
+EOF
+```
+```bash
+: > src/features/business/route/route.routes.ts
+cat >> src/features/business/route/route.routes.ts << 'EOF'
+import { Application } from "express";
+import { RouteController } from "./route.controller";
+
+export class RouteRoutes {
+  public routeController: RouteController = new RouteController();
+
+  public routes(app: Application): void {
+    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
+
+    // getAll
+    app
+      .route("/api/routes")
+      .get(this.routeController.getAll.bind(this.routeController));
+
+    // getOne
+    app
+      .route("/api/routes/:id")
+      .get(this.routeController.getOne.bind(this.routeController));
+
+    // create
+    app
+      .route("/api/routes")
+      .post(this.routeController.create.bind(this.routeController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/routes/:id")
+      .put(this.routeController.updatePut.bind(this.routeController))
+      .patch(this.routeController.updatePatch.bind(this.routeController));
+
+    // delete fisico
+    app
+      .route("/api/routes/:id")
+      .delete(this.routeController.deletePhysical.bind(this.routeController));
+
+    // delete logico
+    app
+      .route("/api/routes/:id/deactivate")
+      .patch(this.routeController.deleteLogical.bind(this.routeController));
+  }
+}
+EOF
+```
+
+---
+
+## 12.3 HTTP
+
+```bash
+: > src/features/business/route/http/routes.get.http
+cat >> src/features/business/route/http/routes.get.http << 'EOF'
+### Feature Route — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllRoute
+GET {{baseUrl}}/api/routes
+
+###
+
+# @name getOneRoute
+GET {{baseUrl}}/api/routes/{{id}}
+EOF
+```
+```bash
+: > src/features/business/route/http/routes.create.http
+cat >> src/features/business/route/http/routes.create.http << 'EOF'
+### Feature Route — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createRoute
+POST {{baseUrl}}/api/routes
+Content-Type: application/json
+
+{
+  "nombre": "Ejemplo nombre",
+  "mensajero_id": 1,
+  "zona_cobertura": "Ejemplo zona_cobertura",
+  "fecha": "2026-01-15",
+  "hora_inicio": "2026-01-15T10:00:00.000Z",
+  "hora_fin": "2026-01-15T10:00:00.000Z",
+  "estado": "planificada",
+  "is_active": true
+}
+EOF
+```
+```bash
+: > src/features/business/route/http/routes.update.http
+cat >> src/features/business/route/http/routes.update.http << 'EOF'
+### Feature Route — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateRoutePut
+PUT {{baseUrl}}/api/routes/{{id}}
+Content-Type: application/json
+
+{
+  "nombre": "Ejemplo nombre",
+  "mensajero_id": 1,
+  "zona_cobertura": "Ejemplo zona_cobertura",
+  "fecha": "2026-01-15",
+  "hora_inicio": "2026-01-15T10:00:00.000Z",
+  "hora_fin": "2026-01-15T10:00:00.000Z",
+  "estado": "planificada",
+  "is_active": true
+}
+
+###
+
+# @name updateRoutePatch
+PATCH {{baseUrl}}/api/routes/{{id}}
+Content-Type: application/json
+
+{
+  "mensajero_id": 1
+}
+EOF
+```
+```bash
+: > src/features/business/route/http/routes.delete.http
+cat >> src/features/business/route/http/routes.delete.http << 'EOF'
+### Feature Route — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteRoutePhysical
+DELETE {{baseUrl}}/api/routes/{{id}}
+
+###
+
+# @name deleteRouteLogical
+PATCH {{baseUrl}}/api/routes/{{id}}/deactivate
+EOF
+```
+
+---
+
+## 12.4 Cableado Routes + Config
+
+**PARCHE** — `src/routes/index.ts` **ya existe**.
+
+1. **Debajo de** `import { RateRoutes } ...`, **añadir**:
+
+```ts
+import { RouteRoutes } from "../features/business/route/route.routes";
+```
+
+2. **Dentro de** `export class Routes`, **debajo de** `rateRoutes`, **añadir**:
+
+```ts
+  public routeRoutes: RouteRoutes = new RouteRoutes();
+```
+
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import "../features/business/rate/rate.model";`, **añadir**:
+
+```ts
+import "../features/business/route/route.model";
+```
+
+2. **Dentro de** `routes()`, **debajo de** `this.routePrv.rateRoutes.routes(this.app);`, **añadir**:
+
+```ts
+    this.routePrv.routeRoutes.routes(this.app);
+```
+
+---
+
+## 12.5 Relación / asociaciones Route
+
+> `Route` referencia: **Messenger**. Norma FK: `<tabla_singular>_id`.
+
+```bash
+: > src/features/business/route/route.associations.ts
+cat >> src/features/business/route/route.associations.ts << 'EOF'
+import { Route } from "./route.model";
+import { Messenger } from "../messenger/messenger.model";
+
+Route.belongsTo(Messenger, { foreignKey: "mensajero_id", as: "messenger" });
+Messenger.hasMany(Route, { foreignKey: "mensajero_id", as: "routes" });
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+**Debajo de** `import "../features/business/route/route.model";` (y **encima de** `import { Routes }`), **añadir**:
+
+```ts
+import "../features/business/route/route.associations";
+```
+
+---
+
+## 12.6 Seeder Route
+
+```bash
+: > src/features/business/route/route.seeder.ts
+cat >> src/features/business/route/route.seeder.ts << 'EOF'
+import { faker } from "@faker-js/faker";
+import { Route } from "./route.model";
+import { Messenger } from "../messenger/messenger.model";
+
+/**
+ * Seeder del feature Route (datos falsos con @faker-js/faker).
+ * Se invoca desde `src/database/seeders` (SeedersRunner), no desde la App.
+ *
+ * Idempotente: si ya hay filas, no vuelve a insertar.
+ */
+export async function seedRoutes(count: number): Promise<number> {
+  if (count <= 0) {
+    console.log("\u23ed\ufe0f  routes: count=0, se omite");
+    return 0;
+  }
+
+  const existing = await Route.count();
+  if (existing > 0) {
+    console.log(`\u23ed\ufe0f  routes: ya hay ${existing} registro(s), se omite seeder`);
+    return 0;
+  }
+
+  const messengerList = await Messenger.findAll({ where: { is_active: true } });
+  if (messengerList.length === 0) {
+    console.log("\u23ed\ufe0f  routes: faltan dependencias activas (messengerList), se omite seeder");
+    return 0;
+  }
+
+  const rows = Array.from({ length: count }, () => ({
+      nombre: "Ruta " + faker.location.city(),
+      mensajero_id: faker.helpers.arrayElement(messengerList).id,
+      zona_cobertura: faker.location.city(),
+      fecha: faker.date.soon().toISOString().slice(0, 10),
+      hora_inicio: faker.date.soon(),
+      hora_fin: faker.date.soon(),
+      estado: faker.helpers.arrayElement(["planificada", "en_curso", "finalizada"]),
+      is_active: true,
+  }));
+
+  await Route.bulkCreate(rows);
+  console.log(`\u2705 routes: insertados ${count} registro(s) falsos`);
+  return count;
+}
+EOF
+```
+**PARCHE** — `src/database/seeders/counts.ts` **ya existe**.
+
+- **Dentro de** `SeedCounts`, **añadir** `routes: number;`
+- **Dentro de** `DEFAULT_SEED_COUNTS`, **añadir** `routes: 15,`
+- Lectura opcional por env: `SEED_ROUTES`.
+
+**PARCHE** — `src/database/seeders/index.ts` **ya existe**.
+
+1. **Debajo de** el import del seeder anterior, **añadir** `import { seedRoutes } from "../../features/business/route/route.seeder";`
+2. **Debajo de** `await seedRates(counts.rates);`, **añadir** `await seedRoutes(counts.routes);`
+
+---
+
+## 12.7 Swagger Route
+
+```bash
+: > src/features/business/route/route.swagger.ts
+cat >> src/features/business/route/route.swagger.ts << 'EOF'
+/**
+ * Documentacion OpenAPI del feature Route.
+ * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
+ *
+ * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ */
+
+export const routeSwagger = {
+  tags: [
+    {
+      name: "Routes",
+      description: "CRUD de routes — **SIN AUTH** (sin middleware JWT)",
+    },
+  ],
+  paths: {
+    "/api/routes": {
+      get: {
+        tags: ["Routes"],
+        summary: "Listar routes activos",
+        description: "SIN AUTH — retorna registros con is_active=true",
+        security: [],
+        responses: {
+          "200": {
+            description: "Lista de routes",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    routes: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Route" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Routes"],
+        summary: "Crear route",
+        description: "SIN AUTH",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RouteCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Route creado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    route: { $ref: "#/components/schemas/Route" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/routes/{id}": {
+      get: {
+        tags: ["Routes"],
+        summary: "Obtener route por id",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "Route encontrado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    route: { $ref: "#/components/schemas/Route" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No encontrado" },
+        },
+      },
+      put: {
+        tags: ["Routes"],
+        summary: "Actualizar route (PUT — reemplazo)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RouteCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      patch: {
+        tags: ["Routes"],
+        summary: "Actualizar route (PATCH — parcial)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RoutePatch" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      delete: {
+        tags: ["Routes"],
+        summary: "Eliminar route (fisico)",
+        description: "SIN AUTH — borra la fila",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+    "/api/routes/{id}/deactivate": {
+      patch: {
+        tags: ["Routes"],
+        summary: "Eliminar route (logico)",
+        description: "SIN AUTH — is_active = false",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Route: {
+        type: "object",
+        properties: {
+      id: { type: "integer", example: 1 },
+      nombre: { type: "string", example: "nombre" },
+      mensajero_id: { type: "integer", example: 1 },
+      zona_cobertura: { type: "string", example: "zona_cobertura" },
+      fecha: { type: "string", format: "date", example: "2026-01-15" },
+      hora_inicio: { type: "string", format: "date-time" },
+      hora_fin: { type: "string", format: "date-time" },
+      estado: { type: "string", enum: ["planificada", "en_curso", "finalizada"], example: "planificada" },
+      is_active: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      RouteCreate: {
+        type: "object",
+        required: ["nombre", "mensajero_id", "fecha", "estado"],
+        properties: {
+      nombre: { type: "string", example: "nombre" },
+      mensajero_id: { type: "integer", example: 1 },
+      zona_cobertura: { type: "string", example: "zona_cobertura" },
+      fecha: { type: "string", format: "date", example: "2026-01-15" },
+      hora_inicio: { type: "string", format: "date-time" },
+      hora_fin: { type: "string", format: "date-time" },
+      estado: { type: "string", enum: ["planificada", "en_curso", "finalizada"], example: "planificada" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+      RoutePatch: {
+        type: "object",
+        properties: {
+      nombre: { type: "string", example: "nombre" },
+      mensajero_id: { type: "integer", example: 1 },
+      zona_cobertura: { type: "string", example: "zona_cobertura" },
+      fecha: { type: "string", format: "date", example: "2026-01-15" },
+      hora_inicio: { type: "string", format: "date-time" },
+      hora_fin: { type: "string", format: "date-time" },
+      estado: { type: "string", enum: ["planificada", "en_curso", "finalizada"], example: "planificada" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+**PARCHE** — `src/swagger/index.ts` **ya existe**.
+
+1. **Debajo de** `import { rateSwagger } ...`, **añadir** `import { routeSwagger } from "../features/business/route/route.swagger";`
+2. **Dentro de** `featureSwaggerModules`, **debajo de** `rateSwagger,`, **añadir** `routeSwagger,`
+
+### Verificación
+
+```bash
+curl -s http://localhost:4000/api/routes
+```
+
+![alt text](img-express/api_routes.png)
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_routes.png)
+
+![alt text](img-express/docs_routes.png)
+
+> El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.

@@ -1,0 +1,12 @@
+### Feature Route — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllRoute
+GET {{baseUrl}}/api/routes
+
+###
+
+# @name getOneRoute
+GET {{baseUrl}}/api/routes/{{id}}

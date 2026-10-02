@@ -1,0 +1,29 @@
+### Feature Route — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateRoutePut
+PUT {{baseUrl}}/api/routes/{{id}}
+Content-Type: application/json
+
+{
+  "nombre": "Ruta Centro",
+  "mensajero_id": 1,
+  "zona_cobertura": "Centro",
+  "fecha": "2026-01-15",
+  "hora_inicio": "2026-01-15T10:00:00.000Z",
+  "hora_fin": "2026-01-15T18:00:00.000Z",
+  "estado": "planificada",
+  "is_active": true
+}
+
+###
+
+# @name updateRoutePatch
+PATCH {{baseUrl}}/api/routes/{{id}}
+Content-Type: application/json
+
+{
+  "mensajero_id": 1
+}

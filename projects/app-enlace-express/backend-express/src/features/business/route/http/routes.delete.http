@@ -1,0 +1,12 @@
+### Feature Route — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteRoutePhysical
+DELETE {{baseUrl}}/api/routes/{{id}}
+
+###
+
+# @name deleteRouteLogical
+PATCH {{baseUrl}}/api/routes/{{id}}/deactivate
