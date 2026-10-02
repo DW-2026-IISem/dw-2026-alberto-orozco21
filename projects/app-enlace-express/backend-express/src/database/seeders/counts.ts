@@ -2,12 +2,14 @@ export type SeedCounts = {
   companies: number;
   contacts: number;
   addresses: number;
+  messengers: number;
 };
 
 export const DEFAULT_SEED_COUNTS: SeedCounts = {
   companies: 15,
   contacts: 15,
-  addresses: 15
+  addresses: 15,
+  messengers: 15
 };
 
 export function resolveSeedCounts(argv: string[] = process.argv.slice(2)): SeedCounts {
@@ -16,6 +18,11 @@ export function resolveSeedCounts(argv: string[] = process.argv.slice(2)): SeedC
   const envCompanies = process.env.SEED_COMPANIES;
   if (envCompanies !== undefined && envCompanies !== "") {
     counts.companies = Number(envCompanies);
+  }
+
+  const envMessengers = process.env.SEED_MESSENGERS;
+  if (envMessengers !== undefined && envMessengers !== "") {
+    counts.messengers = Number(envMessengers);
   }
 
   for (const arg of argv) {

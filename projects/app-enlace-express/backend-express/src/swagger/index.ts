@@ -3,6 +3,7 @@ import swaggerUi from "swagger-ui-express";
 import { companiesSwagger } from "../features/business/companies/companies.swagger";
 import { contactSwagger } from "../features/business/contact/contact.swagger";
 import { addressSwagger } from "../features/business/address/address.swagger";
+import { messengerSwagger } from "../features/business/messenger/messenger.swagger";
 
 export type FeatureSwaggerModule = {
   tags: unknown[];
@@ -17,7 +18,8 @@ export type FeatureSwaggerModule = {
 const featureSwaggerModules: FeatureSwaggerModule[] = [
   companiesSwagger,
   contactSwagger,
-  addressSwagger
+  addressSwagger,
+  messengerSwagger
 ];
 
 export function buildOpenApiDocument() {

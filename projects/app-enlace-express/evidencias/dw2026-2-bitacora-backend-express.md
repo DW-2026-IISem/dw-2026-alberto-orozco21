@@ -982,7 +982,7 @@ dotenv.config();
 
 /**
  * SeedersRunner — ejecuta TODOS los seeders de features, en orden de dependencias
- * (padres antes que hijos): empresa -> contacto -> direccion -> mensajero -> tarifa
+ * (padres antes que hijos): empresa -> contacto -> direccion -> messenger -> tarifa
  * -> ruta -> envio -> paquete -> evento_tracking -> prueba_entrega -> factura.
  *
  * Uso:
@@ -3121,3 +3121,722 @@ npm run dev
 ```
 
 ![alt text](img-express/run_Company_Contact.png)
+
+---
+
+## 10. ISS-09 — Feature Messenger
+
+**Objetivo:** CRUD completo + seeder + swagger de **Messenger** (tabla `messengers`).  
+**Bloqueado por:** ISS-08.  
+**API:** `/api/messengers` — **SIN AUTH**.  
+**Patrón:** mismo que las features anteriores (modelo → controller/routes → http → cableado → seeder → swagger).
+
+### Criterios de aceptación (ISS-09)
+
+- [X] **10.1** Modelo `messenger.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [X] **10.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [X] **10.3** Carpeta `http/` con get, create, update, delete
+- [X] **10.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [X] **10.5** Seeder + registro en SeedersRunner / `counts.ts`
+- [X] **10.6** Swagger + registro en `src/swagger`
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/messenger/http
+```
+
+## 10.1 Modelo Messenger
+
+```bash
+: > src/features/business/messenger/messenger.model.ts
+cat >> src/features/business/messenger/messenger.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface MessengerI {
+  id?: number;
+  nombre: string;
+  documento_identidad: string;
+  telefono?: string | null;
+  tipo_vehiculo: "moto" | "carro" | "bicicleta" | "a_pie";
+  placa_vehiculo?: string | null;
+  zona_asignada?: string | null;
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Messenger extends Model {
+  public id!: number;
+  public nombre!: string;
+  public documento_identidad!: string;
+  public telefono!: string | null;
+  public tipo_vehiculo!: "moto" | "carro" | "bicicleta" | "a_pie";
+  public placa_vehiculo!: string | null;
+  public zona_asignada!: string | null;
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Messenger.init(
+  {
+    nombre: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    documento_identidad: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    telefono: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    tipo_vehiculo: {
+      type: DataTypes.ENUM("moto", "carro", "bicicleta", "a_pie"),
+      allowNull: false,
+      defaultValue: "moto",
+    },
+    placa_vehiculo: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    zona_asignada: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Messenger",
+    tableName: "messengers",
+    timestamps: true,
+  }
+);
+EOF
+```
+
+---
+
+## 10.2 Controller + routes (CRUD completo)
+
+```bash
+: > src/features/business/messenger/messenger.controller.ts
+cat >> src/features/business/messenger/messenger.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { Messenger, MessengerI } from "./messenger.model";
+
+function paramId(req: Request): number {
+  const raw = req.params.id;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return Number(value);
+}
+
+export class MessengerController {
+  // ================== READ ==================
+  public async getAll(req: Request, res: Response) {
+    try {
+      const messengers = await Messenger.findAll({
+        where: { is_active: true },
+      });
+      res.status(200).json({ messengers });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching messengers", detail: String(error) });
+    }
+  }
+
+  public async getOne(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const messenger = await Messenger.findByPk(id);
+      if (!messenger) {
+        res.status(404).json({ error: "Messenger not found" });
+        return;
+      }
+      res.status(200).json({ messenger: messenger });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching messenger", detail: String(error) });
+    }
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response) {
+    try {
+      const body = req.body as MessengerI;
+
+
+      const messenger = await Messenger.create({
+        nombre: body.nombre,
+        documento_identidad: body.documento_identidad,
+        telefono: body.telefono ?? null,
+        tipo_vehiculo: body.tipo_vehiculo,
+        placa_vehiculo: body.placa_vehiculo ?? null,
+        zona_asignada: body.zona_asignada ?? null,
+        is_active: body.is_active ?? true,
+      });
+      res.status(201).json({ messenger: messenger });
+    } catch (error) {
+      res.status(500).json({ error: "Error creating messenger", detail: String(error) });
+    }
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as MessengerI;
+      const messenger = await Messenger.findByPk(id);
+      if (!messenger) {
+        res.status(404).json({ error: "Messenger not found" });
+        return;
+      }
+
+
+      await messenger.update({
+        nombre: body.nombre,
+        documento_identidad: body.documento_identidad,
+        telefono: body.telefono ?? messenger.telefono,
+        tipo_vehiculo: body.tipo_vehiculo,
+        placa_vehiculo: body.placa_vehiculo ?? messenger.placa_vehiculo,
+        zona_asignada: body.zona_asignada ?? messenger.zona_asignada,
+        is_active: body.is_active ?? messenger.is_active,
+      });
+
+      res.status(200).json({ messenger: messenger });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating messenger (PUT)", detail: String(error) });
+    }
+  }
+
+  public async updatePatch(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as Partial<MessengerI>;
+      const messenger = await Messenger.findByPk(id);
+      if (!messenger) {
+        res.status(404).json({ error: "Messenger not found" });
+        return;
+      }
+
+      await messenger.update(body);
+      res.status(200).json({ messenger: messenger });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating messenger (PATCH)", detail: String(error) });
+    }
+  }
+
+  // ================== DELETE ==================
+  /** Eliminacion fisica */
+  public async deletePhysical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const messenger = await Messenger.findByPk(id);
+      if (!messenger) {
+        res.status(404).json({ error: "Messenger not found" });
+        return;
+      }
+      await messenger.destroy();
+      res.status(200).json({ message: "Messenger permanently deleted", id });
+    } catch (error) {
+      res.status(500).json({ error: "Error deleting messenger", detail: String(error) });
+    }
+  }
+
+  /** Eliminacion logica -> is_active = false */
+  public async deleteLogical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const messenger = await Messenger.findByPk(id);
+      if (!messenger) {
+        res.status(404).json({ error: "Messenger not found" });
+        return;
+      }
+      await messenger.update({ is_active: false });
+      res.status(200).json({
+        message: "Messenger deactivated (logical delete)",
+        messenger: messenger,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error deactivating messenger", detail: String(error) });
+    }
+  }
+}
+EOF
+```
+```bash
+: > src/features/business/messenger/messenger.routes.ts
+cat >> src/features/business/messenger/messenger.routes.ts << 'EOF'
+import { Application } from "express";
+import { MessengerController } from "./messenger.controller";
+
+export class MessengerRoutes {
+  public messengerController: MessengerController = new MessengerController();
+
+  public routes(app: Application): void {
+    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
+
+    // getAll
+    app
+      .route("/api/messengers")
+      .get(this.messengerController.getAll.bind(this.messengerController));
+
+    // getOne
+    app
+      .route("/api/messengers/:id")
+      .get(this.messengerController.getOne.bind(this.messengerController));
+
+    // create
+    app
+      .route("/api/messengers")
+      .post(this.messengerController.create.bind(this.messengerController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/messengers/:id")
+      .put(this.messengerController.updatePut.bind(this.messengerController))
+      .patch(this.messengerController.updatePatch.bind(this.messengerController));
+
+    // delete fisico
+    app
+      .route("/api/messengers/:id")
+      .delete(this.messengerController.deletePhysical.bind(this.messengerController));
+
+    // delete logico
+    app
+      .route("/api/messengers/:id/deactivate")
+      .patch(this.messengerController.deleteLogical.bind(this.messengerController));
+  }
+}
+EOF
+```
+
+---
+
+## 10.3 HTTP
+
+```bash
+: > src/features/business/messenger/http/messengers.get.http
+cat >> src/features/business/messenger/http/messengers.get.http << 'EOF'
+### Feature Messenger — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllMessenger
+GET {{baseUrl}}/api/messengers
+
+###
+
+# @name getOneMessenger
+GET {{baseUrl}}/api/messengers/{{id}}
+EOF
+```
+```bash
+: > src/features/business/messenger/http/messengers.create.http
+cat >> src/features/business/messenger/http/messengers.create.http << 'EOF'
+### Feature Messenger — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createMessenger
+POST {{baseUrl}}/api/messengers
+Content-Type: application/json
+
+{
+  "nombre": "Ejemplo nombre",
+  "documento_identidad": "Ejemplo documento_identidad",
+  "telefono": "Ejemplo telefono",
+  "tipo_vehiculo": "moto",
+  "placa_vehiculo": "Ejemplo placa_vehiculo",
+  "zona_asignada": "Ejemplo zona_asignada",
+  "is_active": true
+}
+EOF
+```
+```bash
+: > src/features/business/messenger/http/messengers.update.http
+cat >> src/features/business/messenger/http/messengers.update.http << 'EOF'
+### Feature Messenger — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateMessengerPut
+PUT {{baseUrl}}/api/messengers/{{id}}
+Content-Type: application/json
+
+{
+  "nombre": "Ejemplo nombre",
+  "documento_identidad": "Ejemplo documento_identidad",
+  "telefono": "Ejemplo telefono",
+  "tipo_vehiculo": "moto",
+  "placa_vehiculo": "Ejemplo placa_vehiculo",
+  "zona_asignada": "Ejemplo zona_asignada",
+  "is_active": true
+}
+
+###
+
+# @name updateMessengerPatch
+PATCH {{baseUrl}}/api/messengers/{{id}}
+Content-Type: application/json
+
+{
+  "documento_identidad": "Ejemplo documento_identidad"
+}
+EOF
+```
+```bash
+: > src/features/business/messenger/http/messengers.delete.http
+cat >> src/features/business/messenger/http/messengers.delete.http << 'EOF'
+### Feature Messenger — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteMessengerPhysical
+DELETE {{baseUrl}}/api/messengers/{{id}}
+
+###
+
+# @name deleteMessengerLogical
+PATCH {{baseUrl}}/api/messengers/{{id}}/deactivate
+EOF
+```
+
+---
+
+## 10.4 Cableado Routes + Config
+
+**PARCHE** — `src/routes/index.ts` **ya existe**.
+
+1. **Debajo de** `import { AddressRoutes } ...`, **añadir**:
+
+```ts
+import { MessengerRoutes } from "../features/business/messenger/messenger.routes";
+```
+
+2. **Dentro de** `export class Routes`, **debajo de** `addressRoutes`, **añadir**:
+
+```ts
+  public messengerRoutes: MessengerRoutes = new MessengerRoutes();
+```
+
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import "../features/business/address/address.model";`, **añadir**:
+
+```ts
+import "../features/business/messenger/messenger.model";
+```
+
+2. **Dentro de** `routes()`, **debajo de** `this.routePrv.addressRoutes.routes(this.app);`, **añadir**:
+
+```ts
+    this.routePrv.messengerRoutes.routes(this.app);
+```
+
+---
+
+## 10.5 Seeder Messenger
+
+```bash
+: > src/features/business/messenger/messenger.seeder.ts
+cat >> src/features/business/messenger/messenger.seeder.ts << 'EOF'
+import { faker } from "@faker-js/faker";
+import { Messenger } from "./messenger.model";
+
+
+/**
+ * Seeder del feature Messenger (datos falsos con @faker-js/faker).
+ * Se invoca desde `src/database/seeders` (SeedersRunner), no desde la App.
+ *
+ * Idempotente: si ya hay filas, no vuelve a insertar.
+ */
+export async function seedMessengers(count: number): Promise<number> {
+  if (count <= 0) {
+    console.log("\u23ed\ufe0f  messengers: count=0, se omite");
+    return 0;
+  }
+
+  const existing = await Messenger.count();
+  if (existing > 0) {
+    console.log(`\u23ed\ufe0f  messengers: ya hay ${existing} registro(s), se omite seeder`);
+    return 0;
+  }
+
+
+
+
+  const rows = Array.from({ length: count }, () => ({
+      nombre: faker.person.fullName(),
+      documento_identidad: faker.string.numeric(10),
+      telefono: faker.phone.number({ style: "national" }),
+      tipo_vehiculo: faker.helpers.arrayElement(["moto", "carro", "bicicleta", "a_pie"]),
+      placa_vehiculo: faker.vehicle.vrm(),
+      zona_asignada: faker.location.city(),
+      is_active: true,
+  }));
+
+  await Messenger.bulkCreate(rows);
+  console.log(`\u2705 messengers: insertados ${count} registro(s) falsos`);
+  return count;
+}
+EOF
+```
+**PARCHE** — `src/database/seeders/counts.ts` **ya existe**.
+
+- **Dentro de** `SeedCounts`, **añadir** `messengers: number;`
+- **Dentro de** `DEFAULT_SEED_COUNTS`, **añadir** `messengers: 15,`
+- Lectura opcional por env: `SEED_MESSENGERS`.
+
+**PARCHE** — `src/database/seeders/index.ts` **ya existe**.
+
+1. **Debajo de** el import del seeder anterior, **añadir** `import { seedMessengers } from "../../features/business/messenger/messenger.seeder";`
+2. **Debajo de** `await seedAddresses(counts.addresses);`, **añadir** `await seedMessengers(counts.messengers);`
+
+---
+
+## 10.6 Swagger Messenger
+
+```bash
+: > src/features/business/messenger/messenger.swagger.ts
+cat >> src/features/business/messenger/messenger.swagger.ts << 'EOF'
+/**
+ * Documentacion OpenAPI del feature Messenger.
+ * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
+ *
+ * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ */
+
+export const messengerSwagger = {
+  tags: [
+    {
+      name: "Messengers",
+      description: "CRUD de messengers — **SIN AUTH** (sin middleware JWT)",
+    },
+  ],
+  paths: {
+    "/api/messengers": {
+      get: {
+        tags: ["Messengers"],
+        summary: "Listar messengers activos",
+        description: "SIN AUTH — retorna registros con is_active=true",
+        security: [],
+        responses: {
+          "200": {
+            description: "Lista de messengers",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    messengers: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Messenger" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Messengers"],
+        summary: "Crear messenger",
+        description: "SIN AUTH",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/MessengerCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Messenger creado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    messenger: { $ref: "#/components/schemas/Messenger" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/messengers/{id}": {
+      get: {
+        tags: ["Messengers"],
+        summary: "Obtener messenger por id",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "Messenger encontrado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    messenger: { $ref: "#/components/schemas/Messenger" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No encontrado" },
+        },
+      },
+      put: {
+        tags: ["Messengers"],
+        summary: "Actualizar messenger (PUT — reemplazo)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/MessengerCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      patch: {
+        tags: ["Messengers"],
+        summary: "Actualizar messenger (PATCH — parcial)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/MessengerPatch" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      delete: {
+        tags: ["Messengers"],
+        summary: "Eliminar messenger (fisico)",
+        description: "SIN AUTH — borra la fila",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+    "/api/messengers/{id}/deactivate": {
+      patch: {
+        tags: ["Messengers"],
+        summary: "Eliminar messenger (logico)",
+        description: "SIN AUTH — is_active = false",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Messenger: {
+        type: "object",
+        properties: {
+      id: { type: "integer", example: 1 },
+      nombre: { type: "string", example: "nombre" },
+      documento_identidad: { type: "string", example: "documento_identidad" },
+      telefono: { type: "string", example: "telefono" },
+      tipo_vehiculo: { type: "string", enum: ["moto", "carro", "bicicleta", "a_pie"], example: "moto" },
+      placa_vehiculo: { type: "string", example: "placa_vehiculo" },
+      zona_asignada: { type: "string", example: "zona_asignada" },
+      is_active: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      MessengerCreate: {
+        type: "object",
+        required: ["nombre", "documento_identidad", "tipo_vehiculo"],
+        properties: {
+      nombre: { type: "string", example: "nombre" },
+      documento_identidad: { type: "string", example: "documento_identidad" },
+      telefono: { type: "string", example: "telefono" },
+      tipo_vehiculo: { type: "string", enum: ["moto", "carro", "bicicleta", "a_pie"], example: "moto" },
+      placa_vehiculo: { type: "string", example: "placa_vehiculo" },
+      zona_asignada: { type: "string", example: "zona_asignada" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+      MessengerPatch: {
+        type: "object",
+        properties: {
+      nombre: { type: "string", example: "nombre" },
+      documento_identidad: { type: "string", example: "documento_identidad" },
+      telefono: { type: "string", example: "telefono" },
+      tipo_vehiculo: { type: "string", enum: ["moto", "carro", "bicicleta", "a_pie"], example: "moto" },
+      placa_vehiculo: { type: "string", example: "placa_vehiculo" },
+      zona_asignada: { type: "string", example: "zona_asignada" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+**PARCHE** — `src/swagger/index.ts` **ya existe**.
+
+1. **Debajo de** `import { addressSwagger } ...`, **añadir** `import { messengerSwagger } from "../features/business/messenger/messenger.swagger";`
+2. **Dentro de** `featureSwaggerModules`, **debajo de** `addressSwagger,`, **añadir** `messengerSwagger,`
+
+### Verificación
+
+```bash
+curl -s http://localhost:4000/api/messengers
+```
+
+![alt text](img-express/api_messengers.png)
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_messenger.png)
+
+![alt text](img-express/docs_messenger.png)
+
+> El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.

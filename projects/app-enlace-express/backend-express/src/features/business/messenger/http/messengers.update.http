@@ -1,0 +1,28 @@
+### Feature Messenger — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateMessengerPut
+PUT {{baseUrl}}/api/messengers/{{id}}
+Content-Type: application/json
+
+{
+  "nombre": "Ana Pérez",
+  "documento_identidad": "1020304050",
+  "telefono": "3001234567",
+  "tipo_vehiculo": "moto",
+  "placa_vehiculo": "ABC123",
+  "zona_asignada": "Centro",
+  "is_active": true
+}
+
+###
+
+# @name updateMessengerPatch
+PATCH {{baseUrl}}/api/messengers/{{id}}
+Content-Type: application/json
+
+{
+  "zona_asignada": "Norte"
+}

@@ -1,0 +1,17 @@
+### Feature Messenger — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createMessenger
+POST {{baseUrl}}/api/messengers
+Content-Type: application/json
+
+{
+  "nombre": "Ana Pérez",
+  "documento_identidad": "1020304050",
+  "telefono": "3001234567",
+  "tipo_vehiculo": "moto",
+  "placa_vehiculo": "ABC123",
+  "zona_asignada": "Centro",
+  "is_active": true
+}
