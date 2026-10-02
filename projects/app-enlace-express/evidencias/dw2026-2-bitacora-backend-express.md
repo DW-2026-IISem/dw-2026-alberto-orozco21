@@ -6399,3 +6399,792 @@ npm run dev
 ![alt text](img-express/docs_shipment.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 14. ISS-13 — Feature Package
+
+**Objetivo:** CRUD completo + seeder + swagger de **Package** (tabla `packages`).  
+**Bloqueado por:** ISS-12.  
+**API:** `/api/packages` — **SIN AUTH**.  
+**Patrón:** mismo que las features anteriores (modelo → controller/routes → http → cableado → relación → seeder → swagger).
+
+### Criterios de aceptación (ISS-13)
+
+- [ ] **14.1** Modelo `package.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [ ] **14.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [ ] **14.3** Carpeta `http/` con get, create, update, delete
+- [ ] **14.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [ ] **14.5** Asociaciones (`package.associations.ts`) + PARCHE `config`
+- [ ] **14.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [ ] **14.7** Swagger + registro en `src/swagger`
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/package/http
+```
+
+## 14.1 Modelo Package
+
+```bash
+: > src/features/business/package/package.model.ts
+cat >> src/features/business/package/package.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface PackageI {
+  id?: number;
+  envio_id: number;
+  descripcion_contenido?: string | null;
+  peso_kg: number;
+  alto_cm?: number | null;
+  ancho_cm?: number | null;
+  largo_cm?: number | null;
+  valor_declarado?: number | null;
+  es_fragil?: boolean;
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Package extends Model {
+  public id!: number;
+  public envio_id!: number;
+  public descripcion_contenido!: string | null;
+  public peso_kg!: number;
+  public alto_cm!: number | null;
+  public ancho_cm!: number | null;
+  public largo_cm!: number | null;
+  public valor_declarado!: number | null;
+  public es_fragil!: boolean;
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Package.init(
+  {
+    envio_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "shipments", key: "id" },
+      allowNull: false,
+    },
+    descripcion_contenido: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    peso_kg: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+    },
+    alto_cm: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    ancho_cm: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    largo_cm: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    valor_declarado: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    es_fragil: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Package",
+    tableName: "packages",
+    timestamps: true,
+  }
+);
+EOF
+```
+
+---
+
+## 14.2 Controller + routes (CRUD completo)
+
+```bash
+: > src/features/business/package/package.controller.ts
+cat >> src/features/business/package/package.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { Package, PackageI } from "./package.model";
+import { Shipment } from "../shipment/shipment.model";
+
+function paramId(req: Request): number {
+  const raw = req.params.id;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return Number(value);
+}
+
+export class PackageController {
+  // ================== READ ==================
+  public async getAll(req: Request, res: Response) {
+    try {
+      const packages = await Package.findAll({
+        where: { is_active: true },
+      });
+      res.status(200).json({ packages });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching packages", detail: String(error) });
+    }
+  }
+
+  public async getOne(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const pkg = await Package.findByPk(id);
+      if (!pkg) {
+        res.status(404).json({ error: "Package not found" });
+        return;
+      }
+      res.status(200).json({ package: pkg });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching package", detail: String(error) });
+    }
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response) {
+    try {
+      const body = req.body as PackageI;
+      if (body.envio_id !== undefined && body.envio_id !== null) {
+        const found_envio_id = await Shipment.findByPk(body.envio_id);
+        if (!found_envio_id) {
+          res.status(404).json({ error: "Shipment (envio_id) not found" });
+          return;
+        }
+      }
+
+      const pkg = await Package.create({
+        envio_id: body.envio_id,
+        descripcion_contenido: body.descripcion_contenido ?? null,
+        peso_kg: body.peso_kg,
+        alto_cm: body.alto_cm ?? null,
+        ancho_cm: body.ancho_cm ?? null,
+        largo_cm: body.largo_cm ?? null,
+        valor_declarado: body.valor_declarado ?? null,
+        es_fragil: body.es_fragil ?? null,
+        is_active: body.is_active ?? true,
+      });
+      res.status(201).json({ package: pkg });
+    } catch (error) {
+      res.status(500).json({ error: "Error creating package", detail: String(error) });
+    }
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as PackageI;
+      const pkg = await Package.findByPk(id);
+      if (!pkg) {
+        res.status(404).json({ error: "Package not found" });
+        return;
+      }
+      if (body.envio_id !== undefined && body.envio_id !== null) {
+        const found_envio_id = await Shipment.findByPk(body.envio_id);
+        if (!found_envio_id) {
+          res.status(404).json({ error: "Shipment (envio_id) not found" });
+          return;
+        }
+      }
+
+      await pkg.update({
+        envio_id: body.envio_id,
+        descripcion_contenido: body.descripcion_contenido ?? pkg.descripcion_contenido,
+        peso_kg: body.peso_kg,
+        alto_cm: body.alto_cm ?? pkg.alto_cm,
+        ancho_cm: body.ancho_cm ?? pkg.ancho_cm,
+        largo_cm: body.largo_cm ?? pkg.largo_cm,
+        valor_declarado: body.valor_declarado ?? pkg.valor_declarado,
+        es_fragil: body.es_fragil ?? pkg.es_fragil,
+        is_active: body.is_active ?? pkg.is_active,
+      });
+
+      res.status(200).json({ package: pkg });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating package (PUT)", detail: String(error) });
+    }
+  }
+
+  public async updatePatch(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as Partial<PackageI>;
+      const pkg = await Package.findByPk(id);
+      if (!pkg) {
+        res.status(404).json({ error: "Package not found" });
+        return;
+      }
+
+      await pkg.update(body);
+      res.status(200).json({ package: pkg });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating package (PATCH)", detail: String(error) });
+    }
+  }
+
+  // ================== DELETE ==================
+  /** Eliminacion fisica */
+  public async deletePhysical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const pkg = await Package.findByPk(id);
+      if (!pkg) {
+        res.status(404).json({ error: "Package not found" });
+        return;
+      }
+      await pkg.destroy();
+      res.status(200).json({ message: "Package permanently deleted", id });
+    } catch (error) {
+      res.status(500).json({ error: "Error deleting package", detail: String(error) });
+    }
+  }
+
+  /** Eliminacion logica -> is_active = false */
+  public async deleteLogical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const pkg = await Package.findByPk(id);
+      if (!pkg) {
+        res.status(404).json({ error: "Package not found" });
+        return;
+      }
+      await pkg.update({ is_active: false });
+      res.status(200).json({
+        message: "Package deactivated (logical delete)",
+        package: pkg,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error deactivating package", detail: String(error) });
+    }
+  }
+}
+EOF
+```
+```bash
+: > src/features/business/package/package.routes.ts
+cat >> src/features/business/package/package.routes.ts << 'EOF'
+import { Application } from "express";
+import { PackageController } from "./package.controller";
+
+export class PackageRoutes {
+  public packageController: PackageController = new PackageController();
+
+  public routes(app: Application): void {
+    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
+
+    // getAll
+    app
+      .route("/api/packages")
+      .get(this.packageController.getAll.bind(this.packageController));
+
+    // getOne
+    app
+      .route("/api/packages/:id")
+      .get(this.packageController.getOne.bind(this.packageController));
+
+    // create
+    app
+      .route("/api/packages")
+      .post(this.packageController.create.bind(this.packageController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/packages/:id")
+      .put(this.packageController.updatePut.bind(this.packageController))
+      .patch(this.packageController.updatePatch.bind(this.packageController));
+
+    // delete fisico
+    app
+      .route("/api/packages/:id")
+      .delete(this.packageController.deletePhysical.bind(this.packageController));
+
+    // delete logico
+    app
+      .route("/api/packages/:id/deactivate")
+      .patch(this.packageController.deleteLogical.bind(this.packageController));
+  }
+}
+EOF
+```
+
+---
+
+## 14.3 HTTP
+
+```bash
+: > src/features/business/package/http/packages.get.http
+cat >> src/features/business/package/http/packages.get.http << 'EOF'
+### Feature Package — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllPackage
+GET {{baseUrl}}/api/packages
+
+###
+
+# @name getOnePackage
+GET {{baseUrl}}/api/packages/{{id}}
+EOF
+```
+```bash
+: > src/features/business/package/http/packages.create.http
+cat >> src/features/business/package/http/packages.create.http << 'EOF'
+### Feature Package — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createPackage
+POST {{baseUrl}}/api/packages
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "descripcion_contenido": "Ejemplo descripcion_contenido",
+  "peso_kg": 10.5,
+  "alto_cm": 10.5,
+  "ancho_cm": 10.5,
+  "largo_cm": 10.5,
+  "valor_declarado": 10.5,
+  "es_fragil": true,
+  "is_active": true
+}
+EOF
+```
+```bash
+: > src/features/business/package/http/packages.update.http
+cat >> src/features/business/package/http/packages.update.http << 'EOF'
+### Feature Package — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updatePackagePut
+PUT {{baseUrl}}/api/packages/{{id}}
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "descripcion_contenido": "Ejemplo descripcion_contenido",
+  "peso_kg": 10.5,
+  "alto_cm": 10.5,
+  "ancho_cm": 10.5,
+  "largo_cm": 10.5,
+  "valor_declarado": 10.5,
+  "es_fragil": true,
+  "is_active": true
+}
+
+###
+
+# @name updatePackagePatch
+PATCH {{baseUrl}}/api/packages/{{id}}
+Content-Type: application/json
+
+{
+  "descripcion_contenido": "Ejemplo descripcion_contenido"
+}
+EOF
+```
+```bash
+: > src/features/business/package/http/packages.delete.http
+cat >> src/features/business/package/http/packages.delete.http << 'EOF'
+### Feature Package — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deletePackagePhysical
+DELETE {{baseUrl}}/api/packages/{{id}}
+
+###
+
+# @name deletePackageLogical
+PATCH {{baseUrl}}/api/packages/{{id}}/deactivate
+EOF
+```
+
+---
+
+## 14.4 Cableado Routes + Config
+
+**PARCHE** — `src/routes/index.ts` **ya existe**.
+
+1. **Debajo de** `import { ShipmentRoutes } ...`, **añadir**:
+
+```ts
+import { PackageRoutes } from "../features/business/package/package.routes";
+```
+
+2. **Dentro de** `export class Routes`, **debajo de** `shipmentRoutes`, **añadir**:
+
+```ts
+  public packageRoutes: PackageRoutes = new PackageRoutes();
+```
+
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import "../features/business/shipment/shipment.model";`, **añadir**:
+
+```ts
+import "../features/business/package/package.model";
+```
+
+2. **Dentro de** `routes()`, **debajo de** `this.routePrv.shipmentRoutes.routes(this.app);`, **añadir**:
+
+```ts
+    this.routePrv.packageRoutes.routes(this.app);
+```
+
+---
+
+## 14.5 Relación / asociaciones Package
+
+> `Package` referencia: **Shipment**. Norma FK: `<tabla_singular>_id`.
+
+```bash
+: > src/features/business/package/package.associations.ts
+cat >> src/features/business/package/package.associations.ts << 'EOF'
+import { Package } from "./package.model";
+import { Shipment } from "../shipment/shipment.model";
+
+Package.belongsTo(Shipment, { foreignKey: "envio_id", as: "shipment" });
+Shipment.hasMany(Package, { foreignKey: "envio_id", as: "packages" });
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+**Debajo de** `import "../features/business/package/package.model";` (y **encima de** `import { Routes }`), **añadir**:
+
+```ts
+import "../features/business/package/package.associations";
+```
+
+---
+
+## 14.6 Seeder Package
+
+```bash
+: > src/features/business/package/package.seeder.ts
+cat >> src/features/business/package/package.seeder.ts << 'EOF'
+import { faker } from "@faker-js/faker";
+import { Package } from "./package.model";
+import { Shipment } from "../shipment/shipment.model";
+
+/**
+ * Seeder del feature Package (datos falsos con @faker-js/faker).
+ * Se invoca desde `src/database/seeders` (SeedersRunner), no desde la App.
+ *
+ * Idempotente: si ya hay filas, no vuelve a insertar.
+ */
+export async function seedPackages(count: number): Promise<number> {
+  if (count <= 0) {
+    console.log("\u23ed\ufe0f  packages: count=0, se omite");
+    return 0;
+  }
+
+  const existing = await Package.count();
+  if (existing > 0) {
+    console.log(`\u23ed\ufe0f  packages: ya hay ${existing} registro(s), se omite seeder`);
+    return 0;
+  }
+
+  const shipmentList = await Shipment.findAll({ where: { is_active: true } });
+  if (shipmentList.length === 0) {
+    console.log("\u23ed\ufe0f  packages: faltan dependencias activas (shipmentList), se omite seeder");
+    return 0;
+  }
+
+  const rows = Array.from({ length: count }, () => ({
+      envio_id: faker.helpers.arrayElement(shipmentList).id,
+      descripcion_contenido: faker.commerce.productDescription(),
+      peso_kg: Number(faker.commerce.price({ min: 0.2, max: 20, dec: 2 })),
+      alto_cm: Number(faker.commerce.price({ min: 5, max: 80, dec: 1 })),
+      ancho_cm: Number(faker.commerce.price({ min: 5, max: 80, dec: 1 })),
+      largo_cm: Number(faker.commerce.price({ min: 5, max: 80, dec: 1 })),
+      valor_declarado: Number(faker.commerce.price({ min: 5000, max: 500000, dec: 2 })),
+      es_fragil: faker.datatype.boolean(),
+      is_active: true,
+  }));
+
+  await Package.bulkCreate(rows);
+  console.log(`\u2705 packages: insertados ${count} registro(s) falsos`);
+  return count;
+}
+EOF
+```
+**PARCHE** — `src/database/seeders/counts.ts` **ya existe**.
+
+- **Dentro de** `SeedCounts`, **añadir** `packages: number;`
+- **Dentro de** `DEFAULT_SEED_COUNTS`, **añadir** `packages: 15,`
+- Lectura opcional por env: `SEED_PACKAGES`.
+
+**PARCHE** — `src/database/seeders/index.ts` **ya existe**.
+
+1. **Debajo de** el import del seeder anterior, **añadir** `import { seedPackages } from "../../features/business/package/package.seeder";`
+2. **Debajo de** `await seedShipments(counts.shipments);`, **añadir** `await seedPackages(counts.packages);`
+
+---
+
+## 14.7 Swagger Package
+
+```bash
+: > src/features/business/package/package.swagger.ts
+cat >> src/features/business/package/package.swagger.ts << 'EOF'
+/**
+ * Documentacion OpenAPI del feature Package.
+ * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
+ *
+ * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ */
+
+export const packageSwagger = {
+  tags: [
+    {
+      name: "Packages",
+      description: "CRUD de packages — **SIN AUTH** (sin middleware JWT)",
+    },
+  ],
+  paths: {
+    "/api/packages": {
+      get: {
+        tags: ["Packages"],
+        summary: "Listar packages activos",
+        description: "SIN AUTH — retorna registros con is_active=true",
+        security: [],
+        responses: {
+          "200": {
+            description: "Lista de packages",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    packages: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Package" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Packages"],
+        summary: "Crear package",
+        description: "SIN AUTH",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/PackageCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Package creado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    package: { $ref: "#/components/schemas/Package" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/packages/{id}": {
+      get: {
+        tags: ["Packages"],
+        summary: "Obtener package por id",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "Package encontrado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    package: { $ref: "#/components/schemas/Package" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No encontrado" },
+        },
+      },
+      put: {
+        tags: ["Packages"],
+        summary: "Actualizar package (PUT — reemplazo)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/PackageCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      patch: {
+        tags: ["Packages"],
+        summary: "Actualizar package (PATCH — parcial)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/PackagePatch" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      delete: {
+        tags: ["Packages"],
+        summary: "Eliminar package (fisico)",
+        description: "SIN AUTH — borra la fila",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+    "/api/packages/{id}/deactivate": {
+      patch: {
+        tags: ["Packages"],
+        summary: "Eliminar package (logico)",
+        description: "SIN AUTH — is_active = false",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Package: {
+        type: "object",
+        properties: {
+      id: { type: "integer", example: 1 },
+      envio_id: { type: "integer", example: 1 },
+      descripcion_contenido: { type: "string" },
+      peso_kg: { type: "number", example: 10.5 },
+      alto_cm: { type: "number", example: 10.5 },
+      ancho_cm: { type: "number", example: 10.5 },
+      largo_cm: { type: "number", example: 10.5 },
+      valor_declarado: { type: "number", example: 10.5 },
+      es_fragil: { type: "boolean", example: true },
+      is_active: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      PackageCreate: {
+        type: "object",
+        required: ["envio_id", "peso_kg"],
+        properties: {
+      envio_id: { type: "integer", example: 1 },
+      descripcion_contenido: { type: "string" },
+      peso_kg: { type: "number", example: 10.5 },
+      alto_cm: { type: "number", example: 10.5 },
+      ancho_cm: { type: "number", example: 10.5 },
+      largo_cm: { type: "number", example: 10.5 },
+      valor_declarado: { type: "number", example: 10.5 },
+      es_fragil: { type: "boolean", example: true },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+      PackagePatch: {
+        type: "object",
+        properties: {
+      envio_id: { type: "integer", example: 1 },
+      descripcion_contenido: { type: "string" },
+      peso_kg: { type: "number", example: 10.5 },
+      alto_cm: { type: "number", example: 10.5 },
+      ancho_cm: { type: "number", example: 10.5 },
+      largo_cm: { type: "number", example: 10.5 },
+      valor_declarado: { type: "number", example: 10.5 },
+      es_fragil: { type: "boolean", example: true },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+
+**PARCHE** — `src/swagger/index.ts` **ya existe**.
+
+1. **Debajo de** `import { shipmentSwagger } ...`, **añadir** `import { packageSwagger } from "../features/business/package/package.swagger";`
+2. **Dentro de** `featureSwaggerModules`, **debajo de** `shipmentSwagger,`, **añadir** `packageSwagger,`
+
+### Verificación
+
+```bash
+curl -s http://localhost:4000/api/packages
+```
+
+![alt text](img-express/api_packages.png)
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_packages.png)
+
+![alt text](img-express/docs_packages.png)
+
+> El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.

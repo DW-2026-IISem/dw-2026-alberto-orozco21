@@ -5,6 +5,7 @@ import { MessengerRoutes } from "../features/business/messenger/messenger.routes
 import { RateRoutes } from "../features/business/rate/rate.routes";
 import { RouteRoutes } from "../features/business/route/route.routes";
 import { ShipmentRoutes } from "../features/business/shipment/shipment.routes";
+import { PackageRoutes } from "../features/business/package/package.routes";
 
 export class Routes {
   public companiesRoutes: CompaniesRoutes = new CompaniesRoutes();
@@ -14,4 +15,5 @@ export class Routes {
   public rateRoutes: RateRoutes = new RateRoutes();
   public routeRoutes: RouteRoutes = new RouteRoutes();
   public shipmentRoutes: ShipmentRoutes = new ShipmentRoutes();
+  public packageRoutes: PackageRoutes = new PackageRoutes();
 }

@@ -8,6 +8,7 @@ import { seedMessengers } from "../../features/business/messenger/messenger.seed
 import { seedRates } from "../../features/business/rate/rate.seeder";
 import { seedRoutes } from "../../features/business/route/route.seeder";
 import { seedShipments } from "../../features/business/shipment/shipment.seeder";
+import { seedPackages } from "../../features/business/package/package.seeder";
 import { resolveSeedCounts } from "./counts";
 
 dotenv.config();
@@ -42,6 +43,7 @@ export async function runAllSeeders(): Promise<void> {
   await seedRates(counts.rates);
   await seedRoutes(counts.routes);
   await seedShipments(counts.shipments);
+  await seedPackages(counts.packages);
 
   console.log("🌱 SeedersRunner finalizado");
 }

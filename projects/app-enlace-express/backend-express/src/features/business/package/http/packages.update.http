@@ -1,0 +1,30 @@
+### Feature Package — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updatePackagePut
+PUT {{baseUrl}}/api/packages/{{id}}
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "descripcion_contenido": "Contenido actualizado",
+  "peso_kg": 10.5,
+  "alto_cm": 10.5,
+  "ancho_cm": 10.5,
+  "largo_cm": 10.5,
+  "valor_declarado": 50000,
+  "es_fragil": true,
+  "is_active": true
+}
+
+###
+
+# @name updatePackagePatch
+PATCH {{baseUrl}}/api/packages/{{id}}
+Content-Type: application/json
+
+{
+  "descripcion_contenido": "Contenido actualizado"
+}
