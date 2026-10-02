@@ -7969,3 +7969,822 @@ npm run dev
 ![alt text](img-express/docs_tr_event.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 16. ISS-15 — Feature DeliveryProof
+
+**Objetivo:** CRUD completo + seeder + swagger de **DeliveryProof** (tabla `delivery_proofs`).  
+**Bloqueado por:** ISS-14.  
+**API:** `/api/delivery_proofs` — **SIN AUTH**.  
+**Patrón:** mismo que las features anteriores (modelo → controller/routes → http → cableado → relación → seeder → swagger).
+
+### Criterios de aceptación (ISS-15)
+
+- [ ] **16.1** Modelo `delivery-proof.model.ts` (`is_active` boolean + `timestamps: true`, columnas snake_case)
+- [ ] **16.2** Controller + routes: getAll, getOne, create, update PUT/PATCH, delete físico y lógico
+- [ ] **16.3** Carpeta `http/` con get, create, update, delete
+- [ ] **16.4** Cableado en `routes/index.ts` + `config/index.ts`
+- [ ] **16.5** Asociaciones (`delivery-proof.associations.ts`) + PARCHE `config`
+- [ ] **16.6** Seeder + registro en SeedersRunner / `counts.ts`
+- [ ] **16.7** Swagger + registro en `src/swagger`
+
+> Relacion 1:1: `envio_id` es `unique` en `delivery_proofs` (0..1 por shipment).
+
+---
+
+```bash
+mkdir -p \
+  src/features/business/delivery-proof/http
+```
+
+## 16.1 Modelo DeliveryProof
+
+```bash
+: > src/features/business/delivery-proof/delivery-proof.model.ts
+cat >> src/features/business/delivery-proof/delivery-proof.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+export interface DeliveryProofI {
+  id?: number;
+  envio_id: number;
+  fecha_hora: Date | string;
+  receptor_nombre: string;
+  receptor_documento?: string | null;
+  firma_url?: string | null;
+  foto_url?: string | null;
+  geolocalizacion_lat?: number | null;
+  geolocalizacion_lng?: number | null;
+  observaciones?: string | null;
+  estado: "valida" | "observada" | "rechazada";
+  is_active?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class DeliveryProof extends Model {
+  public id!: number;
+  public envio_id!: number;
+  public fecha_hora!: Date | string;
+  public receptor_nombre!: string;
+  public receptor_documento!: string | null;
+  public firma_url!: string | null;
+  public foto_url!: string | null;
+  public geolocalizacion_lat!: number | null;
+  public geolocalizacion_lng!: number | null;
+  public observaciones!: string | null;
+  public estado!: "valida" | "observada" | "rechazada";
+  public is_active!: boolean;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+DeliveryProof.init(
+  {
+    envio_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "shipments", key: "id" },
+      allowNull: false,
+      unique: true,
+    },
+    fecha_hora: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    receptor_nombre: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    receptor_documento: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    firma_url: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    foto_url: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    geolocalizacion_lat: {
+      type: DataTypes.DECIMAL(10, 7),
+      allowNull: true,
+    },
+    geolocalizacion_lng: {
+      type: DataTypes.DECIMAL(10, 7),
+      allowNull: true,
+    },
+    observaciones: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    estado: {
+      type: DataTypes.ENUM("valida", "observada", "rechazada"),
+      allowNull: false,
+      defaultValue: "valida",
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "DeliveryProof",
+    tableName: "delivery_proofs",
+    timestamps: true,
+  }
+);
+EOF
+```
+
+---
+
+## 16.2 Controller + routes (CRUD completo)
+
+```bash
+: > src/features/business/delivery-proof/delivery-proof.controller.ts
+cat >> src/features/business/delivery-proof/delivery-proof.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { DeliveryProof, DeliveryProofI } from "./delivery-proof.model";
+import { Shipment } from "../shipment/shipment.model";
+
+function paramId(req: Request): number {
+  const raw = req.params.id;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return Number(value);
+}
+
+export class DeliveryProofController {
+  // ================== READ ==================
+  public async getAll(req: Request, res: Response) {
+    try {
+      const delivery_proofs = await DeliveryProof.findAll({
+        where: { is_active: true },
+      });
+      res.status(200).json({ delivery_proofs });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching delivery_proofs", detail: String(error) });
+    }
+  }
+
+  public async getOne(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const deliveryProof = await DeliveryProof.findByPk(id);
+      if (!deliveryProof) {
+        res.status(404).json({ error: "DeliveryProof not found" });
+        return;
+      }
+      res.status(200).json({ deliveryProof: deliveryProof });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching deliveryProof", detail: String(error) });
+    }
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response) {
+    try {
+      const body = req.body as DeliveryProofI;
+      if (body.envio_id !== undefined && body.envio_id !== null) {
+        const found_envio_id = await Shipment.findByPk(body.envio_id);
+        if (!found_envio_id) {
+          res.status(404).json({ error: "Shipment (envio_id) not found" });
+          return;
+        }
+      }
+
+      const deliveryProof = await DeliveryProof.create({
+        envio_id: body.envio_id,
+        fecha_hora: body.fecha_hora,
+        receptor_nombre: body.receptor_nombre,
+        receptor_documento: body.receptor_documento ?? null,
+        firma_url: body.firma_url ?? null,
+        foto_url: body.foto_url ?? null,
+        geolocalizacion_lat: body.geolocalizacion_lat ?? null,
+        geolocalizacion_lng: body.geolocalizacion_lng ?? null,
+        observaciones: body.observaciones ?? null,
+        estado: body.estado,
+        is_active: body.is_active ?? true,
+      });
+      res.status(201).json({ deliveryProof: deliveryProof });
+    } catch (error) {
+      res.status(500).json({ error: "Error creating deliveryProof", detail: String(error) });
+    }
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as DeliveryProofI;
+      const deliveryProof = await DeliveryProof.findByPk(id);
+      if (!deliveryProof) {
+        res.status(404).json({ error: "DeliveryProof not found" });
+        return;
+      }
+      if (body.envio_id !== undefined && body.envio_id !== null) {
+        const found_envio_id = await Shipment.findByPk(body.envio_id);
+        if (!found_envio_id) {
+          res.status(404).json({ error: "Shipment (envio_id) not found" });
+          return;
+        }
+      }
+
+      await deliveryProof.update({
+        envio_id: body.envio_id,
+        fecha_hora: body.fecha_hora,
+        receptor_nombre: body.receptor_nombre,
+        receptor_documento: body.receptor_documento ?? deliveryProof.receptor_documento,
+        firma_url: body.firma_url ?? deliveryProof.firma_url,
+        foto_url: body.foto_url ?? deliveryProof.foto_url,
+        geolocalizacion_lat: body.geolocalizacion_lat ?? deliveryProof.geolocalizacion_lat,
+        geolocalizacion_lng: body.geolocalizacion_lng ?? deliveryProof.geolocalizacion_lng,
+        observaciones: body.observaciones ?? deliveryProof.observaciones,
+        estado: body.estado,
+        is_active: body.is_active ?? deliveryProof.is_active,
+      });
+
+      res.status(200).json({ deliveryProof: deliveryProof });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating deliveryProof (PUT)", detail: String(error) });
+    }
+  }
+
+  public async updatePatch(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const body = req.body as Partial<DeliveryProofI>;
+      const deliveryProof = await DeliveryProof.findByPk(id);
+      if (!deliveryProof) {
+        res.status(404).json({ error: "DeliveryProof not found" });
+        return;
+      }
+
+      await deliveryProof.update(body);
+      res.status(200).json({ deliveryProof: deliveryProof });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating deliveryProof (PATCH)", detail: String(error) });
+    }
+  }
+
+  // ================== DELETE ==================
+  /** Eliminacion fisica */
+  public async deletePhysical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const deliveryProof = await DeliveryProof.findByPk(id);
+      if (!deliveryProof) {
+        res.status(404).json({ error: "DeliveryProof not found" });
+        return;
+      }
+      await deliveryProof.destroy();
+      res.status(200).json({ message: "DeliveryProof permanently deleted", id });
+    } catch (error) {
+      res.status(500).json({ error: "Error deleting deliveryProof", detail: String(error) });
+    }
+  }
+
+  /** Eliminacion logica -> is_active = false */
+  public async deleteLogical(req: Request, res: Response) {
+    try {
+      const id = paramId(req);
+      const deliveryProof = await DeliveryProof.findByPk(id);
+      if (!deliveryProof) {
+        res.status(404).json({ error: "DeliveryProof not found" });
+        return;
+      }
+      await deliveryProof.update({ is_active: false });
+      res.status(200).json({
+        message: "DeliveryProof deactivated (logical delete)",
+        deliveryProof: deliveryProof,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error deactivating deliveryProof", detail: String(error) });
+    }
+  }
+}
+EOF
+```
+```bash
+: > src/features/business/delivery-proof/delivery-proof.routes.ts
+cat >> src/features/business/delivery-proof/delivery-proof.routes.ts << 'EOF'
+import { Application } from "express";
+import { DeliveryProofController } from "./delivery-proof.controller";
+
+export class DeliveryProofRoutes {
+  public deliveryProofController: DeliveryProofController = new DeliveryProofController();
+
+  public routes(app: Application): void {
+    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
+
+    // getAll
+    app
+      .route("/api/delivery_proofs")
+      .get(this.deliveryProofController.getAll.bind(this.deliveryProofController));
+
+    // getOne
+    app
+      .route("/api/delivery_proofs/:id")
+      .get(this.deliveryProofController.getOne.bind(this.deliveryProofController));
+
+    // create
+    app
+      .route("/api/delivery_proofs")
+      .post(this.deliveryProofController.create.bind(this.deliveryProofController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/delivery_proofs/:id")
+      .put(this.deliveryProofController.updatePut.bind(this.deliveryProofController))
+      .patch(this.deliveryProofController.updatePatch.bind(this.deliveryProofController));
+
+    // delete fisico
+    app
+      .route("/api/delivery_proofs/:id")
+      .delete(this.deliveryProofController.deletePhysical.bind(this.deliveryProofController));
+
+    // delete logico
+    app
+      .route("/api/delivery_proofs/:id/deactivate")
+      .patch(this.deliveryProofController.deleteLogical.bind(this.deliveryProofController));
+  }
+}
+EOF
+```
+
+---
+
+## 16.3 HTTP
+
+```bash
+: > src/features/business/delivery-proof/http/delivery_proofs.get.http
+cat >> src/features/business/delivery-proof/http/delivery_proofs.get.http << 'EOF'
+### Feature DeliveryProof — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllDeliveryProof
+GET {{baseUrl}}/api/delivery_proofs
+
+###
+
+# @name getOneDeliveryProof
+GET {{baseUrl}}/api/delivery_proofs/{{id}}
+EOF
+```
+```bash
+: > src/features/business/delivery-proof/http/delivery_proofs.create.http
+cat >> src/features/business/delivery-proof/http/delivery_proofs.create.http << 'EOF'
+### Feature DeliveryProof — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createDeliveryProof
+POST {{baseUrl}}/api/delivery_proofs
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "fecha_hora": "2026-01-15T10:00:00.000Z",
+  "receptor_nombre": "Ejemplo receptor_nombre",
+  "receptor_documento": "Ejemplo receptor_documento",
+  "firma_url": "Ejemplo firma_url",
+  "foto_url": "Ejemplo foto_url",
+  "geolocalizacion_lat": 10.5,
+  "geolocalizacion_lng": 10.5,
+  "observaciones": "Ejemplo observaciones",
+  "estado": "valida",
+  "is_active": true
+}
+EOF
+```
+```bash
+: > src/features/business/delivery-proof/http/delivery_proofs.update.http
+cat >> src/features/business/delivery-proof/http/delivery_proofs.update.http << 'EOF'
+### Feature DeliveryProof — UPDATE (PUT) / UPDATE (PATCH)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name updateDeliveryProofPut
+PUT {{baseUrl}}/api/delivery_proofs/{{id}}
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "fecha_hora": "2026-01-15T10:00:00.000Z",
+  "receptor_nombre": "Ejemplo receptor_nombre",
+  "receptor_documento": "Ejemplo receptor_documento",
+  "firma_url": "Ejemplo firma_url",
+  "foto_url": "Ejemplo foto_url",
+  "geolocalizacion_lat": 10.5,
+  "geolocalizacion_lng": 10.5,
+  "observaciones": "Ejemplo observaciones",
+  "estado": "valida",
+  "is_active": true
+}
+
+###
+
+# @name updateDeliveryProofPatch
+PATCH {{baseUrl}}/api/delivery_proofs/{{id}}
+Content-Type: application/json
+
+{
+  "fecha_hora": "2026-01-15T10:00:00.000Z"
+}
+EOF
+```
+```bash
+: > src/features/business/delivery-proof/http/delivery_proofs.delete.http
+cat >> src/features/business/delivery-proof/http/delivery_proofs.delete.http << 'EOF'
+### Feature DeliveryProof — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteDeliveryProofPhysical
+DELETE {{baseUrl}}/api/delivery_proofs/{{id}}
+
+###
+
+# @name deleteDeliveryProofLogical
+PATCH {{baseUrl}}/api/delivery_proofs/{{id}}/deactivate
+EOF
+```
+
+---
+
+## 16.4 Cableado Routes + Config
+
+**PARCHE** — `src/routes/index.ts` **ya existe**.
+
+1. **Debajo de** `import { TrackingEventRoutes } ...`, **añadir**:
+
+```ts
+import { DeliveryProofRoutes } from "../features/business/delivery-proof/delivery-proof.routes";
+```
+
+2. **Dentro de** `export class Routes`, **debajo de** `trackingEventRoutes`, **añadir**:
+
+```ts
+  public deliveryProofRoutes: DeliveryProofRoutes = new DeliveryProofRoutes();
+```
+
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+1. **Debajo de** `import "../features/business/tracking-event/tracking-event.model";`, **añadir**:
+
+```ts
+import "../features/business/delivery-proof/delivery-proof.model";
+```
+
+2. **Dentro de** `routes()`, **debajo de** `this.routePrv.trackingEventRoutes.routes(this.app);`, **añadir**:
+
+```ts
+    this.routePrv.deliveryProofRoutes.routes(this.app);
+```
+
+---
+
+## 16.5 Relación / asociaciones DeliveryProof
+
+> `DeliveryProof` referencia: **Shipment**. Norma FK: `<tabla_singular>_id`.
+
+```bash
+: > src/features/business/delivery-proof/delivery-proof.associations.ts
+cat >> src/features/business/delivery-proof/delivery-proof.associations.ts << 'EOF'
+import { DeliveryProof } from "./delivery-proof.model";
+import { Shipment } from "../shipment/shipment.model";
+
+DeliveryProof.belongsTo(Shipment, { foreignKey: "envio_id", as: "shipment" });
+Shipment.hasOne(DeliveryProof, { foreignKey: "envio_id", as: "deliveryProof" });
+EOF
+```
+**PARCHE** — `src/config/index.ts` **ya existe**.
+
+**Debajo de** `import "../features/business/delivery-proof/delivery-proof.model";` (y **encima de** `import { Routes }`), **añadir**:
+
+```ts
+import "../features/business/delivery-proof/delivery-proof.associations";
+```
+
+---
+
+## 16.6 Seeder DeliveryProof
+
+```bash
+: > src/features/business/delivery-proof/delivery-proof.seeder.ts
+cat >> src/features/business/delivery-proof/delivery-proof.seeder.ts << 'EOF'
+import { faker } from "@faker-js/faker";
+import { DeliveryProof } from "./delivery-proof.model";
+import { Shipment } from "../shipment/shipment.model";
+
+/**
+ * Seeder del feature DeliveryProof (datos falsos con @faker-js/faker).
+ * Se invoca desde `src/database/seeders` (SeedersRunner), no desde la App.
+ *
+ * Idempotente: si ya hay filas, no vuelve a insertar.
+ */
+export async function seedDeliveryProofs(count: number): Promise<number> {
+  if (count <= 0) {
+    console.log("\u23ed\ufe0f  delivery_proofs: count=0, se omite");
+    return 0;
+  }
+
+  const existing = await DeliveryProof.count();
+  if (existing > 0) {
+    console.log(`\u23ed\ufe0f  delivery_proofs: ya hay ${existing} registro(s), se omite seeder`);
+    return 0;
+  }
+
+  const shipmentList = await Shipment.findAll({ where: { is_active: true } });
+  if (shipmentList.length === 0) {
+    console.log("\u23ed\ufe0f  delivery_proofs: faltan dependencias activas (shipmentList), se omite seeder");
+    return 0;
+  }
+
+  const rows = Array.from({ length: count }, () => ({
+      envio_id: faker.helpers.arrayElement(shipmentList).id,
+      fecha_hora: faker.date.recent(),
+      receptor_nombre: faker.person.fullName(),
+      receptor_documento: faker.string.numeric(10),
+      firma_url: faker.image.url(),
+      foto_url: faker.image.url(),
+      geolocalizacion_lat: Number(faker.location.latitude()),
+      geolocalizacion_lng: Number(faker.location.longitude()),
+      observaciones: faker.lorem.sentence(),
+      estado: faker.helpers.arrayElement(["valida", "observada", "rechazada"]),
+      is_active: true,
+  }));
+
+  await DeliveryProof.bulkCreate(rows);
+  console.log(`\u2705 delivery_proofs: insertados ${count} registro(s) falsos`);
+  return count;
+}
+EOF
+```
+**PARCHE** — `src/database/seeders/counts.ts` **ya existe**.
+
+- **Dentro de** `SeedCounts`, **añadir** `delivery_proofs: number;`
+- **Dentro de** `DEFAULT_SEED_COUNTS`, **añadir** `delivery_proofs: 15,`
+- Lectura opcional por env: `SEED_DELIVERY_PROOFS`.
+
+**PARCHE** — `src/database/seeders/index.ts` **ya existe**.
+
+1. **Debajo de** el import del seeder anterior, **añadir** `import { seedDeliveryProofs } from "../../features/business/delivery-proof/delivery-proof.seeder";`
+2. **Debajo de** `await seedTrackingEvents(counts.tracking_events);`, **añadir** `await seedDeliveryProofs(counts.delivery_proofs);`
+
+---
+
+## 16.7 Swagger DeliveryProof
+
+```bash
+: > src/features/business/delivery-proof/delivery-proof.swagger.ts
+cat >> src/features/business/delivery-proof/delivery-proof.swagger.ts << 'EOF'
+/**
+ * Documentacion OpenAPI del feature DeliveryProof.
+ * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
+ *
+ * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ */
+
+export const deliveryProofSwagger = {
+  tags: [
+    {
+      name: "DeliveryProofs",
+      description: "CRUD de delivery_proofs — **SIN AUTH** (sin middleware JWT)",
+    },
+  ],
+  paths: {
+    "/api/delivery_proofs": {
+      get: {
+        tags: ["DeliveryProofs"],
+        summary: "Listar delivery_proofs activos",
+        description: "SIN AUTH — retorna registros con is_active=true",
+        security: [],
+        responses: {
+          "200": {
+            description: "Lista de delivery_proofs",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    delivery_proofs: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/DeliveryProof" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["DeliveryProofs"],
+        summary: "Crear deliveryProof",
+        description: "SIN AUTH",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/DeliveryProofCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "DeliveryProof creado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    deliveryProof: { $ref: "#/components/schemas/DeliveryProof" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/delivery_proofs/{id}": {
+      get: {
+        tags: ["DeliveryProofs"],
+        summary: "Obtener deliveryProof por id",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "DeliveryProof encontrado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    deliveryProof: { $ref: "#/components/schemas/DeliveryProof" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No encontrado" },
+        },
+      },
+      put: {
+        tags: ["DeliveryProofs"],
+        summary: "Actualizar deliveryProof (PUT — reemplazo)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/DeliveryProofCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      patch: {
+        tags: ["DeliveryProofs"],
+        summary: "Actualizar deliveryProof (PATCH — parcial)",
+        description: "SIN AUTH",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/DeliveryProofPatch" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Actualizado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+      delete: {
+        tags: ["DeliveryProofs"],
+        summary: "Eliminar deliveryProof (fisico)",
+        description: "SIN AUTH — borra la fila",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+    "/api/delivery_proofs/{id}/deactivate": {
+      patch: {
+        tags: ["DeliveryProofs"],
+        summary: "Eliminar deliveryProof (logico)",
+        description: "SIN AUTH — is_active = false",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado" },
+          "404": { description: "No encontrado" },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      DeliveryProof: {
+        type: "object",
+        properties: {
+      id: { type: "integer", example: 1 },
+      envio_id: { type: "integer", example: 1 },
+      fecha_hora: { type: "string", format: "date-time" },
+      receptor_nombre: { type: "string", example: "receptor_nombre" },
+      receptor_documento: { type: "string", example: "receptor_documento" },
+      firma_url: { type: "string", example: "firma_url" },
+      foto_url: { type: "string", example: "foto_url" },
+      geolocalizacion_lat: { type: "number", example: 10.5 },
+      geolocalizacion_lng: { type: "number", example: 10.5 },
+      observaciones: { type: "string" },
+      estado: { type: "string", enum: ["valida", "observada", "rechazada"], example: "valida" },
+      is_active: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      DeliveryProofCreate: {
+        type: "object",
+        required: ["envio_id", "fecha_hora", "receptor_nombre", "estado"],
+        properties: {
+      envio_id: { type: "integer", example: 1 },
+      fecha_hora: { type: "string", format: "date-time" },
+      receptor_nombre: { type: "string", example: "receptor_nombre" },
+      receptor_documento: { type: "string", example: "receptor_documento" },
+      firma_url: { type: "string", example: "firma_url" },
+      foto_url: { type: "string", example: "foto_url" },
+      geolocalizacion_lat: { type: "number", example: 10.5 },
+      geolocalizacion_lng: { type: "number", example: 10.5 },
+      observaciones: { type: "string" },
+      estado: { type: "string", enum: ["valida", "observada", "rechazada"], example: "valida" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+      DeliveryProofPatch: {
+        type: "object",
+        properties: {
+      envio_id: { type: "integer", example: 1 },
+      fecha_hora: { type: "string", format: "date-time" },
+      receptor_nombre: { type: "string", example: "receptor_nombre" },
+      receptor_documento: { type: "string", example: "receptor_documento" },
+      firma_url: { type: "string", example: "firma_url" },
+      foto_url: { type: "string", example: "foto_url" },
+      geolocalizacion_lat: { type: "number", example: 10.5 },
+      geolocalizacion_lng: { type: "number", example: 10.5 },
+      observaciones: { type: "string" },
+      estado: { type: "string", enum: ["valida", "observada", "rechazada"], example: "valida" },
+      is_active: { type: "boolean", example: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+**PARCHE** — `src/swagger/index.ts` **ya existe**.
+
+1. **Debajo de** `import { trackingEventSwagger } ...`, **añadir** `import { deliveryProofSwagger } from "../features/business/delivery-proof/delivery-proof.swagger";`
+2. **Dentro de** `featureSwaggerModules`, **debajo de** `trackingEventSwagger,`, **añadir** `deliveryProofSwagger,`
+
+### Verificación
+
+```bash
+curl -s http://localhost:4000/api/delivery_proofs
+```
+
+![alt text](img-express/api_delivery_proofs.png)
+
+### Cierre del ISS
+
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_delivery_proofs.png)
+
+![alt text](img-express/docs_delivery_proofs.png)
+
+> El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.

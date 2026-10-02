@@ -8,6 +8,7 @@ export type SeedCounts = {
   shipments: number;
   packages: number;
   tracking_events: number;
+  delivery_proofs: number;
 };
 
 export const DEFAULT_SEED_COUNTS: SeedCounts = {
@@ -19,7 +20,8 @@ export const DEFAULT_SEED_COUNTS: SeedCounts = {
   routes: 15,
   shipments: 15,
   packages: 15,
-  tracking_events: 15
+  tracking_events: 15,
+  delivery_proofs: 15
 };
 
 export function resolveSeedCounts(argv: string[] = process.argv.slice(2)): SeedCounts {
@@ -58,6 +60,11 @@ export function resolveSeedCounts(argv: string[] = process.argv.slice(2)): SeedC
   const envTrackingEvents = process.env.SEED_TRACKING_EVENTS;
   if (envTrackingEvents !== undefined && envTrackingEvents !== "") {
     counts.tracking_events = Number(envTrackingEvents);
+  }
+
+  const envDeliveryProofs = process.env.SEED_DELIVERY_PROOFS;
+  if (envDeliveryProofs !== undefined && envDeliveryProofs !== "") {
+    counts.delivery_proofs = Number(envDeliveryProofs);
   }
 
   for (const arg of argv) {

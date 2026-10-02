@@ -1,0 +1,21 @@
+### Feature DeliveryProof — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createDeliveryProof
+POST {{baseUrl}}/api/delivery_proofs
+Content-Type: application/json
+
+{
+  "envio_id": 1,
+  "fecha_hora": "2026-01-15T10:00:00.000Z",
+  "receptor_nombre": "Alex Rivera",
+  "receptor_documento": "1000000001",
+  "firma_url": "https://example.com/signature.png",
+  "foto_url": "https://example.com/delivery.jpg",
+  "geolocalizacion_lat": 4.711,
+  "geolocalizacion_lng": -74.0721,
+  "observaciones": "Entrega recibida.",
+  "estado": "valida",
+  "is_active": true
+}

@@ -9,6 +9,7 @@ import { routeSwagger } from "../features/business/route/route.swagger";
 import { shipmentSwagger } from "../features/business/shipment/shipment.swagger";
 import { packageSwagger } from "../features/business/package/package.swagger";
 import { trackingEventSwagger } from "../features/business/tracking-event/tracking-event.swagger";
+import { deliveryProofSwagger } from "../features/business/delivery-proof/delivery-proof.swagger";
 
 export type FeatureSwaggerModule = {
   tags: unknown[];
@@ -29,7 +30,8 @@ const featureSwaggerModules: FeatureSwaggerModule[] = [
   routeSwagger,
   shipmentSwagger,
   packageSwagger,
-  trackingEventSwagger
+  trackingEventSwagger,
+  deliveryProofSwagger
 ];
 
 export function buildOpenApiDocument() {

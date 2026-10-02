@@ -1,0 +1,12 @@
+### Feature DeliveryProof — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteDeliveryProofPhysical
+DELETE {{baseUrl}}/api/delivery_proofs/{{id}}
+
+###
+
+# @name deleteDeliveryProofLogical
+PATCH {{baseUrl}}/api/delivery_proofs/{{id}}/deactivate

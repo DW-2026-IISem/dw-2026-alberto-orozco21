@@ -1,0 +1,12 @@
+### Feature DeliveryProof — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllDeliveryProof
+GET {{baseUrl}}/api/delivery_proofs
+
+###
+
+# @name getOneDeliveryProof
+GET {{baseUrl}}/api/delivery_proofs/{{id}}
