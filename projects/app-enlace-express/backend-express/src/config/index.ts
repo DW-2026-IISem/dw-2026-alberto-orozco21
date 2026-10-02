@@ -7,6 +7,7 @@ import "../features/business/companies/companies.model";
 import "../features/business/contact/contact.model";
 import "../features/business/address/address.model";
 import "../features/business/messenger/messenger.model";
+import "../features/business/rate/rate.model";
 import { Routes } from "../routes/index";
 import "../features/business/contact/contact.associations";
 import "../features/business/address/address.associations";
@@ -44,6 +45,7 @@ export class App {
     this.routePrv.contactRoutes.routes(this.app);
     this.routePrv.addressRoutes.routes(this.app);
     this.routePrv.messengerRoutes.routes(this.app);
+    this.routePrv.rateRoutes.routes(this.app);
   }
 
   private docs(): void {

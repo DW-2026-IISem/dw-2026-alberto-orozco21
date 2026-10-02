@@ -5,6 +5,7 @@ import { seedCompanies } from "../../features/business/companies/companies.seede
 import { seedContacts } from "../../features/business/contact/contact.seeder";
 import { seedAddresses } from "../../features/business/address/address.seeder";
 import { seedMessengers } from "../../features/business/messenger/messenger.seeder";
+import { seedRates } from "../../features/business/rate/rate.seeder";
 import { resolveSeedCounts } from "./counts";
 
 dotenv.config();
@@ -36,6 +37,7 @@ export async function runAllSeeders(): Promise<void> {
   await seedContacts(counts.contacts);
   await seedAddresses(counts.addresses);
   await seedMessengers(counts.messengers);
+  await seedRates(counts.rates);
 
   console.log("🌱 SeedersRunner finalizado");
 }

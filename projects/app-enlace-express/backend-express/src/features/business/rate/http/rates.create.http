@@ -1,0 +1,19 @@
+### Feature Rate — CREATE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+
+# @name createRate
+POST {{baseUrl}}/api/rates
+Content-Type: application/json
+
+{
+  "nombre": "Tarifa estándar",
+  "zona": "Centro",
+  "regla_calculo": "por_peso",
+  "valor_base": 10000,
+  "valor_por_kg_adicional": 1500,
+  "recargo_urgente_pct": 15,
+  "vigencia_desde": "2026-01-15",
+  "vigencia_hasta": "2026-12-31",
+  "is_active": true
+}

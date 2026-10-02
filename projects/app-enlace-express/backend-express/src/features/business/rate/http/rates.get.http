@@ -1,0 +1,12 @@
+### Feature Rate — GET ALL / GET ONE
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name getAllRate
+GET {{baseUrl}}/api/rates
+
+###
+
+# @name getOneRate
+GET {{baseUrl}}/api/rates/{{id}}

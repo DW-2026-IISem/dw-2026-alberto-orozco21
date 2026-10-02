@@ -1,0 +1,12 @@
+### Feature Rate — DELETE fisico / DELETE logico (is_active = false)
+### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
+@baseUrl = http://localhost:4000
+@id = 1
+
+# @name deleteRatePhysical
+DELETE {{baseUrl}}/api/rates/{{id}}
+
+###
+
+# @name deleteRateLogical
+PATCH {{baseUrl}}/api/rates/{{id}}/deactivate
