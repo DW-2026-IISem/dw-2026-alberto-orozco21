@@ -3027,3 +3027,97 @@ npm run dev
 ![alt text](img-express/address_docs.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 9. ISS-08 — PARCHE — Relación Company ↔ Contact / Address
+
+**Objetivo:** cerrar el ciclo Company↔Contact↔Address. `Company` (Empresa) referencia a `Contact` (`contacto_principal_id`) y a `Address` (`direccion_facturacion_id`), pero ambas tablas dependían de `Company` (`empresa_id`) y no existían todavía cuando se creó `company.model.ts` (ISS-03). Con `Contact` (ISS-06) y `Address` (ISS-07) ya creadas, se agregan ahora las dos columnas FK que faltaban en `companies` mediante **PARCHE**.  
+**Bloqueado por:** ISS-07.
+
+### Criterios de aceptación (ISS-08)
+
+- [X] **9.1** `company.model.ts` con `contacto_principal_id` y `direccion_facturacion_id` (nullable, FK)
+- [X] **9.2** `company.associations.ts` (`belongsTo` hacia `Contact` y `Address`)
+- [X] **9.3** `config/index.ts` importa `company.associations`
+- [X] `npx tsc --noEmit` OK y `npm run dev` sincroniza sin error
+
+---
+
+## 9.1 PARCHE — `company.model.ts`
+
+**PARCHE** — `src/features/business/company/company.model.ts` **ya existe** (ISS-03).
+
+**Dentro de** la interfaz `CompanyI`, **debajo de** `razon_social: string;`, **añadir**:
+
+```ts
+  contacto_principal_id?: number | null;
+  direccion_facturacion_id?: number | null;
+```
+
+**Dentro de** la clase `Company`, **debajo de** `public razon_social!: string;`, **añadir**:
+
+```ts
+  public contacto_principal_id!: number | null;
+  public direccion_facturacion_id!: number | null;
+```
+
+**Dentro de** `Company.init({ ... })`, **debajo de** la columna `razon_social`, **añadir**:
+
+```ts
+  contacto_principal_id: {
+    type: DataTypes.INTEGER,
+    references: { model: "contacts", key: "id" },
+    allowNull: true,
+  },
+  direccion_facturacion_id: {
+    type: DataTypes.INTEGER,
+    references: { model: "addresses", key: "id" },
+    allowNull: true,
+  },
+```
+
+También **añadir** ambos campos al `create` / `updatePut` del controller (`company.controller.ts`), igual que el resto de columnas (`body.contacto_principal_id ?? null`, `body.direccion_facturacion_id ?? null`).
+
+---
+
+## 9.2 Asociaciones Company ↔ Contact / Address
+
+```bash
+: > src/features/business/companies/company.associations.ts
+cat >> src/features/business/companies/company.associations.ts << 'EOF'
+import { Company } from "./companies.model";
+import { Contact } from "../contact/contact.model";
+import { Address } from "../address/address.model";
+
+Company.belongsTo(Contact, { foreignKey: "contacto_principal_id", as: "contacto_principal" });
+Company.belongsTo(Address, { foreignKey: "direccion_facturacion_id", as: "direccion_facturacion" });
+EOF
+```
+---
+
+## 9.3 PARCHE — `config/index.ts`
+
+**Debajo de** `import "../features/business/address/address.associations";` (o el último import de asociaciones existente), **añadir**:
+
+```ts
+import "../features/business/companies/company.associations";
+```
+
+### Verificación
+
+```bash
+npx tsc --noEmit
+curl -s -X PATCH http://localhost:4000/api/companies/1 \
+  -H 'Content-Type: application/json' \
+  -d '{"contacto_principal_id":1,"direccion_facturacion_id":1}'
+```
+
+![alt text](img-express/patch_company.png)
+
+### Cierre del ISS
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_Company_Contact.png)

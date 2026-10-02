@@ -44,6 +44,8 @@ export class CompaniesController {
         nit: body.nit,
         razon_social: body.razon_social,
         is_active: body.is_active ?? true,
+        contacto_principal_id: body.contacto_principal_id ?? null,
+        direccion_facturacion_id: body.direccion_facturacion_id ?? null
       });
       res.status(201).json({ companies });
     } catch (error) {
@@ -67,6 +69,8 @@ export class CompaniesController {
         nit: body.nit,
         razon_social: body.razon_social,
         is_active: body.is_active ?? companies.is_active,
+        contacto_principal_id: body.contacto_principal_id ?? companies.contacto_principal_id,
+        direccion_facturacion_id: body.direccion_facturacion_id ?? companies.direccion_facturacion_id
       });
 
       res.status(200).json({ companies });

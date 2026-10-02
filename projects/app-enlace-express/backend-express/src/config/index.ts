@@ -9,6 +9,7 @@ import "../features/business/address/address.model";
 import { Routes } from "../routes/index";
 import "../features/business/contact/contact.associations";
 import "../features/business/address/address.associations";
+import "../features/business/companies/company.associations";
 import { setupSwagger } from "../swagger/index";
 
 dotenv.config();
