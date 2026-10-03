@@ -80,10 +80,27 @@ export class App {
         throw new Error(`No se pudo conectar a la base de datos ${dbInfo.engine.toUpperCase()}`);
       }
 
-      // alter: true actualiza columnas faltantes (ej. createdAt/updatedAt tras timestamps: true).
-      // force: false no recrea tablas; no borra datos. En producción preferir migraciones.
-      await sequelize.sync({ force: false, alter: true });
-      console.log(`📦 Base de datos sincronizada exitosamente`);
+      // Por defecto evitamos `alter: true` porque MySQL falla con índices duplicados/64 keys
+      // cuando la BD ya existe y se intenta re-alterar el esquema. `sync` aún crea tablas
+      // faltantes sin tocar las existentes.
+      const syncOptions = {
+        force: false,
+        alter: process.env.DB_SYNC_ALTER === "true",
+      };
+
+      try {
+        await sequelize.sync(syncOptions);
+        console.log(`📦 Base de datos sincronizada exitosamente`);
+      } catch (error: any) {
+        const errNo = error?.original?.errno ?? error?.errno ?? error?.parent?.errno;
+        if (errNo === 1069 || error?.code === "ER_TOO_MANY_KEYS") {
+          console.warn(
+            "⚠️ Se omite el ALTER automático por incompatibilidad de índices en MySQL. La aplicación continuará con la BD existente."
+          );
+        } else {
+          throw error;
+        }
+      }
     } catch (error) {
       console.error("❌ Error al conectar con la base de datos:", error);
       process.exit(1);

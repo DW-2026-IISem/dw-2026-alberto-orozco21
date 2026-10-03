@@ -9605,3 +9605,80 @@ npm run dev
 ![alt text](img-express/docs_invoice.png)
 
 > El servidor debe arrancar sin error. Detenerlo con Ctrl+C antes de continuar.
+
+---
+
+## 18. ISS-17 — PARCHE — Relación Shipment ↔ Invoice
+
+**Objetivo:** cerrar el último vínculo pendiente: un `Shipment` (Envío) queda asociado a la `Invoice` (Factura) del periodo cuando se factura. `factura_id` no pudo agregarse en ISS-12 (Shipment) porque `Invoice` todavía no existía; se agrega ahora por **PARCHE**.  
+**Bloqueado por:** ISS-16.
+
+### Criterios de aceptación (ISS-17)
+
+- [X] **18.1** `shipment.model.ts` con `factura_id` (nullable, FK → `invoices`)
+- [X] **18.2** `shipment.associations.ts` con `Shipment.belongsTo(Invoice)` / `Invoice.hasMany(Shipment)`
+- [X] **18.3** `config/index.ts` importa la asociación
+- [X] `npx tsc --noEmit` OK y `npm run dev` sincroniza sin error
+
+---
+
+## 18.1 PARCHE — `shipment.model.ts`
+
+**PARCHE** — `src/features/business/shipment/shipment.model.ts` **ya existe** (ISS-12).
+
+**Dentro de** la interfaz `ShipmentI`, **debajo de** `tarifa_id: number;`, **añadir**:
+
+```ts
+  factura_id?: number | null;
+```
+
+**Dentro de** la clase `Shipment`, **debajo de** `public tarifa_id!: number;`, **añadir**:
+
+```ts
+  public factura_id!: number | null;
+```
+
+**Dentro de** `Shipment.init({ ... })`, **debajo de** la columna `tarifa_id`, **añadir**:
+
+```ts
+  factura_id: {
+    type: DataTypes.INTEGER,
+    references: { model: "invoices", key: "id" },
+    allowNull: true,
+  },
+```
+
+También **añadir** `factura_id` al `create` / `updatePut` del controller (`shipment.controller.ts`), igual que `mensajero_id` / `ruta_id` (`body.factura_id ?? null`).
+
+---
+
+## 18.2 Asociación Shipment ↔ Invoice
+
+**PARCHE** — `src/features/business/shipment/shipment.associations.ts` **ya existe** (ISS-12).
+
+**Debajo de** el import de `Rate` y **debajo de** las líneas `Shipment.belongsTo(Rate, ...)` / `Rate.hasMany(Shipment, ...)`, **añadir**:
+
+```ts
+import { Invoice } from "../invoice/invoice.model";
+
+Shipment.belongsTo(Invoice, { foreignKey: "factura_id", as: "factura" });
+Invoice.hasMany(Shipment, { foreignKey: "factura_id", as: "envios" });
+```
+
+### Verificación
+
+```bash
+npx tsc --noEmit
+curl -s -X PATCH http://localhost:4000/api/invoices/1 \
+  -H 'Content-Type: application/json' \
+  -d '{"factura_id":1}'
+```
+
+![alt text](img-express/curl_invoices.png)
+
+### Cierre del ISS
+```bash
+npm run dev
+```
+
+![alt text](img-express/run_shipment_invoice.png)

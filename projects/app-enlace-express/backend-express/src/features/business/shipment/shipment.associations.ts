@@ -5,6 +5,7 @@ import { Messenger } from "../messenger/messenger.model";
 import { Rate } from "../rate/rate.model";
 import { Route } from "../route/route.model";
 import { Shipment } from "./shipment.model";
+import { Invoice } from "../invoice/invoice.model";
 
 Shipment.belongsTo(Company, { foreignKey: "empresa_id", as: "company" });
 Company.hasMany(Shipment, { foreignKey: "empresa_id", as: "shipments" });
@@ -29,3 +30,6 @@ Route.hasMany(Shipment, { foreignKey: "ruta_id", as: "shipments" });
 
 Shipment.belongsTo(Rate, { foreignKey: "tarifa_id", as: "rate" });
 Rate.hasMany(Shipment, { foreignKey: "tarifa_id", as: "shipments" });
+
+Shipment.belongsTo(Invoice, { foreignKey: "factura_id", as: "factura" });
+Invoice.hasMany(Shipment, { foreignKey: "factura_id", as: "envios" });

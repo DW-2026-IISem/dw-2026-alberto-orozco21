@@ -36,7 +36,18 @@ export async function runAllSeeders(): Promise<void> {
     throw new Error("No hay conexión a la base de datos");
   }
 
-  await sequelize.sync({ force: false, alter: true });
+  try {
+    await sequelize.sync({ force: false, alter: process.env.DB_SYNC_ALTER === "true" });
+  } catch (error: any) {
+    const errNo = error?.original?.errno ?? error?.errno ?? error?.parent?.errno;
+    if (errNo === 1069 || error?.code === "ER_TOO_MANY_KEYS") {
+      console.warn(
+        "⚠️ Se omite el ALTER automático al sembrar datos por exceso de índices en MySQL; se continúa con los seeders."
+      );
+    } else {
+      throw error;
+    }
+  }
 
   // Orden: business (padres → hijos)
   await seedCompanies(counts.companies);

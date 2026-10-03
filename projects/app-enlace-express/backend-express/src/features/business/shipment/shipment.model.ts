@@ -22,6 +22,7 @@ export interface ShipmentI {
   mensajero_id?: number | null;
   ruta_id?: number | null;
   tarifa_id: number;
+  factura_id?: number | null;
   prioridad: ShipmentPriority;
   peso_total_kg: number;
   valor_declarado?: number | null;
@@ -46,6 +47,7 @@ export class Shipment extends Model<ShipmentI> implements ShipmentI {
   public mensajero_id!: number | null;
   public ruta_id!: number | null;
   public tarifa_id!: number;
+  public factura_id!: number | null;
   public prioridad!: ShipmentPriority;
   public peso_total_kg!: number;
   public valor_declarado!: number | null;
@@ -105,6 +107,11 @@ Shipment.init(
       type: DataTypes.INTEGER,
       references: { model: "rates", key: "id" },
       allowNull: false,
+    },
+    factura_id: {
+      type: DataTypes.INTEGER,
+      references: { model: "invoices", key: "id" },
+      allowNull: true,
     },
     prioridad: {
       type: DataTypes.ENUM("normal", "urgente", "express"),

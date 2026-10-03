@@ -3,6 +3,7 @@ import { Address } from "../address/address.model";
 import { Company } from "../companies/companies.model";
 import { Contact } from "../contact/contact.model";
 import { Messenger } from "../messenger/messenger.model";
+import { Invoice } from "../invoice/invoice.model";
 import { Rate } from "../rate/rate.model";
 import { Route } from "../route/route.model";
 import { Shipment, ShipmentI } from "./shipment.model";
@@ -23,6 +24,7 @@ async function missingReference(body: Partial<ShipmentI>): Promise<string | null
     [body.mensajero_id, () => Messenger.findByPk(body.mensajero_id!), "Messenger (mensajero_id)"],
     [body.ruta_id, () => Route.findByPk(body.ruta_id!), "Route (ruta_id)"],
     [body.tarifa_id, () => Rate.findByPk(body.tarifa_id!), "Rate (tarifa_id)"],
+    [body.factura_id, () => Invoice.findByPk(body.factura_id!), "Invoice (factura_id)"],
   ];
 
   for (const [id, find, label] of checks) {
@@ -78,6 +80,7 @@ export class ShipmentController {
         mensajero_id: body.mensajero_id ?? null,
         ruta_id: body.ruta_id ?? null,
         tarifa_id: body.tarifa_id,
+        factura_id: body.factura_id ?? null,
         prioridad: body.prioridad,
         peso_total_kg: body.peso_total_kg,
         valor_declarado: body.valor_declarado ?? null,
@@ -120,6 +123,7 @@ export class ShipmentController {
         mensajero_id: body.mensajero_id ?? shipment.mensajero_id,
         ruta_id: body.ruta_id ?? shipment.ruta_id,
         tarifa_id: body.tarifa_id,
+        factura_id: body.factura_id ?? shipment.factura_id,
         prioridad: body.prioridad,
         peso_total_kg: body.peso_total_kg,
         valor_declarado: body.valor_declarado ?? shipment.valor_declarado,
