@@ -1,0 +1,28 @@
+@baseUrl = http://localhost:4000
+# ISS-23 adds session management only; obtain this access token from the login endpoint
+# when the session/login feature is implemented.
+@token = replace-with-a-valid-access-token
+@sessionId = 1
+
+### Listar mis sesiones activas. La respuesta no contiene token_hash.
+GET {{baseUrl}}/api/sesiones
+Authorization: Bearer {{token}}
+
+### Consultar una sesión propia
+GET {{baseUrl}}/api/sesiones/{{sessionId}}
+Authorization: Bearer {{token}}
+
+### Revocar todas mis sesiones
+PATCH {{baseUrl}}/api/sesiones/deactivate-all
+Authorization: Bearer {{token}}
+
+### Revocar una sesión propia
+PATCH {{baseUrl}}/api/sesiones/{{sessionId}}/deactivate
+Authorization: Bearer {{token}}
+
+### Purgar mis sesiones inactivas o expiradas
+DELETE {{baseUrl}}/api/sesiones
+Authorization: Bearer {{token}}
+
+### Sin token, la respuesta debe ser 401
+GET {{baseUrl}}/api/sesiones
