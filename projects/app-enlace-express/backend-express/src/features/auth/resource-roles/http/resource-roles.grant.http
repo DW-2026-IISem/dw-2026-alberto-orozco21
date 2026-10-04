@@ -1,0 +1,39 @@
+@baseUrl = http://localhost:4000
+@token = replace-with-a-valid-access-token
+@roleId = 2
+@resourceId = 1
+@grantId = 1
+
+### List active grants
+GET {{baseUrl}}/api/concesiones-rol
+Authorization: Bearer {{token}}
+
+### Filter grants by role
+GET {{baseUrl}}/api/concesiones-rol?role_id={{roleId}}
+Authorization: Bearer {{token}}
+
+### Filter grants by resource
+GET {{baseUrl}}/api/concesiones-rol?resource_id={{resourceId}}
+Authorization: Bearer {{token}}
+
+### Grant/reactivate a resource for a role
+POST {{baseUrl}}/api/concesiones-rol
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "role_id": {{roleId}},
+  "resource_id": {{resourceId}}
+}
+
+### Inspect grant
+GET {{baseUrl}}/api/concesiones-rol/{{grantId}}
+Authorization: Bearer {{token}}
+
+### Deactivate grant
+PATCH {{baseUrl}}/api/concesiones-rol/{{grantId}}/deactivate
+Authorization: Bearer {{token}}
+
+### Reactivate grant
+PATCH {{baseUrl}}/api/concesiones-rol/{{grantId}}/reactivate
+Authorization: Bearer {{token}}

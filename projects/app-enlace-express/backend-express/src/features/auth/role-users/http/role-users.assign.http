@@ -1,0 +1,38 @@
+@baseUrl = http://localhost:4000
+@token = replace-with-a-valid-access-token
+
+### List active assignments (user summary never includes credentials)
+GET {{baseUrl}}/api/asignaciones-rol
+Authorization: Bearer {{token}}
+
+### Assign/reactivate a role for a user
+POST {{baseUrl}}/api/asignaciones-rol
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "user_id": 2,
+  "role_id": 1
+}
+
+### Duplicate active assignment returns 409
+POST {{baseUrl}}/api/asignaciones-rol
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "user_id": 2,
+  "role_id": 1
+}
+
+### Inspect assignment
+GET {{baseUrl}}/api/asignaciones-rol/1
+Authorization: Bearer {{token}}
+
+### Revoke without deleting assignment history
+PATCH {{baseUrl}}/api/asignaciones-rol/1/deactivate
+Authorization: Bearer {{token}}
+
+### Reactivate assignment
+PATCH {{baseUrl}}/api/asignaciones-rol/1/reactivate
+Authorization: Bearer {{token}}
