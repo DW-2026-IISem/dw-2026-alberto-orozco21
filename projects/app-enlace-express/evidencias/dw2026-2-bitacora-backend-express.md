@@ -9682,3 +9682,1370 @@ npm run dev
 ```
 
 ![alt text](img-express/run_shipment_invoice.png)
+
+----------
+
+## 19. Fase II: Auth con RBAC — ISS-18 — Base de seguridad compartida y modelos Auth
+
+**Objetivo:** dejar listas las primitivas de seguridad (hash de contraseña, hashes de tokens opacos, firma y verificación de JWT, matcher de rutas) y las seis tablas del modelo RBAC con sus asociaciones, de modo que los ISS posteriores solo construyan capas sobre esta base.
+
+**Bloqueado por:** Fase I cerrada (el App, Routes, SeedersRunner y Swagger ya existen y se extienden, no se reescriben).
+
+Criterios de aceptación (ISS-18) — consolidados
+
+- [X] **19.1** .env define JWT_SECRET, JWT_ACCESS_TTL y JWT_REFRESH_TTL_DAYS; jsonwebtoken y @types/jsonwebtoken instalados
+- [X] **19.2** src/shared/auth/password.ts con hashPassword, comparePassword, sha256Hex, generateOpaqueToken
+- [X] **19.3** src/shared/auth/jwt.ts firma y verifica con HS256, issuer, audience, expiresIn y jti
+- [X] **19.4** src/shared/auth/resource-match.ts casa /api/shipments/42 con el patrón /api/shipments/:id
+- [X] **19.5** src/shared/auth/auth-user.ts declara Request.auth y exporta requireAuthUser
+- [X] **19.6** sendError centraliza error → HTTP; el controlador base auth lo reutiliza
+- [X] **19.7** bearerSecurityScheme, unauthorizedResponse y forbiddenResponse exportados
+- [X] **19.8** los 6 modelos (User, Role, Resource, RoleUser, ResourceRole, RefreshToken) con sus UK e  índices
+- [X] **19.9** rbac.associations.ts declara el grafo completo (User↔Role, Role↔Resource, User→RefreshToken)
+- [X] **19.10** config/index.ts y seeders/index.ts importan los modelos y las asociaciones, en ese orden
+- [X] npx tsc --noEmit OK
+
+## 19.1 Dependencias y variables de entorno
+
+```bash
+npm install bcryptjs
+npm install jsonwebtoken@^9.0.3
+npm install -D @types/jsonwebtoken@^9.0.10
+```
+
+Variables nuevas del .env (PARCHE: se añaden al final, no reemplazan las de Fase I):
+
+```bash
+cat >> .env << 'EOF'
+# ─────────────────────────────────────────────────────────────
+# Fase II — Seguridad (JWT + RBAC)
+# ─────────────────────────────────────────────────────────────
+# Secreto de firma del access token (HMAC SHA-256). Generar uno propio
+# (p. ej. `openssl rand -base64 48`); no subirlo al repositorio.
+JWT_SECRET=<pega-aqui-el-resultado-generado-por-openssl>
+# Vida útil del access token en segundos (900 = 15 min).
+JWT_ACCESS_TTL=900
+# Vida útil del refresh token en días.
+JWT_REFRESH_TTL_DAYS=7
+EOF
+```
+
+> JWT_ACCESS_TTL se expresa en segundos y JWT_REFRESH_TTL_DAYS en días: son unidades distintas a propósito (el access token es de minutos; el refresh, de días). El service las convierte a milisegundos al persistir expires_at.
+
+## 19.2 password.ts — hash de contraseña y hashes de tokens
+
+Tres responsabilidades, todas de la capa shared (no son propias de un feature):
+
+- hashPassword / comparePassword: bcrypt con 12 rondas (coste alto, deliberado).
+
+- sha256Hex: para los refresh tokens, que no se guardan en claro sino como hash.
+
+- generateOpaqueToken: crypto.randomBytes(32).toString("base64url") → token opaco (no JWT).
+
+```bash
+: > src/shared/auth/password.ts
+cat >> src/shared/auth/password.ts << 'EOF'
+import { hash, compare } from "bcryptjs";
+
+/**
+ * Derivación y verificación de contraseñas (bcrypt).
+ *
+ * Se centraliza aquí porque lo usan tres sitios distintos y **debe** usar los
+ * mismos parámetros en los tres:
+ *  - el hook `beforeCreate/beforeUpdate` del modelo `User` (hash al persistir);
+ *  - el service de usuarios al cambiar la contraseña;
+ *  - el login, que compara la credencial en memoria (nunca la devuelve).
+ *
+ * Coste 12 rondas: el valor de referencia del diseño de la base de datos
+ * Es un compromiso entre coste de CPU del servidor y coste de fuerza bruta
+ * para un atacante que obtuviera el hash.
+ */
+const SALT_ROUNDS = 12;
+
+/** Devuelve el hash bcrypt de una contraseña en claro. */
+export async function hashPassword(plain: string): Promise<string> {
+  return hash(plain, SALT_ROUNDS);
+}
+
+/** `true` si la contraseña en claro corresponde al hash almacenado. */
+export async function comparePassword(plain: string, passwordHash: string): Promise<boolean> {
+  return compare(plain, passwordHash);
+}
+
+/**
+ * Hash determinista (SHA-256, hex) para credenciales de **alta entropía**.
+ *
+ * Se usa con los refresh tokens, no con contraseñas: un token aleatorio de 64
+ * bytes no es adivinable, así que no necesita un algoritmo lento; basta con
+ * impedir que el valor en claro quede en la base de datos. Esto permite, además,
+ * buscar por índice único (`token_hash`) en O(1).
+ */
+import { createHash, randomBytes } from "node:crypto";
+
+export function sha256Hex(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+/** Genera un token opaco no adivinable (URL-safe, 64 bytes ≈ 86 caracteres). */
+export function generateOpaqueToken(): string {
+  return randomBytes(64).toString("base64url");
+}
+EOF
+```
+
+## 19.3 jwt.ts — firma y verificación del access token
+
+¿Por qué JWT aquí y token opaco para el refresh? El access token viaja en cada petición y debe validarse sin tocar la BD (Stateless): JWT firmado. El refresh token, en cambio, debe poder revocarse; por eso es opaco y se persiste (hasheado) en refresh_tokens.
+
+```bash
+: > src/shared/auth/jwt.ts
+cat >> src/shared/auth/jwt.ts << 'EOF'
+import jwt, { JwtPayload } from "jsonwebtoken";
+import { randomUUID } from "node:crypto";
+import { AppError } from "../errors/app-error";
+
+/**
+ * Emisión y verificación del **access token** (JWT firmado, HS256).
+ *
+ * Referencias (fuentes oficiales):
+ *  - RFC 7519 — JSON Web Token (`sub`, `iss`, `aud`, `exp`, `iat`, `jti`).
+ *  - RFC 8725 §3.1 — *Perform Algorithm Verification*: el algoritmo se fija en el
+ *    código (lista permitida), nunca se toma del encabezado `alg` del token.
+ *  - RFC 8725 §3.8/§3.9 — validar `iss` (emisor) y `aud` (audiencia).
+ *  - RFC 6750 — el token viaja en `Authorization: Bearer <token>`.
+ *
+ * El access token es **autocontenido y no se persiste**: se valida con la firma.
+ * La base de datos solo interviene para revalidar que el usuario sigue activo
+ * (ver `authenticate`), y para los refresh tokens.
+ */
+
+const ALGORITHM = "HS256";
+
+/** Emisor/audiencia del sistema. Sirven para rechazar tokens de otro servicio. */
+export const TOKEN_ISSUER = "enlace-express";
+export const TOKEN_AUDIENCE = "enlace-express-api";
+
+/** Vida útil del access token. Corta por diseño (Owasp/OAuth2: token de vida corta). */
+export const ACCESS_TOKEN_TTL_SECONDS = Number(process.env.JWT_ACCESS_TTL ?? 900); // 15 min
+
+export interface AccessTokenPayload extends JwtPayload {
+  sub: string;
+  username: string;
+  jti: string;
+}
+
+function getSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new AppError(
+      500,
+      "JWT_SECRET no configurado (mínimo 32 caracteres). Ver .env"
+    );
+  }
+  return secret;
+}
+
+/** Firma un access token para un usuario. */
+export function signAccessToken(user: { id: number; username: string }): {
+  token: string;
+  expiresIn: number;
+} {
+  const token = jwt.sign(
+    { username: user.username },
+    getSecret(),
+    {
+      algorithm: ALGORITHM,
+      subject: String(user.id),
+      issuer: TOKEN_ISSUER,
+      audience: TOKEN_AUDIENCE,
+      expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+      jwtid: randomUUID(),
+    }
+  );
+  return { token, expiresIn: ACCESS_TOKEN_TTL_SECONDS };
+}
+
+/**
+ * Verifica firma y *claims* y devuelve el payload.
+ *
+ * Se pasan las opciones explícitas (no se confía en el token): `algorithms`,
+ * `issuer` y `audience`; y después se comprueban a mano `sub` y `jti`.
+ *
+ * Ojo: `jsonwebtoken` **no** tiene opción `require` (es de `jose`); pasarla no
+ * valida nada. Por eso los claims obligatorios se verifican explícitamente.
+ * Cualquier fallo se traduce a `AppError(401)` para que el middleware responda
+ * **no autenticado**.
+ */
+export function verifyAccessToken(token: string): AccessTokenPayload {
+  let payload: JwtPayload;
+  try {
+    payload = jwt.verify(token, getSecret(), {
+      algorithms: [ALGORITHM],
+      issuer: TOKEN_ISSUER,
+      audience: TOKEN_AUDIENCE,
+      // Tolerancia de reloj: evita 401 espurios entre máquinas desincronizadas.
+      clockTolerance: 5,
+    }) as JwtPayload;
+  } catch {
+    throw new AppError(401, "Invalid or expired access token");
+  }
+
+  // Los claims obligatorios se comprueban AQUÍ, no en `jwt.verify`.
+  //
+  // `jsonwebtoken` **no** admite la opción `require` (esa opción es de `jose`):
+  // pasarla no valida nada. `iss`, `aud` y `exp` sí los exige `jwt.verify` con
+  // las opciones de arriba; `sub` y `jti` hay que verificarle explícitamente.
+  //
+  //  - sin `sub` no hay identidad -> no se puede autenticar;
+  //  - `sub` debe ser un entero positivo: un valor no numérico llegaría al
+  //    repositorio como `NaN` y provocaría un 500 en vez de un 401;
+  //  - sin `jti` se pierde la trazabilidad del token (RFC 8725).
+  if (
+    typeof payload.sub !== "string" ||
+    !/^[1-9]\d*$/.test(payload.sub) ||
+    typeof payload.jti !== "string" ||
+    payload.jti.length === 0
+  ) {
+    throw new AppError(401, "Invalid or expired access token");
+  }
+
+  return payload as AccessTokenPayload;
+}
+
+/** Extrae el token de `Authorization: Bearer <token>` (RFC 6750). */
+export function extractBearerToken(header: string | undefined): string | null {
+  if (!header) return null;
+  const [scheme, value] = header.split(" ");
+  if (!scheme || !value || scheme.toLowerCase() !== "bearer") return null;
+  return value;
+}
+EOF
+```
+
+> Los roles NO viajan en el token. Si viajaran, revocar un permiso no tendría efecto hasta que caducara el token. La autorización se resuelve en cada petición contra la matriz (ISS-13), lo que hace la revocación inmediata (RFC 6749 / OWASP).
+
+## 19.4 resource-match.ts — casar la petición con el recurso
+
+Un recurso es un par (method, path) con el path en patrón: /api/shipments/:id. El middleware authorize recibe la petición real (GET /api/shipments/42) y debe encontrar el recurso. Este módulo hace esa traducción:
+
+- normalizePath: quita barra final, query string y colapsa 
+barras repetidas.
+
+- buildPathMatcher: convierte /api/shipments/:id en una expresión regular anclada.
+
+- pathsMatch: comprueba un patrón contra un path real.
+
+```bash
+: > src/shared/auth/resource-match.ts
+cat >> src/shared/auth/resource-match.ts << 'EOF'
+/**
+ * Coincidencia entre la ruta de una petición y un **recurso** almacenado.
+ *
+ * Un recurso se guarda como patrón (`method` + `path` con parámetros):
+ *
+ * ```text
+ * GET  /api/shipments/:id
+ * ```
+ *
+ * Y la petición llega con el valor concreto:
+ *
+ * ```text
+ * GET  /api/shipments/42
+ * ```
+ *
+ * Reglas de la comparación (deliberadamente estrictas):
+ *  - El verbo HTTP debe coincidir exactamente.
+ *  - Un segmento `:param` del patrón casa con **un** segmento cualquiera.
+ *  - El resto de segmentos deben ser iguales carácter a carácter.
+ *  - El número de segmentos debe coincidir (no hay comodines tipo `*`).
+ *
+ * Así, `/api/shipments/42` **no** casa con `/api/shipments` (evita que un permiso
+ * de listado autorice una lectura concreta por error) y `/api/shipments/42/packages`
+ * tampoco.
+ */
+
+/** Normaliza una ruta: sin cadena de consulta, sin barra final, sin duplicar `/`. */
+export function normalizePath(path: string): string {
+  const withoutQuery = path.split("?")[0].split("#")[0];
+  const single = withoutQuery.replace(/\/{2,}/g, "/");
+  const trimmed = single.replace(/\/+$/, "");
+  return trimmed === "" ? "/" : trimmed;
+}
+
+/** `true` si `path` (concreto) casa con `pattern` (con `:param`). */
+export function pathMatches(pattern: string, path: string): boolean {
+  const patternParts = normalizePath(pattern).split("/");
+  const pathParts = normalizePath(path).split("/");
+
+  if (patternParts.length !== pathParts.length) return false;
+
+  for (let i = 0; i < patternParts.length; i++) {
+    const p = patternParts[i];
+    if (p.startsWith(":")) continue; // parámetro: casa con cualquier segmento
+    if (p !== pathParts[i]) return false;
+  }
+  return true;
+}
+
+/**
+ * `true` si el conjunto de recursos concedidos cubre la operación solicitada.
+ *
+ * Es la decisión final del RBAC: se compara el par `(method, path)` de la
+ * petición contra las concesiones del usuario. **Deny by default**: si ninguna
+ * coincide, se devuelve `false`.
+ *
+ * La base de datos es la única fuente de verdad de la matriz de permisos; la
+ * coincidencia por patrón se hace aquí.
+ */
+export function isOperationGranted(
+  granted: ReadonlyArray<{ method: string; path: string }>,
+  method: string,
+  path: string
+): boolean {
+  const upper = method.toUpperCase();
+  return granted.some(
+    (resource) => resource.method.toUpperCase() === upper && pathMatches(resource.path, path)
+  );
+}
+EOF
+```
+
+## 19.5 auth-user.ts — la identidad en Request
+
+Extiende el tipo Request de Express con auth y expone requireAuthUser, que los controllers JWT usan para leer al usuario sin adivinar si el middleware corrió.
+
+```bash
+: > src/shared/auth/auth-user.ts
+cat >> src/shared/auth/auth-user.ts << 'EOF'
+import { Request } from "express";
+import { AppError } from "../errors/app-error";
+
+/**
+ * Identidad resuelta que los middlewares de acceso dejan en la petición.
+ *
+ * Se guarda en `req.auth` (ver la ampliación de tipos más abajo) y la consumen:
+ *  - los controllers que necesitan saber quién llama (`GET /api/sesion/perfil`);
+ *  - `authorize`, para consultar los permisos efectivos del usuario.
+ */
+export interface AuthUser {
+  id: number;
+  username: string;
+  email?: string;
+  /** Token con el que se autenticó (útil para cerrar la sesión actual). */
+  tokenId?: string;
+}
+
+/**
+ * Devuelve la identidad de la petición o falla con 401.
+ *
+ * Lo usan los controllers de rutas con modalidad JWT (sin `authorize`): allí el
+ * middleware ya garantizó que `req.auth` existe, pero el tipo es opcional, así
+ * que esta función cierra el caso sin recurrir a `!`.
+ */
+export function requireAuthUser(req: Request): AuthUser {
+  if (!req.auth) {
+    throw new AppError(401, "Authentication required");
+  }
+  return req.auth;
+}
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      /** Identidad resuelta por el middleware `authenticate`. `undefined` = OPEN. */
+      auth?: AuthUser;
+    }
+  }
+}
+
+export {};
+EOF
+```
+
+## 19.6 error-response.ts y controlador base compartido
+
+El mapeo error → HTTP lo necesitan tanto los middlewares authenticate/authorize
+como los controllers. Este backend todavía no tiene `BaseController`: el bloque
+siguiente propone añadir uno compartido para los nuevos features auth y
+reutilizarlo gradualmente, sin reemplazar los controllers business existentes.
+
+```bash
+: > src/shared/http/error-response.ts
+cat >> src/shared/http/error-response.ts << 'EOF'
+import { Response } from "express";
+import { AppError } from "../errors/app-error";
+
+/**
+ * Traduce cualquier error a una respuesta HTTP. **Único punto** del proyecto
+ * donde se decide el mapeo error -> status.
+ *
+ * Lo usan los dos sitios que pueden fallar antes de llegar a un controller:
+ *  - `BaseController.handleError` (handlers de los controllers);
+ *  - los middlewares de acceso (`authenticate` / `authorize`), que responden
+ *    401/403 sin pasar por un controller.
+ *
+ * Regla: `AppError` -> su `statusCode`; cualquier otra cosa -> **500** (y el
+ * detalle solo en el cuerpo, nunca el stack).
+ */
+export function sendError(res: Response, error: unknown): void {
+  if (error instanceof AppError) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
+  res.status(500).json({ error: "Internal server error", detail: String(error) });
+}
+EOF
+```
+
+**PARCHE** en src/shared/http/base-controller.ts: handleError delega en sendError.
+
+```bash
+: > src/shared/http/base-controller.ts
+cat >> src/shared/http/base-controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { AppError } from "../errors/app-error";
+import { sendError } from "./error-response";
+
+/**
+ * Base de los controllers HTTP.
+ *
+ * Aísla las tres responsabilidades puramente HTTP que, si no, se repetirían en
+ * los 7 métodos de cada controller:
+ *
+ *  - `run`:            ejecuta el cuerpo del handler y traduce el error a HTTP.
+ *  - `paramId`:        lee y valida el `:id` de la URL.
+ *  - `handleError`:    mapea `AppError` a su status y lo demás a 500.
+ *
+ * La capa de negocio (service) no conoce `req`/`res`.
+ */
+export abstract class BaseController {
+  /**
+   * Ejecuta el cuerpo de un handler y centraliza el manejo de errores.
+   *
+   * Sin este helper, cada uno de los 35 métodos de los controllers tendría su
+   * propio `try/catch`. Aquí el `catch` vive una sola vez.
+   */
+  protected async run(res: Response, work: () => Promise<void>): Promise<void> {
+    try {
+      await work();
+    } catch (error) {
+      this.handleError(res, error);
+    }
+  }
+
+  /**
+   * Lee el `:id` de la URL y lo valida como entero positivo.
+   *
+   * Sin la validación, `GET /api/companies/abc` llegaría al repository como
+   * `Number("abc") === NaN` y devolvería un 404 engañoso en vez de un 400.
+   */
+  protected paramId(req: Request): number {
+    const raw = req.params.id;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+
+    if (!value || !/^\d+$/.test(value) || Number(value) < 1) {
+      throw new AppError(400, "Invalid id: must be a positive integer");
+    }
+    return Number(value);
+  }
+
+  /**
+   * Mapea errores: `AppError` -> su status; cualquier otro -> 500.
+   *
+   * La traducción vive en `sendError` porque los middlewares de acceso también
+   * la necesitan: un único punto decide el mapeo error -> HTTP.
+   */
+  protected handleError(res: Response, error: unknown): void {
+    sendError(res, error);
+  }
+}
+EOF
+```
+
+## 19.7 swagger-security.ts — seguridad reutilizable para OpenAPI
+
+|Export	| Para qué |
+|-------|----------|
+|bearerSecurityScheme |	Esquema bearerAuth (Authorization: Bearer <token>, RFC 6750) |
+|unauthorizedResponse	| Respuesta 401 reutilizable ($ref) |
+|forbiddenResponse |	Respuesta 403 reutilizable ($ref) |
+
+```bash
+: > src/shared/http/swagger-security.ts
+cat >> src/shared/http/swagger-security.ts << 'EOF'
+/**
+ * Piezas reutilizables de OpenAPI para las **tres modalidades de acceso**.
+ *
+ * Centralizar aquí el esquema `bearerAuth` y las respuestas 401/403 evita repetir
+ * la misma definición en los 7 módulos de Swagger (auth) y en los 5 de business.
+ * Al cambiar una descripción, cambia en toda la documentación.
+ *
+ * Convención de uso en cada operación:
+ *
+ * | Modalidad | `security` |
+ * |---|---|
+ * | OPEN  | `openSecurity`  (arreglo vacío: no exige credencial) |
+ * | JWT   | `bearerSecurity` |
+ * | RBAC  | `bearerSecurity` + respuestas 401 **y** 403 |
+ */
+
+/** Esquema de seguridad (RFC 6750: `Authorization: Bearer <token>`). */
+export const bearerSecurityScheme = {
+  bearerAuth: {
+    type: "http",
+    scheme: "bearer",
+    bearerFormat: "JWT",
+    description:
+      "Access token JWT obtenido en `POST /api/sesion/login`. Enviar como " +
+      "`Authorization: Bearer <access_token>`. Vida útil corta (por defecto 15 min); " +
+      "se renueva con `POST /api/sesion/refresh`.",
+  },
+};
+
+/** `security` de un endpoint OPEN (no exige credencial). */
+export const openSecurity: unknown[] = [];
+
+/** `security` de un endpoint JWT o RBAC (exige access token válido). */
+export const bearerSecurity = [{ bearerAuth: [] }];
+
+/** Respuesta 401: no hay identidad válida (token ausente, inválido o usuario inactivo). */
+export const unauthorizedResponse = {
+  description:
+    "401 No autenticado — falta el Bearer token, el token es inválido/expiró o el usuario está inactivo",
+};
+
+/** Respuesta 403: hay identidad, pero la matriz RBAC no concede `(method, path)`. */
+export const forbiddenResponse = {
+  description:
+    "403 Prohibido — autenticado, pero sin concesión activa para esta operación (deny by default)",
+};
+
+/** Respuesta 400 ante un `:id` que no es entero positivo. */
+export const invalidIdResponse = {
+  description: "400 id inválido (debe ser un entero positivo)",
+};
+
+/** Respuesta 404 estándar. */
+export const notFoundResponse = {
+  description: "404 No encontrado",
+};
+EOF
+```
+
+## 19.8 Los seis modelos Sequelize
+
+|Entidad | Tabla	Responsabilidad |
+|--------|------------------------|
+|User	| users	identidad del usuario (contraseña hasheada) |
+|Role	| roles	agrupación de responsabilidades |
+|RoleUser	| role_users	asignación User ↔ Role (N:M) |
+|Resource	| resources	endpoint/acción protegible, (method, path) |
+|ResourceRole	| resource_roles	el permiso: concesión Role ↔ Resource (N:M) |
+|RefreshToken	| refresh_tokens	sesión renovable y revocable |
+
+**User**
+
+```bash
+: > src/features/auth/users/user.model.ts
+cat >> src/features/auth/users/user.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+import { hashPassword } from "../../../shared/auth/password";
+
+/**
+ * Modelo `User` (tabla `users`) — la identidad del sistema.
+ *
+ * Se diferencia de los modelos de business en un punto clave: **`password` nunca
+ * se guarda en claro**. El hash se calcula en los hooks, de modo que ningún
+ * service, repository o seeder puede olvidarse de hacerlo.
+ *
+ * El algoritmo y el coste viven en `shared/auth/password.ts` (única fuente), no
+ * aquí: si mañana se sube el coste, se cambia en un solo sitio.
+ */
+export interface UserI {
+  id?: number;
+  username: string;
+  email: string;
+  password: string;
+  avatar?: string | null;
+  status: "active" | "inactive";
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class User extends Model {
+  public id!: number;
+  public username!: string;
+  public email!: string;
+  public password!: string;
+  public avatar!: string | null;
+  public status!: "active" | "inactive";
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+User.init(
+  {
+    username: {
+      type: DataTypes.STRING(80),
+      allowNull: false,
+      // `unique` con nombre explícito -> la BD nombra la restricción `uq_users_username`
+      // Conserva la convención de nombres acordada para las tablas auth.
+      unique: "uq_users_username",
+      validate: {
+        notEmpty: { msg: "Username cannot be empty" },
+        len: { args: [3, 80], msg: "Username must be between 3 and 80 characters" },
+      },
+    },
+    email: {
+      type: DataTypes.STRING(150),
+      allowNull: false,
+      unique: "uq_users_email",
+      validate: {
+        isEmail: { msg: "Email must be a valid email address" },
+      },
+    },
+    password: {
+      // 255: el hash bcrypt ocupa 60 y sobra margen para algoritmos futuros.
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      validate: {
+        notEmpty: { msg: "Password cannot be empty" },
+      },
+    },
+    avatar: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    status: {
+      type: DataTypes.ENUM("active", "inactive"),
+      defaultValue: "inactive",
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "User",
+    tableName: "users",
+    timestamps: true,
+    hooks: {
+      // Los tres hooks que crean/actualizan el hash. Cualquier ruta de escritura
+      // (create, update, bulkCreate del seeder) pasa por aquí: no hay forma de
+      // persistir una contraseña en claro.
+      beforeCreate: async (user: User) => {
+        if (user.password) {
+          user.password = await hashPassword(user.password);
+        }
+      },
+      beforeUpdate: async (user: User) => {
+        if (user.changed("password") && user.password) {
+          user.password = await hashPassword(user.password);
+        }
+      },
+      beforeBulkCreate: async (users: User[]) => {
+        for (const user of users) {
+          if (user.password) {
+            user.password = await hashPassword(user.password);
+          }
+        }
+      },
+      // Normalización: `username` y `email` siempre en minúsculas y sin espacios.
+      // Se hace antes de validar para que el `isEmail`/`len` juzgue el valor final
+      // y para que el login (que compara por igualdad) sea predecible.
+      beforeValidate: (user: User) => {
+        if (user.username) user.username = user.username.trim().toLowerCase();
+        if (user.email) user.email = user.email.trim().toLowerCase();
+      },
+    },
+  }
+);
+EOF
+```
+
+**Role**
+
+```bash
+: > src/features/auth/roles/role.model.ts
+cat >> src/features/auth/roles/role.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+/**
+ * Modelo `Role` (tabla `roles`) — agrupador lógico de responsabilidades.
+ *
+ * Nota de diseño: **el nombre del rol no autoriza nada**. La autorización se
+ * decide por las concesiones (`resource_roles`) asociadas al rol. Un rol
+ * `ADMIN` sin concesiones activas no habilita ninguna operación.
+ */
+export interface RoleI {
+  id?: number;
+  name: string;
+  description?: string | null;
+  status: "active" | "inactive";
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Role extends Model {
+  public id!: number;
+  public name!: string;
+  public description!: string | null;
+  public status!: "active" | "inactive";
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Role.init(
+  {
+    name: {
+      type: DataTypes.STRING(80),
+      allowNull: false,
+      unique: "uq_roles_name",
+      validate: {
+        notEmpty: { msg: "Role name cannot be empty" },
+      },
+    },
+    description: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    status: {
+      type: DataTypes.ENUM("active", "inactive"),
+      defaultValue: "inactive",
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Role",
+    tableName: "roles",
+    timestamps: true,
+    hooks: {
+      // El nombre del rol se normaliza a MAYÚSCULAS (por ejemplo, ADMIN u OPERADOR):
+      // es un identificador funcional, no una etiqueta libre.
+      beforeValidate: (role: Role) => {
+        if (role.name) role.name = role.name.trim().toUpperCase();
+      },
+    },
+  }
+);
+EOF
+```
+
+**RoleUser**
+
+```bash
+: > src/features/auth/role-users/role-user.model.ts
+cat >> src/features/auth/role-users/role-user.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+/**
+ * Modelo `RoleUser` (tabla `role_users`) — asignación N:M `User` ↔ `Role`.
+ *
+ * Es el **primer eslabón** de la cadena de autorización. Un usuario sin filas
+ * activas aquí no tiene ningún permiso granular, aunque tenga roles asignados
+ * con estado `inactive`.
+ *
+ * La restricción única `(user_id, role_id)` impide duplicar la asignación:
+ * revocar y volver a conceder se hace cambiando `status`, no insertando filas.
+ */
+export interface RoleUserI {
+  id?: number;
+  user_id: number;
+  role_id: number;
+  status: "active" | "inactive";
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class RoleUser extends Model {
+  public id!: number;
+  public user_id!: number;
+  public role_id!: number;
+  public status!: "active" | "inactive";
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+RoleUser.init(
+  {
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    role_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM("active", "inactive"),
+      defaultValue: "inactive",
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "RoleUser",
+    tableName: "role_users",
+    timestamps: true,
+    indexes: [
+      { name: "uq_role_users_user_role", unique: true, fields: ["user_id", "role_id"] },
+      { name: "ix_role_users_user_id", fields: ["user_id"] },
+      { name: "ix_role_users_role_id", fields: ["role_id"] },
+    ],
+  }
+);
+EOF
+```
+
+**Resource**
+
+```bash
+: > src/features/auth/resources/resource.model.ts
+cat >> src/features/auth/resources/resource.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+import { normalizePath } from "../../../shared/auth/resource-match";
+
+/**
+ * Modelo `Resource` (tabla `resources`) — un punto de acceso protegible.
+ *
+ * Un recurso **no** es una entidad de negocio: es el par `(method, path)`.
+ * `GET /api/shipments` y `POST /api/shipments` son **dos recursos distintos**.
+ *
+ * Las rutas se guardan con el patrón, no con el valor concreto:
+ * `/api/shipments/:id`. Así no se crea una fila por cada identificador y la
+ * coincidencia se resuelve por patrón (`shared/auth/resource-match.ts`).
+ */
+export interface ResourceI {
+  id?: number;
+  method: string;
+  path: string;
+  description?: string | null;
+  status: "active" | "inactive";
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class Resource extends Model {
+  public id!: number;
+  public method!: string;
+  public path!: string;
+  public description!: string | null;
+  public status!: "active" | "inactive";
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Resource.init(
+  {
+    method: {
+      type: DataTypes.STRING(10),
+      allowNull: false,
+      validate: {
+        isIn: {
+          args: [["GET", "POST", "PUT", "PATCH", "DELETE"]],
+          msg: "Method must be one of GET, POST, PUT, PATCH, DELETE",
+        },
+      },
+    },
+    path: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      validate: {
+        notEmpty: { msg: "Path cannot be empty" },
+      },
+    },
+    description: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    status: {
+      type: DataTypes.ENUM("active", "inactive"),
+      defaultValue: "inactive",
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Resource",
+    tableName: "resources",
+    timestamps: true,
+    // Clave única compuesta: el mismo verbo con distinta ruta (o al revés) son
+    // recursos distintos, pero la tupla exacta no se repite.
+    indexes: [
+      {
+        name: "uq_resources_method_path",
+        unique: true,
+        fields: ["method", "path"],
+      },
+    ],
+    hooks: {
+      // Normalización: verbo en mayúsculas y ruta sin barra final ni duplicados,
+      // para que la comparación por patrón sea determinista.
+      beforeValidate: (resource: Resource) => {
+        if (resource.method) resource.method = resource.method.trim().toUpperCase();
+        if (resource.path) resource.path = normalizePath(resource.path.trim());
+      },
+    },
+  }
+);
+EOF
+
+```
+
+**ResourceRole**
+
+```bash
+: > src/features/auth/resource-roles/resource-role.model.ts
+cat >> src/features/auth/resource-roles/resource-role.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+/**
+ * Modelo `ResourceRole` (tabla `resource_roles`) — la **concesión** `Role` ↔ `Resource`.
+ *
+ * Esta tabla **es el permiso**. No existe una entidad `Permission`: el permiso
+ * es la tupla `(rol, recurso)` materializada aquí.
+ *
+ * - Conceder acceso   -> insertar o reactivar una fila.
+ * - Retirar acceso    -> `status = inactive`.
+ * - Cambiar la matriz -> no requiere código ni despliegue.
+ */
+export interface ResourceRoleI {
+  id?: number;
+  role_id: number;
+  resource_id: number;
+  status: "active" | "inactive";
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class ResourceRole extends Model {
+  public id!: number;
+  public role_id!: number;
+  public resource_id!: number;
+  public status!: "active" | "inactive";
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+ResourceRole.init(
+  {
+    role_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    resource_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM("active", "inactive"),
+      defaultValue: "inactive",
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "ResourceRole",
+    tableName: "resource_roles",
+    timestamps: true,
+    indexes: [
+      {
+        name: "uq_resource_roles_role_resource",
+        unique: true,
+        fields: ["role_id", "resource_id"],
+      },
+      { name: "ix_resource_roles_role_id", fields: ["role_id"] },
+      { name: "ix_resource_roles_resource_id", fields: ["resource_id"] },
+    ],
+  }
+);
+EOF
+```
+
+**RefreshToken**
+
+```bash
+: > src/features/auth/refresh-tokens/refresh-token.model.ts
+cat >> src/features/auth/refresh-tokens/refresh-token.model.ts << 'EOF'
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../../../database/db";
+
+/**
+ * Modelo `RefreshToken` (tabla `refresh_tokens`) — sesión renovable y revocable.
+ *
+ * Es el **único** artefacto de sesión que se persiste. El access token (JWT) es
+ * autocontenido y no se guarda.
+ *
+ * Campos de seguridad:
+ *  - `token_hash`: solo se almacena el SHA-256 del token opaco. Aunque se
+ *    filtrara la tabla, no se puede reconstruir un token utilizable. Permite
+ *    buscar por índice único en O(1).
+ *  - `family_id`: agrupa todos los tokens derivados de un mismo login por
+ *    rotación. Si un token ya rotado se reutiliza, se revoca **toda la familia**
+ *    (detección de reutilización, Owasp/OAuth2).
+ *  - `expires_at`: vigencia; un token vencido se trata como inválido.
+ *  - `device_info`: soporte de auditoría y de listado de sesiones por dispositivo.
+ *
+ * Desviación deliberada: `status` predetermina **`active`**. Un token recién
+ * emitido nace vigente por definición, a diferencia del resto de tablas.
+ */
+export interface RefreshTokenI {
+  id?: number;
+  user_id: number;
+  token_hash: string;
+  family_id: string;
+  device_info?: string | null;
+  expires_at: Date;
+  status: "active" | "inactive";
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export class RefreshToken extends Model {
+  public id!: number;
+  public user_id!: number;
+  public token_hash!: string;
+  public family_id!: string;
+  public device_info!: string | null;
+  public expires_at!: Date;
+  public status!: "active" | "inactive";
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+RefreshToken.init(
+  {
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    token_hash: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      unique: "uq_refresh_tokens_token_hash",
+    },
+    family_id: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+    },
+    device_info: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    expires_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM("active", "inactive"),
+      // Única tabla cuyo estado por defecto es `active` (ver doc del modelo).
+      defaultValue: "active",
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "RefreshToken",
+    tableName: "refresh_tokens",
+    timestamps: true,
+    indexes: [
+      { name: "ix_refresh_tokens_family_id", fields: ["family_id"] },
+      { name: "ix_refresh_tokens_user_id", fields: ["user_id"] },
+    ],
+  }
+);
+EOF
+```
+
+## 19.9 rbac.associations.ts — el grafo en un solo lugar
+
+Las asociaciones se declaran después de los modelos (referencian a los modelos, no al revés) y en un único archivo para que el grafo se lea entero:
+
+```
+User N:M Role           mediante RoleUser
+User 1:N RefreshToken
+Role N:M Resource       mediante ResourceRole
+```
+
+```bash
+: > src/features/auth/rbac.associations.ts
+cat >> src/features/auth/rbac.associations.ts << 'EOF'
+import { User } from "./users/user.model";
+import { Role } from "./roles/role.model";
+import { Resource } from "./resources/resource.model";
+import { RoleUser } from "./role-users/role-user.model";
+import { ResourceRole } from "./resource-roles/resource-role.model";
+import { RefreshToken } from "./refresh-tokens/refresh-token.model";
+
+/**
+ * Asociaciones de las seis entidades de seguridad.
+ *
+ * Se declaran en un solo archivo (y no dispersas por feature) porque la
+ * autorización es una **cadena** que atraviesa cinco tablas; verla junta hace
+ * evidente el camino que recorre la consulta de permisos:
+ *
+ * ```text
+ * ResourceRole ──► Role ──► RoleUser ──► (filtro por user_id)
+ *        │
+ *        └────────► Resource  ──► (method, path)
+ * ```
+ *
+ * Los alias (`as`) son los que usan los `include` de los repositories, así que
+ * cambiar un alias aquí obliga a revisar las consultas RBAC.
+ */
+
+// --- La concesión conoce su rol y su recurso (los dos extremos del permiso) ---
+ResourceRole.belongsTo(Role, { foreignKey: "role_id", as: "role" });
+ResourceRole.belongsTo(Resource, { foreignKey: "resource_id", as: "resource" });
+Role.hasMany(ResourceRole, { foreignKey: "role_id", as: "resource_roles" });
+Resource.hasMany(ResourceRole, { foreignKey: "resource_id", as: "resource_roles" });
+
+// --- La asignación conoce su usuario y su rol (primer eslabón de la cadena) ---
+RoleUser.belongsTo(User, { foreignKey: "user_id", as: "user" });
+RoleUser.belongsTo(Role, { foreignKey: "role_id", as: "role" });
+User.hasMany(RoleUser, { foreignKey: "user_id", as: "role_users" });
+Role.hasMany(RoleUser, { foreignKey: "role_id", as: "role_users" });
+
+// --- Las sesiones pertenecen a un usuario ---
+RefreshToken.belongsTo(User, { foreignKey: "user_id", as: "user" });
+User.hasMany(RefreshToken, { foreignKey: "user_id", as: "refresh_tokens" });
+EOF
+```
+
+## 19.10 Cableado de modelos en config y seeders
+
+**PARCHE** en `src/config/index.ts` — los seis modelos, y después las asociaciones:
+
+```typescript
+import dotenv from "dotenv";
+import express, { Application } from "express";
+import morgan from "morgan";
+var cors = require("cors");
+import { sequelize, getDatabaseInfo, testConnection } from "../database/db";
+import "../features/business/companies/companies.model";
+import "../features/business/contact/contact.model";
+import "../features/business/address/address.model";
+import "../features/business/messenger/messenger.model";
+import "../features/business/rate/rate.model";
+import "../features/business/route/route.model";
+import "../features/business/shipment/shipment.model";
+import "../features/business/package/package.model";
+import "../features/business/tracking-event/tracking-event.model";
+import "../features/business/delivery-proof/delivery-proof.model";
+import "../features/business/invoice/invoice.model";
+import "../features/auth/users/user.model";
+import "../features/auth/roles/role.model";
+import "../features/auth/resources/resource.model";
+import "../features/auth/role-users/role-user.model";
+import "../features/auth/resource-roles/resource-role.model";
+import "../features/auth/refresh-tokens/refresh-token.model";
+import "../features/business/route/route.associations";
+import "../features/business/shipment/shipment.associations";
+import "../features/business/package/package.associations";
+import "../features/business/tracking-event/tracking-event.associations";
+import "../features/business/delivery-proof/delivery-proof.associations";
+import "../features/business/invoice/invoice.associations";
+import "../features/auth/rbac.associations";
+import { Routes } from "../routes/index";
+import "../features/business/contact/contact.associations";
+import "../features/business/address/address.associations";
+import "../features/business/companies/company.associations";
+import { setupSwagger } from "../swagger/index";
+
+dotenv.config();
+
+export class App {
+  public app: Application;
+  public routePrv: Routes = new Routes();
+
+  constructor(private port?: number | string) {
+    this.app = express();
+    this.settings();
+    this.middlewares();
+    this.routes();
+    this.docs();
+    this.dbConnection();
+  }
+
+  private settings(): void {
+    this.app.set('port', this.port || process.env.PORT || 4000);
+  }
+
+  private middlewares(): void {
+    this.app.use(morgan('dev'));
+    this.app.use(cors());
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: false }));
+  }
+
+  private routes(): void {
+    this.routePrv.companiesRoutes.routes(this.app);
+    this.routePrv.contactRoutes.routes(this.app);
+    this.routePrv.addressRoutes.routes(this.app);
+    this.routePrv.messengerRoutes.routes(this.app);
+    this.routePrv.rateRoutes.routes(this.app);
+    this.routePrv.routeRoutes.routes(this.app);
+    this.routePrv.shipmentRoutes.routes(this.app);
+    this.routePrv.packageRoutes.routes(this.app);
+    this.routePrv.trackingEventRoutes.routes(this.app);
+    this.routePrv.deliveryProofRoutes.routes(this.app);
+    this.routePrv.invoiceRoutes.routes(this.app);
+  }
+
+  private docs(): void {
+    setupSwagger(this.app);
+  }
+
+  private async dbConnection(): Promise<void> {
+    try {
+      const dbInfo = getDatabaseInfo();
+      console.log(`🔗 Intentando conectar a: ${dbInfo.engine.toUpperCase()}`);
+
+      const isConnected = await testConnection();
+      if (!isConnected) {
+        throw new Error(`No se pudo conectar a la base de datos ${dbInfo.engine.toUpperCase()}`);
+      }
+
+      // Por defecto evitamos `alter: true` porque MySQL falla con índices duplicados/64 keys
+      // cuando la BD ya existe y se intenta re-alterar el esquema. `sync` aún crea tablas
+      // faltantes sin tocar las existentes.
+      const syncOptions = {
+        force: false,
+        alter: process.env.DB_SYNC_ALTER === "true",
+      };
+
+      try {
+        await sequelize.sync(syncOptions);
+        console.log(`📦 Base de datos sincronizada exitosamente`);
+      } catch (error: any) {
+        const errNo = error?.original?.errno ?? error?.errno ?? error?.parent?.errno;
+        if (errNo === 1069 || error?.code === "ER_TOO_MANY_KEYS") {
+          console.warn(
+            "⚠️ Se omite el ALTER automático por incompatibilidad de índices en MySQL. La aplicación continuará con la BD existente."
+          );
+        } else {
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error al conectar con la base de datos:", error);
+      process.exit(1);
+    }
+  }
+
+  async listen() {
+    await this.app.listen(this.app.get('port'));
+    console.log(`🚀 Servidor ejecutándose en puerto ${this.app.get('port')}`);
+  }
+}
+```
+
+**PARCHE** en `src/database/seeders/index.ts` — mismo bloque de imports (los seeders de auth se añaden en sus ISS). El orden importa: `Sequelize` solo conoce las asociaciones que se han declarado.
+
+```typescript
+import dotenv from "dotenv";
+import { sequelize, testConnection } from "../db";
+import "../../features/business/companies/companies.model";
+import "../../features/auth/users/user.model";
+import "../../features/auth/roles/role.model";
+import "../../features/auth/resources/resource.model";
+import "../../features/auth/role-users/role-user.model";
+import "../../features/auth/resource-roles/resource-role.model";
+import "../../features/auth/refresh-tokens/refresh-token.model";
+import "../../features/auth/rbac.associations";
+import { seedCompanies } from "../../features/business/companies/companies.seeder";
+import { seedContacts } from "../../features/business/contact/contact.seeder";
+import { seedAddresses } from "../../features/business/address/address.seeder";
+import { seedMessengers } from "../../features/business/messenger/messenger.seeder";
+import { seedRates } from "../../features/business/rate/rate.seeder";
+import { seedRoutes } from "../../features/business/route/route.seeder";
+import { seedShipments } from "../../features/business/shipment/shipment.seeder";
+import { seedPackages } from "../../features/business/package/package.seeder";
+import { seedTrackingEvents } from "../../features/business/tracking-event/tracking-event.seeder";
+import { seedDeliveryProofs } from "../../features/business/delivery-proof/delivery-proof.seeder";
+import { seedInvoices } from "../../features/business/invoice/invoice.seeder";
+import { resolveSeedCounts } from "./counts";
+
+dotenv.config();
+
+/**
+ * SeedersRunner — ejecuta TODOS los seeders de features, en orden de dependencias
+ * (padres antes que hijos): empresa -> contacto -> direccion -> mensajero -> tarifa
+ * -> ruta -> envio -> paquete -> evento_tracking -> prueba_entrega -> factura.
+ *
+ * Uso:
+ *   npm run db:seed
+ *   npm run db:seed -- --empresas=20
+ *   SEED_EMPRESAS=5 npm run db:seed
+ */
+export async function runAllSeeders(): Promise<void> {
+  const counts = resolveSeedCounts();
+  console.log("🌱 Iniciando SeedersRunner...");
+  console.log("📊 Conteos:", counts);
+
+  const ok = await testConnection();
+  if (!ok) {
+    throw new Error("No hay conexión a la base de datos");
+  }
+
+  try {
+    await sequelize.sync({ force: false, alter: process.env.DB_SYNC_ALTER === "true" });
+  } catch (error: any) {
+    const errNo = error?.original?.errno ?? error?.errno ?? error?.parent?.errno;
+    if (errNo === 1069 || error?.code === "ER_TOO_MANY_KEYS") {
+      console.warn(
+        "⚠️ Se omite el ALTER automático al sembrar datos por exceso de índices en MySQL; se continúa con los seeders."
+      );
+    } else {
+      throw error;
+    }
+  }
+
+  // Orden: business (padres → hijos)
+  await seedCompanies(counts.companies);
+  await seedContacts(counts.contacts);
+  await seedAddresses(counts.addresses);
+  await seedMessengers(counts.messengers);
+  await seedRates(counts.rates);
+  await seedRoutes(counts.routes);
+  await seedShipments(counts.shipments);
+  await seedPackages(counts.packages);
+  await seedTrackingEvents(counts.tracking_events);
+  await seedDeliveryProofs(counts.delivery_proofs);
+  await seedInvoices(counts.invoices);
+
+  console.log("🌱 SeedersRunner finalizado");
+}
+
+if (require.main === module) {
+  runAllSeeders()
+    .then(async () => {
+      await sequelize.close();
+      process.exit(0);
+    })
+    .catch(async (err) => {
+      console.error("❌ Error en seeders:", err);
+      await sequelize.close();
+      process.exit(1);
+    });
+}
+```
+
+Verifica el cambio usando los scripts reales del backend:
+
+```bash
+npm run build
+npm run db:seed
+npm run dev 
+```
+
+![alt text](img-express/run_iss19.png)
+
+> Las 6 tablas existen.
+
+![alt text](img-express/express_tables.png)

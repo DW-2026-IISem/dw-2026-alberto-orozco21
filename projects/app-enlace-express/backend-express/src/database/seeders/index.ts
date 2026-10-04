@@ -1,6 +1,13 @@
 import dotenv from "dotenv";
 import { sequelize, testConnection } from "../db";
 import "../../features/business/companies/companies.model";
+import "../../features/auth/users/user.model";
+import "../../features/auth/roles/role.model";
+import "../../features/auth/resources/resource.model";
+import "../../features/auth/role-users/role-user.model";
+import "../../features/auth/resource-roles/resource-role.model";
+import "../../features/auth/refresh-tokens/refresh-token.model";
+import "../../features/auth/rbac.associations";
 import { seedCompanies } from "../../features/business/companies/companies.seeder";
 import { seedContacts } from "../../features/business/contact/contact.seeder";
 import { seedAddresses } from "../../features/business/address/address.seeder";
