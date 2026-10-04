@@ -1,0 +1,52 @@
+@baseUrl = http://localhost:4000
+@token = replace-with-a-valid-access-token
+@id = 1
+
+### Register an HTTP operation as an authorization resource
+POST {{baseUrl}}/api/recursos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "method": "GET",
+  "path": "/api/example/:id",
+  "description": "Example operation"
+}
+
+### Duplicate method/path pair returns 409
+POST {{baseUrl}}/api/recursos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "method": "GET",
+  "path": "/api/shipments/:id"
+}
+
+### Replace operation
+PUT {{baseUrl}}/api/recursos/{{id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "method": "PATCH",
+  "path": "/api/example/:id",
+  "description": "Updated operation"
+}
+
+### Partial update
+PATCH {{baseUrl}}/api/recursos/{{id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "description": "Updated description"
+}
+
+### Logical deletion disables grants while retaining them
+PATCH {{baseUrl}}/api/recursos/{{id}}/deactivate
+Authorization: Bearer {{token}}
+
+### Physical deletion also removes role-resource grants
+DELETE {{baseUrl}}/api/recursos/{{id}}
+Authorization: Bearer {{token}}

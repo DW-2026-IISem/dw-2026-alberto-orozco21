@@ -13,6 +13,8 @@ import { deliveryProofSwagger } from "../features/business/delivery-proof/delive
 import { invoiceSwagger } from "../features/business/invoice/invoice.swagger";
 import { usersSwagger } from "../features/auth/users/users.swagger";
 import { bearerSecurityScheme } from "../shared/http/swagger-security";
+import { rolesSwagger } from "../features/auth/roles/roles.swagger";
+import { resourcesSwagger } from "../features/auth/resources/resources.swagger";
 
 export type FeatureSwaggerModule = {
   tags: unknown[];
@@ -36,7 +38,9 @@ const featureSwaggerModules: FeatureSwaggerModule[] = [
   trackingEventSwagger,
   deliveryProofSwagger,
   invoiceSwagger,
-  usersSwagger
+  usersSwagger,
+  rolesSwagger,
+  resourcesSwagger
 ];
 
 export function buildOpenApiDocument() {

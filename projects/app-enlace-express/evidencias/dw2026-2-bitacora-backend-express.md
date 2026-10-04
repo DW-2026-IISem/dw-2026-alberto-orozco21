@@ -12132,6 +12132,1513 @@ npm run dev
 
 ![alt text](img-express/run_iss-19.png)
 
-> Como las rutas son JWT + RBAC y la matriz aún no existe, en este punto un GET /api/usuarios responde 401 (no hay token). La verificación funcional se completa en el ISS-13 y en el cierre.
 
 ![alt text](img-express/api_usuarios.png)
+
+> Como las rutas son JWT + RBAC y la matriz aún no existe, en este punto un GET /api/usuarios responde 401 (no hay token). La verificación funcional se completa en el ISS-13 y en el cierre.
+
+----
+
+##  21. ISS-20 — Features Roles y Resources (catálogo de autorización)
+
+**Objetivo:** construir los dos extremos del permiso:
+
+- Role — el sujeto de la autorización (a quién se concede).
+
+- Resource — el objeto (qué se concede), un par (method, path).
+
+Bloqueado por: ISS-19.
+
+Criterios de aceptación (ISS-19) — consolidados
+
+- [ ] 21.1 features/auth/roles/dto/ completo (create, update, patch, role-response, index)
+- [ ] 21.2 roles.repository.ts, roles.service.ts, roles.controller.ts, roles.routes.ts (JWT + RBAC)
+- [ ] 21.3 roles.seeder.ts (ADMIN, OPERADOR, idempotente) y roles.swagger.ts
+- [ ] 21.4 features/auth/resources/dto/ + resource-catalog.ts con rutas del proyecto
+- [ ] 21.5 resources.repository.ts, resources.service.ts, resources.controller.ts, resources.routes.ts (JWT + RBAC)
+- [ ] 21.6 resources.seeder.ts (carga el catálogo) y resources.swagger.ts
+- [ ] 21.7 archivos .http de ambos features
+- [ ] npx tsc --noEmit OK
+
+## 21.1 Feature Roles — DTOs
+
+```bash
+: > src/features/auth/roles/dto/create-role.dto.ts
+cat >> src/features/auth/roles/dto/create-role.dto.ts << 'EOF'
+/**
+ * Datos de entrada de `POST /api/roles`.
+ * `name` se normaliza a MAYÚSCULAS en el modelo.
+ */
+export interface CreateRoleDto {
+  name: string;
+  description?: string | null;
+  status?: "active" | "inactive";
+}
+EOF
+```
+
+```bash
+: > src/features/auth/roles/dto/update-role.dto.ts
+cat >> src/features/auth/roles/dto/update-role.dto.ts << 'EOF'
+/**
+ * Datos de entrada de `PUT /api/roles/:id` (reemplazo completo).
+ * `status` no está aquí: el estado solo cambia con el borrado lógico.
+ */
+export interface UpdateRoleDto {
+  name: string;
+  description?: string | null;
+}
+EOF
+```
+
+```bash
+: > src/features/auth/roles/dto/patch-role.dto.ts
+cat >> src/features/auth/roles/dto/patch-role.dto.ts << 'EOF'
+import { UpdateRoleDto } from "./update-role.dto";
+
+/** Datos de entrada de `PATCH /api/roles/:id` (actualización parcial). */
+export type PatchRoleDto = Partial<UpdateRoleDto>;
+EOF
+```
+
+```bash
+: > src/features/auth/roles/dto/role-response.dto.ts
+cat >> src/features/auth/roles/dto/role-response.dto.ts << 'EOF'
+import { Role, RoleI } from "../role.model";
+
+/** Respuesta HTTP de un rol. Sin campos internos: el DTO coincide con el modelo. */
+export type RoleResponseDto = RoleI;
+
+/** Mapper modelo -> DTO de respuesta (objeto plano). */
+export function toRoleResponse(role: Role): RoleResponseDto {
+  return role.toJSON() as RoleI;
+}
+EOF
+```
+
+```bash
+: > src/features/auth/roles/dto/index.ts
+cat >> src/features/auth/roles/dto/index.ts << 'EOF'
+export * from "./create-role.dto";
+export * from "./update-role.dto";
+export * from "./patch-role.dto";
+export * from "./role-response.dto";
+EOF
+```
+
+> Un rol se identifica por name (UK). El nombre no autoriza nada: crear un rol AUDITOR no le concede ningún recurso; el rol nace sin permisos.
+
+## 21.2 Feature Roles — repository, service, controller y rutas
+
+```bash
+: > src/features/auth/roles/roles.repository.ts
+cat >> src/features/auth/roles/roles.repository.ts << 'EOF'
+import { CreationAttributes, Transaction } from "sequelize";
+import { Role } from "./role.model";
+
+/**
+ * Capa Repository del feature Roles.
+ * Única que habla con Sequelize (el modelo `Role`).
+ */
+export class RolesRepository {
+  /** Todos los roles activos. */
+  public async findAllActive(): Promise<Role[]> {
+    return Role.findAll({ where: { status: "active" } });
+  }
+
+  /** Un rol por PK (o `null`). */
+  public async findById(id: number, transaction?: Transaction): Promise<Role | null> {
+    return Role.findByPk(id, { transaction });
+  }
+
+  /** Un rol por nombre normalizado a MAYÚSCULAS (o `null`). */
+  public async findByName(name: string): Promise<Role | null> {
+    return Role.findOne({ where: { name: name.trim().toUpperCase() } });
+  }
+
+  /** Inserta un rol. */
+  public async create(data: CreationAttributes<Role>): Promise<Role> {
+    return Role.create(data);
+  }
+
+  /** Persiste cambios sobre una instancia existente. */
+  public async update(role: Role, data: Partial<Role>): Promise<Role> {
+    return role.update(data);
+  }
+
+  /** Elimina físicamente una instancia. */
+  public async delete(role: Role): Promise<void> {
+    await role.destroy();
+  }
+}
+EOF
+```
+
+```bash
+: > src/features/auth/roles/roles.service.ts
+cat >> src/features/auth/roles/roles.service.ts << 'EOF'
+import {
+  CreateRoleDto,
+  PatchRoleDto,
+  RoleResponseDto,
+  UpdateRoleDto,
+  toRoleResponse,
+} from "./dto";
+import { RolesRepository } from "./roles.repository";
+import { Role } from "./role.model";
+import { AppError } from "../../../shared/errors/app-error";
+
+/**
+ * Capa Service del feature Roles.
+ *
+ * Regla de negocio: el nombre del rol es único. La autorización **nunca** se
+ * decide por el nombre, sino por las concesiones (`resource_roles`) asociadas;
+ * el nombre solo sirve para agrupar.
+ */
+export class RolesService {
+  public constructor(
+    private readonly repository: RolesRepository = new RolesRepository()
+  ) {}
+
+  // ================== READ ==================
+  public async getAll(): Promise<RoleResponseDto[]> {
+    const roles = await this.repository.findAllActive();
+    return roles.map((role) => toRoleResponse(role));
+  }
+
+  public async getOne(id: number): Promise<RoleResponseDto> {
+    return toRoleResponse(await this.findOrFail(id));
+  }
+
+  // ================== CREATE ==================
+  public async create(body: CreateRoleDto): Promise<RoleResponseDto> {
+    if (!body.name) {
+      throw new AppError(400, "name is required");
+    }
+    await this.assertNameAvailable(body.name);
+
+    const role = await this.repository.create({
+      name: body.name,
+      description: body.description ?? null,
+      status: body.status ?? "active",
+    });
+    return toRoleResponse(role);
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(id: number, body: UpdateRoleDto): Promise<RoleResponseDto> {
+    const role = await this.findOrFail(id);
+    await this.assertNameAvailable(body.name, id);
+
+    await this.repository.update(role, {
+      name: body.name,
+      description: body.description ?? null,
+    });
+    return toRoleResponse(role);
+  }
+
+  public async updatePatch(id: number, body: PatchRoleDto): Promise<RoleResponseDto> {
+    const role = await this.findOrFail(id);
+
+    if (body.name) {
+      await this.assertNameAvailable(body.name, id);
+    }
+
+    await this.repository.update(role, body);
+    return toRoleResponse(role);
+  }
+
+  // ================== DELETE ==================
+  /** Eliminación física. */
+  public async deletePhysical(id: number): Promise<void> {
+    const role = await this.findOrFail(id, false);
+    await this.repository.delete(role);
+  }
+
+  /** Eliminación lógica -> `status = inactive`. Todos sus usuarios pierden ese rol. */
+  public async deleteLogical(id: number): Promise<RoleResponseDto> {
+    const role = await this.findOrFail(id);
+    await this.repository.update(role, { status: "inactive" });
+    return toRoleResponse(role);
+  }
+
+  // ================== HELPERS ==================
+  private async findOrFail(id: number, onlyActive = true): Promise<Role> {
+    const role = await this.repository.findById(id);
+    if (!role || (onlyActive && role.status !== "active")) {
+      throw new AppError(404, "Role not found");
+    }
+    return role;
+  }
+
+  private async assertNameAvailable(name: string, excludeId?: number): Promise<void> {
+    const existing = await this.repository.findByName(name);
+    if (existing && existing.id !== excludeId) {
+      throw new AppError(409, "Role name already in use");
+    }
+  }
+}
+EOF
+```
+
+```bash
+: > src/features/auth/roles/roles.controller.ts
+cat >> src/features/auth/roles/roles.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { BaseController } from "../../../shared/http/base-controller";
+import { CreateRoleDto, PatchRoleDto, UpdateRoleDto } from "./dto";
+import { RolesService } from "./roles.service";
+
+/**
+ * Capa Controller del feature Roles.
+ * Solo HTTP: lee `req`, llama al service y arma la respuesta.
+ */
+export class RolesController extends BaseController {
+  public constructor(
+    private readonly service: RolesService = new RolesService()
+  ) {
+    super();
+  }
+
+  // ================== READ ==================
+  public async getAll(_req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const roles = await this.service.getAll();
+      res.status(200).json({ roles });
+    });
+  }
+
+  public async getOne(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const role = await this.service.getOne(this.paramId(req));
+      res.status(200).json({ role });
+    });
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const role = await this.service.create(req.body as CreateRoleDto);
+      res.status(201).json({ role });
+    });
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const role = await this.service.updatePut(
+        this.paramId(req),
+        req.body as UpdateRoleDto
+      );
+      res.status(200).json({ role });
+    });
+  }
+
+  public async updatePatch(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const role = await this.service.updatePatch(
+        this.paramId(req),
+        req.body as PatchRoleDto
+      );
+      res.status(200).json({ role });
+    });
+  }
+
+  // ================== DELETE ==================
+  /** Eliminación física. */
+  public async deletePhysical(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const id = this.paramId(req);
+      await this.service.deletePhysical(id);
+      res.status(200).json({ message: "Role permanently deleted", id });
+    });
+  }
+
+  /** Eliminación lógica -> `status = inactive`. */
+  public async deleteLogical(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const role = await this.service.deleteLogical(this.paramId(req));
+      res.status(200).json({ message: "Role deactivated (logical delete)", role });
+    });
+  }
+}
+EOF
+```
+
+```bash
+: > src/features/auth/roles/roles.routes.ts
+cat >> src/features/auth/roles/roles.routes.ts << 'EOF'
+import { Application } from "express";
+import { RolesController } from "./roles.controller";
+import { authenticate, authorize } from "../access";
+
+/** Rutas del feature Roles — **modalidad 3 (JWT + RBAC)** en todas las operaciones. */
+export class RolesRoutes {
+  public rolesController: RolesController = new RolesController();
+
+  public routes(app: Application): void {
+    // getAll
+    app
+      .route("/api/roles")
+      .get(authenticate, authorize, this.rolesController.getAll.bind(this.rolesController));
+
+    // getOne
+    app
+      .route("/api/roles/:id")
+      .get(authenticate, authorize, this.rolesController.getOne.bind(this.rolesController));
+
+    // create
+    app
+      .route("/api/roles")
+      .post(authenticate, authorize, this.rolesController.create.bind(this.rolesController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/roles/:id")
+      .put(authenticate, authorize, this.rolesController.updatePut.bind(this.rolesController))
+      .patch(authenticate, authorize, this.rolesController.updatePatch.bind(this.rolesController));
+
+    // delete físico
+    app
+      .route("/api/roles/:id")
+      .delete(
+        authenticate,
+        authorize,
+        this.rolesController.deletePhysical.bind(this.rolesController)
+      );
+
+    // delete lógico
+    app
+      .route("/api/roles/:id/deactivate")
+      .patch(authenticate, authorize, this.rolesController.deleteLogical.bind(this.rolesController));
+  }
+}
+EOF
+```
+
+## 21.3 Feature Roles — seeder y swagger
+
+```bash
+: > src/features/auth/roles/roles.seeder.ts
+cat >> src/features/auth/roles/roles.seeder.ts << 'EOF'
+import { Role } from "./role.model";
+
+/**
+ * Seeder del catálogo de roles (`roles`).
+ *
+ * Crea los dos roles de referencia del sistema. Es determinista (no usa datos
+ * aleatorios) e idempotente: `findOrCreate` por nombre y reactivación si ya
+ * existía inactivo.
+ *
+ * Los roles nacen **sin permisos**: las concesiones las crea el seeder de
+ * `resource_roles` (ADMIN recibe el catálogo; OPERADOR parte sin concesiones).
+ */
+export const SEED_ROLES = [
+  { name: "ADMIN", description: "Administración del sistema: gestiona usuarios, roles y permisos" },
+  { name: "OPERADOR", description: "Rol operativo pendiente de matriz de permisos" },
+] as const;
+
+export async function seedRoles(): Promise<number> {
+  let created = 0;
+
+  for (const item of SEED_ROLES) {
+    const [role, wasCreated] = await Role.findOrCreate({
+      where: { name: item.name },
+      defaults: { name: item.name, description: item.description, status: "active" },
+    });
+
+    if (wasCreated) {
+      created++;
+      continue;
+    }
+    if (role.status !== "active") {
+      await role.update({ status: "active" });
+    }
+  }
+
+  console.log(`✅ roles: catálogo reconciliado (${SEED_ROLES.length} roles, ${created} nuevos)`);
+  return created;
+}
+EOF
+```
+
+```bash
+: > src/features/auth/roles/roles.swagger.ts
+cat >> src/features/auth/roles/roles.swagger.ts << 'EOF'
+import {
+  bearerSecurity,
+  forbiddenResponse,
+  invalidIdResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+} from "../../../shared/http/swagger-security";
+
+/**
+ * Documentación OpenAPI del feature Roles.
+ *
+ * Modalidad: **JWT + RBAC** en todas las operaciones.
+ *
+ * Recordatorio de diseño: el **nombre** del rol no autoriza nada. Un rol
+ * `ADMIN` sin concesiones activas no habilita ninguna operación; la autorización
+ * se decide por las filas de `resource_roles`.
+ */
+export const rolesSwagger = {
+  tags: [
+    { name: "Roles", description: "CRUD de roles (agrupadores de permisos) — **JWT + RBAC**" },
+  ],
+  paths: {
+    "/api/roles": {
+      get: {
+        tags: ["Roles"],
+        summary: "Listar roles activos",
+        description: "JWT + RBAC — recurso `GET /api/roles`.",
+        security: bearerSecurity,
+        responses: {
+          "200": { description: "Lista de roles (`{ roles: [...] }`)" },
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+        },
+      },
+      post: {
+        tags: ["Roles"],
+        summary: "Crear rol",
+        description:
+          "JWT + RBAC — recurso `POST /api/roles`. El rol nace **sin permisos**: se conceden con `POST /api/concesiones-rol`.",
+        security: bearerSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/RoleCreate" } },
+          },
+        },
+        responses: {
+          "201": { description: "Rol creado (`{ role }`)" },
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "409": { description: "Nombre de rol ya en uso" },
+        },
+      },
+    },
+    "/api/roles/{id}": {
+      get: {
+        tags: ["Roles"],
+        summary: "Obtener rol por id",
+        description: "JWT + RBAC — recurso `GET /api/roles/:id`.",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Rol (`{ role }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+      put: {
+        tags: ["Roles"],
+        summary: "Reemplazar rol (PUT)",
+        description: "JWT + RBAC — recurso `PUT /api/roles/:id`.",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/RoleUpdate" } },
+          },
+        },
+        responses: {
+          "200": { description: "Rol actualizado (`{ role }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+      patch: {
+        tags: ["Roles"],
+        summary: "Modificar rol (PATCH)",
+        description: "JWT + RBAC — recurso `PATCH /api/roles/:id`.",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/RolePatch" } },
+          },
+        },
+        responses: {
+          "200": { description: "Rol actualizado (`{ role }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+      delete: {
+        tags: ["Roles"],
+        summary: "Eliminar rol (físico)",
+        description: "JWT + RBAC — recurso `DELETE /api/roles/:id`.",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado (`{ message, id }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+    },
+    "/api/roles/{id}/deactivate": {
+      patch: {
+        tags: ["Roles"],
+        summary: "Desactivar rol (borrado lógico)",
+        description:
+          "JWT + RBAC — recurso `PATCH /api/roles/:id/deactivate`. " +
+          "Efecto inmediato: todos los usuarios de ese rol pierden sus permisos (eslabón `roles` inactivo -> DENY).",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado (`{ message, role }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Role: {
+        type: "object",
+        properties: {
+          id: { type: "integer", example: 1 },
+          name: { type: "string", example: "OPERADOR" },
+          description: { type: "string", nullable: true },
+          status: { type: "string", enum: ["active", "inactive"], example: "active" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      RoleCreate: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", example: "MENSAJERO" },
+          description: { type: "string", nullable: true },
+          status: { type: "string", enum: ["active", "inactive"], default: "active" },
+        },
+      },
+      RoleUpdate: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string" },
+          description: { type: "string", nullable: true },
+        },
+      },
+      RolePatch: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          description: { type: "string", nullable: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+
+## 21.4 Feature Resources — DTOs y catálogo semilla
+
+```bash
+: > src/features/auth/resources/dto/create-resource.dto.ts
+cat >> src/features/auth/resources/dto/create-resource.dto.ts << 'EOF'
+/**
+ * Datos de entrada de `POST /api/recursos`.
+ *
+ * `path` se guarda con el patrón (`/api/shipments/:id`), no con un valor concreto.
+ */
+export interface CreateResourceDto {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  path: string;
+  description?: string | null;
+  status?: "active" | "inactive";
+}
+EOF
+```
+
+```bash
+: > src/features/auth/resources/dto/update-resource.dto.ts
+cat >> src/features/auth/resources/dto/update-resource.dto.ts << 'EOF'
+/**
+ * Datos de entrada de `PUT /api/recursos/:id` (reemplazo completo).
+ * `status` no está aquí: el estado solo cambia con el borrado lógico.
+ */
+export interface UpdateResourceDto {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  path: string;
+  description?: string | null;
+}
+EOF
+```
+
+```bash
+: > src/features/auth/resources/dto/patch-resource.dto.ts
+cat >> src/features/auth/resources/dto/patch-resource.dto.ts << 'EOF'
+import { UpdateResourceDto } from "./update-resource.dto";
+
+/** Datos de entrada de `PATCH /api/recursos/:id` (actualización parcial). */
+export type PatchResourceDto = Partial<UpdateResourceDto>;
+EOF
+```
+
+```bash
+: > src/features/auth/resources/dto/resource-response.dto.ts
+cat >> src/features/auth/resources/dto/resource-response.dto.ts << 'EOF'
+import { Resource, ResourceI } from "../resource.model";
+
+/**
+ * Respuesta HTTP de un recurso. `resources` no tiene campos internos, así que el
+ * DTO coincide con el modelo; se declara igualmente para que la API quede
+ * desacoplada del modelo (cambiar el modelo no cambia el contrato por accidente).
+ */
+export type ResourceResponseDto = ResourceI;
+
+/** Mapper modelo -> DTO de respuesta (objeto plano). */
+export function toResourceResponse(resource: Resource): ResourceResponseDto {
+  return resource.toJSON() as ResourceI;
+}
+EOF
+```
+
+```bash
+: > src/features/auth/resources/dto/index.ts
+cat >> src/features/auth/resources/dto/index.ts << 'EOF'
+export * from "./create-resource.dto";
+export * from "./update-resource.dto";
+export * from "./patch-resource.dto";
+export * from "./resource-response.dto";
+EOF
+```
+
+> El catálogo es la fuente única de recursos; los roles operativos no reciben concesiones hasta aprobar su matriz.
+
+```bash
+: > src/features/auth/resources/resource-catalog.ts
+cat >> src/features/auth/resources/resource-catalog.ts << 'EOF'
+/**
+ * Catálogo de recursos RBAC de EnlaceExpress.
+ *
+ * Las rutas business se derivan del patrón común de los 11 módulos existentes
+ * (GET colección/detalle, POST, PUT, PATCH, DELETE y PATCH deactivate). Si un
+ * módulo cambia sus rutas, actualiza aquí el catálogo para mantenerlo alineado.
+ * Ajusta AUTH_RESOURCES a los endpoints finales de los módulos auth.
+ */
+export interface CatalogResource {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  path: string;
+  description: string;
+}
+
+const STANDARD_OPERATIONS = [
+  { method: "GET", suffix: "", action: "Listar" },
+  { method: "GET", suffix: "/:id", action: "Consultar" },
+  { method: "POST", suffix: "", action: "Crear" },
+  { method: "PUT", suffix: "/:id", action: "Reemplazar" },
+  { method: "PATCH", suffix: "/:id", action: "Modificar" },
+  { method: "DELETE", suffix: "/:id", action: "Eliminar" },
+  { method: "PATCH", suffix: "/:id/deactivate", action: "Desactivar" },
+] as const;
+
+const BUSINESS_FEATURES = [
+  "companies",
+  "contacts",
+  "address",
+  "messengers",
+  "rates",
+  "routes",
+  "shipments",
+  "packages",
+  "tracking_events",
+  "delivery_proofs",
+  "invoices",
+] as const;
+
+const BUSINESS_RESOURCES: CatalogResource[] = BUSINESS_FEATURES.flatMap((feature) =>
+  STANDARD_OPERATIONS.map(({ method, suffix, action }) => ({
+    method,
+    path: `/api/${feature}${suffix}`,
+    description: `${action} ${feature}`,
+  }))
+);
+
+const AUTH_FEATURES = ["usuarios", "roles", "recursos"] as const;
+const AUTH_RESOURCES: CatalogResource[] = [
+  ...AUTH_FEATURES.flatMap((feature) =>
+    STANDARD_OPERATIONS.map(({ method, suffix, action }) => ({
+      method,
+      path: `/api/${feature}${suffix}`,
+      description: `${action} ${feature}`,
+    }))
+  ),
+  { method: "PATCH", path: "/api/usuarios/:id/password", description: "Cambiar contraseña" },
+  { method: "GET", path: "/api/usuarios/:id/permisos", description: "Permisos efectivos" },
+  { method: "GET", path: "/api/asignaciones-rol", description: "Listar asignaciones" },
+  { method: "GET", path: "/api/asignaciones-rol/:id", description: "Consultar asignación" },
+  { method: "POST", path: "/api/asignaciones-rol", description: "Asignar rol" },
+  { method: "PATCH", path: "/api/asignaciones-rol/:id/deactivate", description: "Retirar rol" },
+  { method: "PATCH", path: "/api/asignaciones-rol/:id/reactivate", description: "Reactivar rol" },
+  { method: "GET", path: "/api/concesiones-rol", description: "Listar concesiones" },
+  { method: "GET", path: "/api/concesiones-rol/:id", description: "Consultar concesión" },
+  { method: "POST", path: "/api/concesiones-rol", description: "Conceder permiso" },
+  { method: "PATCH", path: "/api/concesiones-rol/:id/deactivate", description: "Retirar permiso" },
+  { method: "PATCH", path: "/api/concesiones-rol/:id/reactivate", description: "Reactivar permiso" },
+];
+
+export const RESOURCE_CATALOG: readonly CatalogResource[] = [
+  ...AUTH_RESOURCES,
+  ...BUSINESS_RESOURCES,
+];
+
+// Sin una matriz de permisos aprobada, los roles operativos parten sin permisos.
+export const OPERADOR_RESOURCES: readonly CatalogResource[] = [];
+
+// Referencia inicial: 33 rutas de administración auth + 77 rutas business = 110.
+// Recalcular al cambiar endpoints; las rutas OPEN/JWT de sesión no pertenecen a RBAC.
+EOF
+```
+
+## 21.5 Feature Resources — repository, service, controller y rutas
+
+```bash
+: > src/features/auth/resources/resources.repository.ts
+cat >> src/features/auth/resources/resources.repository.ts << 'EOF'
+import { CreationAttributes, Transaction } from "sequelize";
+import { Resource } from "./resource.model";
+import { normalizePath } from "../../../shared/auth/resource-match";
+
+/**
+ * Capa Repository del feature Resources.
+ * Única que habla con Sequelize (el modelo `Resource`).
+ */
+export class ResourcesRepository {
+  /** Todos los recursos activos. */
+  public async findAllActive(): Promise<Resource[]> {
+    return Resource.findAll({ where: { status: "active" } });
+  }
+
+  /** Un recurso por PK (o `null`). */
+  public async findById(id: number, transaction?: Transaction): Promise<Resource | null> {
+    return Resource.findByPk(id, { transaction });
+  }
+
+  /** Un recurso por su par `(method, path)` (o `null`). */
+  public async findByOperation(method: string, path: string): Promise<Resource | null> {
+    return Resource.findOne({
+      where: { method: method.trim().toUpperCase(), path: normalizePath(path.trim()) },
+    });
+  }
+
+  /** Inserta un recurso. */
+  public async create(data: CreationAttributes<Resource>): Promise<Resource> {
+    return Resource.create(data);
+  }
+
+  /** Persiste cambios sobre una instancia existente. */
+  public async update(resource: Resource, data: Partial<Resource>): Promise<Resource> {
+    return resource.update(data);
+  }
+
+  /** Elimina físicamente una instancia. */
+  public async delete(resource: Resource): Promise<void> {
+    await resource.destroy();
+  }
+}
+EOF
+```
+
+```bash
+: > src/features/auth/resources/resources.service.ts
+cat >> src/features/auth/resources/resources.service.ts << 'EOF'
+import {
+  CreateResourceDto,
+  PatchResourceDto,
+  ResourceResponseDto,
+  UpdateResourceDto,
+  toResourceResponse,
+} from "./dto";
+import { ResourcesRepository } from "./resources.repository";
+import { Resource } from "./resource.model";
+import { AppError } from "../../../shared/errors/app-error";
+
+/**
+ * Capa Service del feature Resources.
+ *
+ * Reglas de negocio: la tupla `(method, path)` es única. Se comprueba antes de
+ * escribir para responder 409 con un mensaje útil en lugar de dejar reventar la
+ * restricción única de la base de datos como 500.
+ */
+export class ResourcesService {
+  public constructor(
+    private readonly repository: ResourcesRepository = new ResourcesRepository()
+  ) {}
+
+  // ================== READ ==================
+  public async getAll(): Promise<ResourceResponseDto[]> {
+    const resources = await this.repository.findAllActive();
+    return resources.map((resource) => toResourceResponse(resource));
+  }
+
+  public async getOne(id: number): Promise<ResourceResponseDto> {
+    return toResourceResponse(await this.findOrFail(id));
+  }
+
+  // ================== CREATE ==================
+  public async create(body: CreateResourceDto): Promise<ResourceResponseDto> {
+    if (!body.method || !body.path) {
+      throw new AppError(400, "method and path are required");
+    }
+    await this.assertOperationAvailable(body.method, body.path);
+
+    const resource = await this.repository.create({
+      method: body.method,
+      path: body.path,
+      description: body.description ?? null,
+      status: body.status ?? "active",
+    });
+    return toResourceResponse(resource);
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(id: number, body: UpdateResourceDto): Promise<ResourceResponseDto> {
+    const resource = await this.findOrFail(id);
+    await this.assertOperationAvailable(body.method, body.path, id);
+
+    await this.repository.update(resource, {
+      method: body.method,
+      path: body.path,
+      description: body.description ?? null,
+    });
+    return toResourceResponse(resource);
+  }
+
+  public async updatePatch(id: number, body: PatchResourceDto): Promise<ResourceResponseDto> {
+    const resource = await this.findOrFail(id);
+
+    const method = body.method ?? resource.method;
+    const path = body.path ?? resource.path;
+    await this.assertOperationAvailable(method, path, id);
+
+    await this.repository.update(resource, body);
+    return toResourceResponse(resource);
+  }
+
+  // ================== DELETE ==================
+  /** Eliminación física. */
+  public async deletePhysical(id: number): Promise<void> {
+    const resource = await this.findOrFail(id, false);
+    await this.repository.delete(resource);
+  }
+
+  /** Eliminación lógica -> `status = inactive`. Deshabilita el punto de acceso. */
+  public async deleteLogical(id: number): Promise<ResourceResponseDto> {
+    const resource = await this.findOrFail(id);
+    await this.repository.update(resource, { status: "inactive" });
+    return toResourceResponse(resource);
+  }
+
+  // ================== HELPERS ==================
+  private async findOrFail(id: number, onlyActive = true): Promise<Resource> {
+    const resource = await this.repository.findById(id);
+    if (!resource || (onlyActive && resource.status !== "active")) {
+      throw new AppError(404, "Resource not found");
+    }
+    return resource;
+  }
+
+  /** 409 si otro recurso ya declara el mismo `(method, path)`. */
+  private async assertOperationAvailable(
+    method: string,
+    path: string,
+    excludeId?: number
+  ): Promise<void> {
+    const existing = await this.repository.findByOperation(method, path);
+    if (existing && existing.id !== excludeId) {
+      throw new AppError(409, `Resource ${method.toUpperCase()} ${path} already exists`);
+    }
+  }
+}
+EOF
+```
+
+```bash
+: > src/features/auth/resources/resources.controller.ts
+cat >> src/features/auth/resources/resources.controller.ts << 'EOF'
+import { Request, Response } from "express";
+import { BaseController } from "../../../shared/http/base-controller";
+import {
+  CreateResourceDto,
+  PatchResourceDto,
+  UpdateResourceDto,
+} from "./dto";
+import { ResourcesService } from "./resources.service";
+
+/**
+ * Capa Controller del feature Resources.
+ * Solo HTTP: lee `req`, llama al service y arma la respuesta.
+ */
+export class ResourcesController extends BaseController {
+  public constructor(
+    private readonly service: ResourcesService = new ResourcesService()
+  ) {
+    super();
+  }
+
+  // ================== READ ==================
+  public async getAll(_req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const resources = await this.service.getAll();
+      res.status(200).json({ resources });
+    });
+  }
+
+  public async getOne(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const resource = await this.service.getOne(this.paramId(req));
+      res.status(200).json({ resource });
+    });
+  }
+
+  // ================== CREATE ==================
+  public async create(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const resource = await this.service.create(req.body as CreateResourceDto);
+      res.status(201).json({ resource });
+    });
+  }
+
+  // ================== UPDATE ==================
+  public async updatePut(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const resource = await this.service.updatePut(
+        this.paramId(req),
+        req.body as UpdateResourceDto
+      );
+      res.status(200).json({ resource });
+    });
+  }
+
+  public async updatePatch(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const resource = await this.service.updatePatch(
+        this.paramId(req),
+        req.body as PatchResourceDto
+      );
+      res.status(200).json({ resource });
+    });
+  }
+
+  // ================== DELETE ==================
+  /** Eliminación física. */
+  public async deletePhysical(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const id = this.paramId(req);
+      await this.service.deletePhysical(id);
+      res.status(200).json({ message: "Resource permanently deleted", id });
+    });
+  }
+
+  /** Eliminación lógica -> `status = inactive`. */
+  public async deleteLogical(req: Request, res: Response): Promise<void> {
+    await this.run(res, async () => {
+      const resource = await this.service.deleteLogical(this.paramId(req));
+      res.status(200).json({ message: "Resource deactivated (logical delete)", resource });
+    });
+  }
+}
+EOF
+```
+
+```bash
+: > src/features/auth/resources/resources.routes.ts
+cat >> src/features/auth/resources/resources.routes.ts << 'EOF'
+import { Application } from "express";
+import { ResourcesController } from "./resources.controller";
+import { authenticate, authorize } from "../access";
+
+/** Rutas del feature Resources — **modalidad 3 (JWT + RBAC)** en todas las operaciones. */
+export class ResourcesRoutes {
+  public resourcesController: ResourcesController = new ResourcesController();
+
+  public routes(app: Application): void {
+    // getAll
+    app
+      .route("/api/recursos")
+      .get(authenticate, authorize, this.resourcesController.getAll.bind(this.resourcesController));
+
+    // getOne
+    app
+      .route("/api/recursos/:id")
+      .get(authenticate, authorize, this.resourcesController.getOne.bind(this.resourcesController));
+
+    // create
+    app
+      .route("/api/recursos")
+      .post(authenticate, authorize, this.resourcesController.create.bind(this.resourcesController));
+
+    // update (PUT / PATCH)
+    app
+      .route("/api/recursos/:id")
+      .put(
+        authenticate,
+        authorize,
+        this.resourcesController.updatePut.bind(this.resourcesController)
+      )
+      .patch(
+        authenticate,
+        authorize,
+        this.resourcesController.updatePatch.bind(this.resourcesController)
+      );
+
+    // delete físico
+    app
+      .route("/api/recursos/:id")
+      .delete(
+        authenticate,
+        authorize,
+        this.resourcesController.deletePhysical.bind(this.resourcesController)
+      );
+
+    // delete lógico
+    app
+      .route("/api/recursos/:id/deactivate")
+      .patch(
+        authenticate,
+        authorize,
+        this.resourcesController.deleteLogical.bind(this.resourcesController)
+      );
+  }
+}
+EOF
+```
+
+> POST /api/recursos con un (method, path) ya existente → 409: lo impone la restricción UQ(method, path).
+
+## 21.6 Feature Resources — seeder y swagger
+
+El seeder es idempotente y reconciliador: findOrCreate por (method, path) y reactivación si la fila estaba inactiva. Reejecutarlo deja el catálogo exacto, sin duplicados.
+
+```bash
+: > src/features/auth/resources/resources.seeder.ts
+cat >> src/features/auth/resources/resources.seeder.ts << 'EOF'
+import { Resource } from "./resource.model";
+import { RESOURCE_CATALOG } from "./resource-catalog";
+
+/**
+ * Seeder del catálogo de recursos (`resources`).
+ *
+ * A diferencia de los seeders de business, este **no usa datos aleatorios**: los
+ * Los recursos forman un catálogo determinista definido en `resource-catalog.ts`.
+ * Es idempotente por partida doble: `findOrCreate` por `(method, path)` y
+ * reactivación de las filas que ya existían inactivas, de modo que volver a
+ * ejecutarlo reconcilia el catálogo sin duplicar ni perder concesiones.
+ */
+export async function seedResources(): Promise<number> {
+  let created = 0;
+
+  for (const item of RESOURCE_CATALOG) {
+    const [resource, wasCreated] = await Resource.findOrCreate({
+      where: { method: item.method, path: item.path },
+      defaults: {
+        method: item.method,
+        path: item.path,
+        description: item.description,
+        status: "active",
+      },
+    });
+
+    if (wasCreated) {
+      created++;
+      continue;
+    }
+    if (resource.status !== "active") {
+      await resource.update({ status: "active" });
+    }
+  }
+
+  console.log(
+    `✅ resources: catálogo reconciliado (${RESOURCE_CATALOG.length} recursos, ${created} nuevos)`
+  );
+  return created;
+}
+EOF
+```
+
+```bash
+: > src/features/auth/resources/resources.swagger.ts
+cat >> src/features/auth/resources/resources.swagger.ts << 'EOF'
+import {
+  bearerSecurity,
+  forbiddenResponse,
+  invalidIdResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+} from "../../../shared/http/swagger-security";
+
+/**
+ * Documentación OpenAPI del feature Resources.
+ *
+ * Modalidad: **JWT + RBAC** en todas las operaciones.
+ *
+ * Un recurso es un par `(method, path)` con la ruta **en patrón**
+ * (`/api/shipments/:id`). `GET` y `POST` sobre la misma ruta son dos recursos
+ * distintos y se conceden por separado.
+ */
+export const resourcesSwagger = {
+  tags: [
+    {
+      name: "Recursos",
+      description:
+        "Catálogo de puntos de acceso protegibles: par `(method, path)` — **JWT + RBAC**",
+    },
+  ],
+  paths: {
+    "/api/recursos": {
+      get: {
+        tags: ["Recursos"],
+        summary: "Listar recursos activos",
+        description: "JWT + RBAC — recurso `GET /api/recursos`.",
+        security: bearerSecurity,
+        responses: {
+          "200": { description: "Lista de recursos (`{ resources: [...] }`)" },
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+        },
+      },
+      post: {
+        tags: ["Recursos"],
+        summary: "Crear recurso",
+        description:
+          "JWT + RBAC — recurso `POST /api/recursos`. Alta de un nuevo punto de acceso; concederlo a un rol no requiere desplegar código.",
+        security: bearerSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ResourceCreate" } },
+          },
+        },
+        responses: {
+          "201": { description: "Recurso creado (`{ resource }`)" },
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "409": { description: "La tupla `(method, path)` ya existe" },
+        },
+      },
+    },
+    "/api/recursos/{id}": {
+      get: {
+        tags: ["Recursos"],
+        summary: "Obtener recurso por id",
+        description: "JWT + RBAC — recurso `GET /api/recursos/:id`.",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Recurso (`{ resource }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+      put: {
+        tags: ["Recursos"],
+        summary: "Reemplazar recurso (PUT)",
+        description: "JWT + RBAC — recurso `PUT /api/recursos/:id`.",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ResourceUpdate" } },
+          },
+        },
+        responses: {
+          "200": { description: "Recurso actualizado (`{ resource }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+      patch: {
+        tags: ["Recursos"],
+        summary: "Modificar recurso (PATCH)",
+        description: "JWT + RBAC — recurso `PATCH /api/recursos/:id`.",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ResourcePatch" } },
+          },
+        },
+        responses: {
+          "200": { description: "Recurso actualizado (`{ resource }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+      delete: {
+        tags: ["Recursos"],
+        summary: "Eliminar recurso (físico)",
+        description: "JWT + RBAC — recurso `DELETE /api/recursos/:id`.",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Eliminado (`{ message, id }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+    },
+    "/api/recursos/{id}/deactivate": {
+      patch: {
+        tags: ["Recursos"],
+        summary: "Desactivar recurso (borrado lógico)",
+        description:
+          "JWT + RBAC — recurso `PATCH /api/recursos/:id/deactivate`. " +
+          "Efecto inmediato: ningún rol puede autorizar ese punto de acceso (eslabón `resources` inactivo -> DENY).",
+        security: bearerSecurity,
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": { description: "Desactivado (`{ message, resource }`)" },
+          "400": invalidIdResponse,
+          "401": unauthorizedResponse,
+          "403": forbiddenResponse,
+          "404": notFoundResponse,
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Resource: {
+        type: "object",
+        properties: {
+          id: { type: "integer", example: 1 },
+          method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE"], example: "GET" },
+          path: { type: "string", example: "/api/shipments/:id" },
+          description: { type: "string", nullable: true },
+          status: { type: "string", enum: ["active", "inactive"], example: "active" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      ResourceCreate: {
+        type: "object",
+        required: ["method", "path"],
+        properties: {
+          method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          path: { type: "string", example: "/api/shipments/:id" },
+          description: { type: "string", nullable: true },
+          status: { type: "string", enum: ["active", "inactive"], default: "active" },
+        },
+      },
+      ResourceUpdate: {
+        type: "object",
+        required: ["method", "path"],
+        properties: {
+          method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          path: { type: "string" },
+          description: { type: "string", nullable: true },
+        },
+      },
+      ResourcePatch: {
+        type: "object",
+        properties: {
+          method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          path: { type: "string" },
+          description: { type: "string", nullable: true },
+        },
+      },
+    },
+  },
+};
+EOF
+```
+
+## 21.7 Pruebas HTTP
+
+```bash
+: > src/features/auth/roles/http/roles.get.http
+cat >> src/features/auth/roles/http/roles.get.http << 'EOF'
+### Feature Roles — CRUD (modalidad JWT + RBAC)
+### El NOMBRE del rol no autoriza nada: la autorización son las filas de `resource_roles`.
+@baseUrl = http://localhost:4000
+
+# @name loginAdmin
+POST {{baseUrl}}/api/sesion/login
+Content-Type: application/json
+
+{
+  "identifier": "admin",
+  "password": "Admin123!"
+}
+
+# @name loginOperador
+POST {{baseUrl}}/api/sesion/login
+Content-Type: application/json
+
+{
+  "identifier": "operador",
+  "password": "Operador123!"
+}
+
+@token = {{loginAdmin.response.body.$.access_token}}
+
+### getAll — recurso `GET /api/roles` (ADMIN y OPERADOR)
+GET {{baseUrl}}/api/roles
+Authorization: Bearer {{token}}
+
+### getOne
+GET {{baseUrl}}/api/roles/1
+Authorization: Bearer {{token}}
+
+### CREATE — nace SIN permisos
+POST {{baseUrl}}/api/roles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "AUDITOR",
+  "description": "Solo lectura de catálogo"
+}
+
+### UPDATE PUT
+PUT {{baseUrl}}/api/roles/3
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "AUDITOR",
+  "description": "Rol operativo pendiente de permisos aprobados"
+}
+
+### UPDATE PATCH
+PATCH {{baseUrl}}/api/roles/3
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "description": "Auditoría operativa"
+}
+
+### DELETE lógico — efecto inmediato: todos sus usuarios pierden esos permisos (403)
+PATCH {{baseUrl}}/api/roles/3/deactivate
+Authorization: Bearer {{token}}
+
+### DELETE físico
+DELETE {{baseUrl}}/api/roles/3
+Authorization: Bearer {{token}}
+
+### 403 — OPERADOR no tiene concedido `GET /api/roles`
+GET {{baseUrl}}/api/roles
+Authorization: Bearer {{loginOperador.response.body.$.access_token}}
+EOF
+```
+
+```bash
+: > src/features/auth/resources/http/resources.get.http
+cat >> src/features/auth/resources/http/resources.get.http << 'EOF'
+### Feature Resources — catálogo de puntos de acceso (modalidad JWT + RBAC)
+### Un recurso es el par (method, path) con la ruta EN PATRÓN: /api/shipments/:id
+### GET y POST sobre la misma ruta son DOS recursos distintos.
+@baseUrl = http://localhost:4000
+
+# @name loginAdmin
+POST {{baseUrl}}/api/sesion/login
+Content-Type: application/json
+
+{
+  "identifier": "admin",
+  "password": "Admin123!"
+}
+
+@token = {{loginAdmin.response.body.$.access_token}}
+
+### getAll — el catálogo de rutas de EnlaceExpress
+GET {{baseUrl}}/api/recursos
+Authorization: Bearer {{token}}
+
+### Copia un id real de la respuesta anterior antes de probar getOne/update/delete.
+@resourceId = <id-obtenido-de-GET-recursos>
+GET {{baseUrl}}/api/recursos/{{resourceId}}
+Authorization: Bearer {{token}}
+
+### CREATE — alta de un punto de acceso futuro; no habilita una ruta no implementada.
+# @name createResource
+POST {{baseUrl}}/api/recursos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "method": "GET",
+  "path": "/api/ops-dashboard",
+  "description": "Consulta futura del tablero operativo"
+}
+
+@createdResourceId = {{createResource.response.body.$.resource.id}}
+
+### 409 — la tupla (method, path) ya existe
+POST {{baseUrl}}/api/recursos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "method": "GET",
+  "path": "/api/companies",
+  "description": "Duplicado"
+}
+
+### UPDATE PUT
+PUT {{baseUrl}}/api/recursos/{{createdResourceId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "method": "GET",
+  "path": "/api/ops-dashboard",
+  "description": "Consulta futura del tablero operativo"
+}
+
+### DELETE lógico
+PATCH {{baseUrl}}/api/recursos/{{createdResourceId}}/deactivate
+Authorization: Bearer {{token}}
+
+### DELETE físico
+DELETE {{baseUrl}}/api/recursos/{{createdResourceId}}
+Authorization: Bearer {{token}}
+EOF
+```
+
+**Verificación**
+
+```bash
+npx tsc --noEmit
+npm run db:seed
+```
+
+![alt text](img-express/iss20.png)
+
+```sql
+SELECT COUNT(*) FROM resources;   -- 110 con las rutas actuales
+SELECT COUNT(*) FROM roles;       -- 2
+SELECT name, status FROM roles;   -- ADMIN, OPERADOR
+```
+
+![alt text](img-express/select_iss20.png)

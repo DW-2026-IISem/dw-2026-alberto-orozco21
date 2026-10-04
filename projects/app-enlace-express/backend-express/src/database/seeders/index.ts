@@ -20,6 +20,8 @@ import { seedTrackingEvents } from "../../features/business/tracking-event/track
 import { seedDeliveryProofs } from "../../features/business/delivery-proof/delivery-proof.seeder";
 import { seedInvoices } from "../../features/business/invoice/invoice.seeder";
 import { seedUsers } from "../../features/auth/users/users.seeder";
+import { seedRoles } from "../../features/auth/roles/roles.seeder";
+import { seedResources } from "../../features/auth/resources/resources.seeder";
 import { resolveSeedCounts } from "./counts";
 
 dotenv.config();
@@ -70,6 +72,8 @@ export async function runAllSeeders(): Promise<void> {
   await seedTrackingEvents(counts.tracking_events);
   await seedDeliveryProofs(counts.delivery_proofs);
   await seedInvoices(counts.invoices);
+  await seedRoles();
+  await seedResources();
 
   console.log("🌱 SeedersRunner finalizado");
 }

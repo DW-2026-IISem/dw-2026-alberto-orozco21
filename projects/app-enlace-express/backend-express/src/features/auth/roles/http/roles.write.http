@@ -1,0 +1,49 @@
+@baseUrl = http://localhost:4000
+@token = replace-with-a-valid-access-token
+@id = 1
+
+### Create a role. It has no permissions until grants are assigned.
+POST {{baseUrl}}/api/roles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "AUDITOR",
+  "description": "Read-only role"
+}
+
+### Duplicate role name returns 409
+POST {{baseUrl}}/api/roles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "admin"
+}
+
+### Replace role identity
+PUT {{baseUrl}}/api/roles/{{id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "OPERADOR",
+  "description": "Operations role"
+}
+
+### Partial update (does not allow status or permission assignments)
+PATCH {{baseUrl}}/api/roles/{{id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "description": "Updated description"
+}
+
+### Logical deletion disables effective permissions for this role
+PATCH {{baseUrl}}/api/roles/{{id}}/deactivate
+Authorization: Bearer {{token}}
+
+### Physical deletion
+DELETE {{baseUrl}}/api/roles/{{id}}
+Authorization: Bearer {{token}}
