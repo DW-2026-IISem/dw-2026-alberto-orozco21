@@ -1,8 +1,10 @@
+import { bearerSecurity } from "../../../shared/http/swagger-security";
+
 export const messengerSwagger = {
   tags: [
     {
       name: "Messengers",
-      description: "CRUD de mensajeros — **SIN AUTH** (sin middleware JWT)",
+      description: "CRUD de mensajeros — **JWT + RBAC** (requiere autenticación y permiso activo)",
     },
   ],
   paths: {
@@ -10,8 +12,8 @@ export const messengerSwagger = {
       get: {
         tags: ["Messengers"],
         summary: "Listar mensajeros activos",
-        description: "SIN AUTH — retorna registros con is_active=true",
-        security: [],
+        description: "JWT + RBAC — retorna registros con is_active=true",
+        security: bearerSecurity,
         responses: {
           "200": {
             description: "Lista de mensajeros",
@@ -34,8 +36,8 @@ export const messengerSwagger = {
       post: {
         tags: ["Messengers"],
         summary: "Crear mensajero",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         requestBody: {
           required: true,
           content: {
@@ -65,8 +67,8 @@ export const messengerSwagger = {
       get: {
         tags: ["Messengers"],
         summary: "Obtener mensajero por id",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": {
@@ -88,8 +90,8 @@ export const messengerSwagger = {
       put: {
         tags: ["Messengers"],
         summary: "Actualizar mensajero (PUT — reemplazo)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -107,8 +109,8 @@ export const messengerSwagger = {
       patch: {
         tags: ["Messengers"],
         summary: "Actualizar mensajero (PATCH — parcial)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -126,8 +128,8 @@ export const messengerSwagger = {
       delete: {
         tags: ["Messengers"],
         summary: "Eliminar mensajero (físico)",
-        description: "SIN AUTH — borra la fila",
-        security: [],
+        description: "JWT + RBAC — borra la fila",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Eliminado" },
@@ -139,8 +141,8 @@ export const messengerSwagger = {
       patch: {
         tags: ["Messengers"],
         summary: "Desactivar mensajero (eliminación lógica)",
-        description: "SIN AUTH — is_active = false",
-        security: [],
+        description: "JWT + RBAC — is_active = false",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Desactivado" },

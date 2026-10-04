@@ -1,8 +1,10 @@
+import { bearerSecurity } from "../../../shared/http/swagger-security";
+
 export const deliveryProofSwagger = {
   tags: [
     {
       name: "DeliveryProofs",
-      description: "CRUD de pruebas de entrega — **SIN AUTH** (sin middleware JWT)",
+      description: "CRUD de pruebas de entrega — **JWT + RBAC** (requiere autenticación y permiso activo)",
     },
   ],
   paths: {
@@ -10,8 +12,8 @@ export const deliveryProofSwagger = {
       get: {
         tags: ["DeliveryProofs"],
         summary: "Listar pruebas de entrega activas",
-        description: "SIN AUTH — retorna registros con is_active=true",
-        security: [],
+        description: "JWT + RBAC — retorna registros con is_active=true",
+        security: bearerSecurity,
         responses: {
           "200": {
             description: "Lista de pruebas de entrega",
@@ -34,8 +36,8 @@ export const deliveryProofSwagger = {
       post: {
         tags: ["DeliveryProofs"],
         summary: "Crear prueba de entrega",
-        description: "SIN AUTH — solo se permite una prueba por envío",
-        security: [],
+        description: "JWT + RBAC — solo se permite una prueba por envío",
+        security: bearerSecurity,
         requestBody: {
           required: true,
           content: {
@@ -66,8 +68,8 @@ export const deliveryProofSwagger = {
       get: {
         tags: ["DeliveryProofs"],
         summary: "Obtener prueba de entrega por id",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": {
@@ -89,8 +91,8 @@ export const deliveryProofSwagger = {
       put: {
         tags: ["DeliveryProofs"],
         summary: "Actualizar prueba de entrega (PUT — reemplazo)",
-        description: "SIN AUTH — solo se permite una prueba por envío",
-        security: [],
+        description: "JWT + RBAC — solo se permite una prueba por envío",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -108,8 +110,8 @@ export const deliveryProofSwagger = {
       patch: {
         tags: ["DeliveryProofs"],
         summary: "Actualizar prueba de entrega (PATCH — parcial)",
-        description: "SIN AUTH — solo se permite una prueba por envío",
-        security: [],
+        description: "JWT + RBAC — solo se permite una prueba por envío",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -127,8 +129,8 @@ export const deliveryProofSwagger = {
       delete: {
         tags: ["DeliveryProofs"],
         summary: "Eliminar prueba de entrega (físico)",
-        description: "SIN AUTH — borra la fila",
-        security: [],
+        description: "JWT + RBAC — borra la fila",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Eliminada" },
@@ -140,8 +142,8 @@ export const deliveryProofSwagger = {
       patch: {
         tags: ["DeliveryProofs"],
         summary: "Desactivar prueba de entrega (eliminación lógica)",
-        description: "SIN AUTH — is_active = false",
-        security: [],
+        description: "JWT + RBAC — is_active = false",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Desactivada" },

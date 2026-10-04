@@ -1,41 +1,25 @@
 import { Application } from "express";
+import { authenticate, authorize } from "../../auth/access";
 import { AddressController } from "./address.controller";
 
 export class AddressRoutes {
   public addressController: AddressController = new AddressController();
 
   public routes(app: Application): void {
-    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
-
-    // getAll
     app
       .route("/api/address")
-      .get(this.addressController.getAll.bind(this.addressController));
+      .get(authenticate, authorize, this.addressController.getAll.bind(this.addressController))
+      .post(authenticate, authorize, this.addressController.create.bind(this.addressController));
 
-    // getOne
     app
       .route("/api/address/:id")
-      .get(this.addressController.getOne.bind(this.addressController));
+      .get(authenticate, authorize, this.addressController.getOne.bind(this.addressController))
+      .put(authenticate, authorize, this.addressController.updatePut.bind(this.addressController))
+      .patch(authenticate, authorize, this.addressController.updatePatch.bind(this.addressController))
+      .delete(authenticate, authorize, this.addressController.deletePhysical.bind(this.addressController));
 
-    // create
-    app
-      .route("/api/address")
-      .post(this.addressController.create.bind(this.addressController));
-
-    // update (PUT / PATCH)
-    app
-      .route("/api/address/:id")
-      .put(this.addressController.updatePut.bind(this.addressController))
-      .patch(this.addressController.updatePatch.bind(this.addressController));
-
-    // delete fisico
-    app
-      .route("/api/address/:id")
-      .delete(this.addressController.deletePhysical.bind(this.addressController));
-
-    // delete logico
     app
       .route("/api/address/:id/deactivate")
-      .patch(this.addressController.deleteLogical.bind(this.addressController));
+      .patch(authenticate, authorize, this.addressController.deleteLogical.bind(this.addressController));
   }
 }

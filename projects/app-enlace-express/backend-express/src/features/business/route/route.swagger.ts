@@ -1,8 +1,10 @@
+import { bearerSecurity } from "../../../shared/http/swagger-security";
+
 export const routeSwagger = {
   tags: [
     {
       name: "Routes",
-      description: "CRUD de rutas — **SIN AUTH** (sin middleware JWT)",
+      description: "CRUD de rutas — **JWT + RBAC** (requiere autenticación y permiso activo)",
     },
   ],
   paths: {
@@ -10,8 +12,8 @@ export const routeSwagger = {
       get: {
         tags: ["Routes"],
         summary: "Listar rutas activas",
-        description: "SIN AUTH — retorna registros con is_active=true",
-        security: [],
+        description: "JWT + RBAC — retorna registros con is_active=true",
+        security: bearerSecurity,
         responses: {
           "200": {
             description: "Lista de rutas",
@@ -34,8 +36,8 @@ export const routeSwagger = {
       post: {
         tags: ["Routes"],
         summary: "Crear ruta",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         requestBody: {
           required: true,
           content: {
@@ -65,8 +67,8 @@ export const routeSwagger = {
       get: {
         tags: ["Routes"],
         summary: "Obtener ruta por id",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": {
@@ -88,8 +90,8 @@ export const routeSwagger = {
       put: {
         tags: ["Routes"],
         summary: "Actualizar ruta (PUT — reemplazo)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -107,8 +109,8 @@ export const routeSwagger = {
       patch: {
         tags: ["Routes"],
         summary: "Actualizar ruta (PATCH — parcial)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -126,8 +128,8 @@ export const routeSwagger = {
       delete: {
         tags: ["Routes"],
         summary: "Eliminar ruta (físico)",
-        description: "SIN AUTH — borra la fila",
-        security: [],
+        description: "JWT + RBAC — borra la fila",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Eliminada" },
@@ -139,8 +141,8 @@ export const routeSwagger = {
       patch: {
         tags: ["Routes"],
         summary: "Desactivar ruta (eliminación lógica)",
-        description: "SIN AUTH — is_active = false",
-        security: [],
+        description: "JWT + RBAC — is_active = false",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Desactivada" },

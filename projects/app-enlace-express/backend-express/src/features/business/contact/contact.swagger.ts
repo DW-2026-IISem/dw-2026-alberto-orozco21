@@ -1,15 +1,17 @@
+import { bearerSecurity } from "../../../shared/http/swagger-security";
+
 /**
  * Documentacion OpenAPI del feature Contact.
  * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
  *
- * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ * Leyenda: endpoints protegidos con JWT + RBAC.
  */
 
 export const contactSwagger = {
   tags: [
     {
       name: "Contacts",
-      description: "CRUD de contacts — **SIN AUTH** (sin middleware JWT)",
+      description: "CRUD de contacts — **JWT + RBAC** (requiere autenticación y permiso activo)",
     },
   ],
   paths: {
@@ -17,8 +19,8 @@ export const contactSwagger = {
       get: {
         tags: ["Contacts"],
         summary: "Listar contacts activos",
-        description: "SIN AUTH — retorna registros con is_active=true",
-        security: [],
+        description: "JWT + RBAC — retorna registros con is_active=true",
+        security: bearerSecurity,
         responses: {
           "200": {
             description: "Lista de contacts",
@@ -41,8 +43,8 @@ export const contactSwagger = {
       post: {
         tags: ["Contacts"],
         summary: "Crear contact",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         requestBody: {
           required: true,
           content: {
@@ -72,8 +74,8 @@ export const contactSwagger = {
       get: {
         tags: ["Contacts"],
         summary: "Obtener contact por id",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": {
@@ -95,8 +97,8 @@ export const contactSwagger = {
       put: {
         tags: ["Contacts"],
         summary: "Actualizar contact (PUT — reemplazo)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -114,8 +116,8 @@ export const contactSwagger = {
       patch: {
         tags: ["Contacts"],
         summary: "Actualizar contact (PATCH — parcial)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -133,8 +135,8 @@ export const contactSwagger = {
       delete: {
         tags: ["Contacts"],
         summary: "Eliminar contact (fisico)",
-        description: "SIN AUTH — borra la fila",
-        security: [],
+        description: "JWT + RBAC — borra la fila",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Eliminado" },
@@ -146,8 +148,8 @@ export const contactSwagger = {
       patch: {
         tags: ["Contacts"],
         summary: "Eliminar contact (logico)",
-        description: "SIN AUTH — is_active = false",
-        security: [],
+        description: "JWT + RBAC — is_active = false",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Desactivado" },

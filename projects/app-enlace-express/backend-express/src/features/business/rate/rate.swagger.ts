@@ -1,8 +1,10 @@
+import { bearerSecurity } from "../../../shared/http/swagger-security";
+
 export const rateSwagger = {
   tags: [
     {
       name: "Rates",
-      description: "CRUD de tarifas — **SIN AUTH** (sin middleware JWT)",
+      description: "CRUD de tarifas — **JWT + RBAC** (requiere autenticación y permiso activo)",
     },
   ],
   paths: {
@@ -10,8 +12,8 @@ export const rateSwagger = {
       get: {
         tags: ["Rates"],
         summary: "Listar tarifas activas",
-        description: "SIN AUTH — retorna registros con is_active=true",
-        security: [],
+        description: "JWT + RBAC — retorna registros con is_active=true",
+        security: bearerSecurity,
         responses: {
           "200": {
             description: "Lista de tarifas",
@@ -34,8 +36,8 @@ export const rateSwagger = {
       post: {
         tags: ["Rates"],
         summary: "Crear tarifa",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         requestBody: {
           required: true,
           content: {
@@ -65,8 +67,8 @@ export const rateSwagger = {
       get: {
         tags: ["Rates"],
         summary: "Obtener tarifa por id",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": {
@@ -88,8 +90,8 @@ export const rateSwagger = {
       put: {
         tags: ["Rates"],
         summary: "Actualizar tarifa (PUT — reemplazo)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -107,8 +109,8 @@ export const rateSwagger = {
       patch: {
         tags: ["Rates"],
         summary: "Actualizar tarifa (PATCH — parcial)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -126,8 +128,8 @@ export const rateSwagger = {
       delete: {
         tags: ["Rates"],
         summary: "Eliminar tarifa (físico)",
-        description: "SIN AUTH — borra la fila",
-        security: [],
+        description: "JWT + RBAC — borra la fila",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Eliminada" },
@@ -139,8 +141,8 @@ export const rateSwagger = {
       patch: {
         tags: ["Rates"],
         summary: "Desactivar tarifa (eliminación lógica)",
-        description: "SIN AUTH — is_active = false",
-        security: [],
+        description: "JWT + RBAC — is_active = false",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Desactivada" },

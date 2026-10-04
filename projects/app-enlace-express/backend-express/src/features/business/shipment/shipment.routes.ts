@@ -1,4 +1,5 @@
 import { Application } from "express";
+import { authenticate, authorize } from "../../auth/access";
 import { ShipmentController } from "./shipment.controller";
 
 export class ShipmentRoutes {
@@ -7,18 +8,18 @@ export class ShipmentRoutes {
   public routes(app: Application): void {
     app
       .route("/api/shipments")
-      .get(this.shipmentController.getAll.bind(this.shipmentController))
-      .post(this.shipmentController.create.bind(this.shipmentController));
+      .get(authenticate, authorize, this.shipmentController.getAll.bind(this.shipmentController))
+      .post(authenticate, authorize, this.shipmentController.create.bind(this.shipmentController));
 
     app
       .route("/api/shipments/:id")
-      .get(this.shipmentController.getOne.bind(this.shipmentController))
-      .put(this.shipmentController.updatePut.bind(this.shipmentController))
-      .patch(this.shipmentController.updatePatch.bind(this.shipmentController))
-      .delete(this.shipmentController.deletePhysical.bind(this.shipmentController));
+      .get(authenticate, authorize, this.shipmentController.getOne.bind(this.shipmentController))
+      .put(authenticate, authorize, this.shipmentController.updatePut.bind(this.shipmentController))
+      .patch(authenticate, authorize, this.shipmentController.updatePatch.bind(this.shipmentController))
+      .delete(authenticate, authorize, this.shipmentController.deletePhysical.bind(this.shipmentController));
 
     app
       .route("/api/shipments/:id/deactivate")
-      .patch(this.shipmentController.deleteLogical.bind(this.shipmentController));
+      .patch(authenticate, authorize, this.shipmentController.deleteLogical.bind(this.shipmentController));
   }
 }

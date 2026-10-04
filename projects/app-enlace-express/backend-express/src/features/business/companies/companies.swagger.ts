@@ -1,8 +1,10 @@
+import { bearerSecurity } from "../../../shared/http/swagger-security";
+
 /**
  * Documentacion OpenAPI del feature Companies.
  * Se agrega desde `src/swagger` (registry externo), no se monta aqui.
  *
- * Leyenda: endpoints documentados como SIN AUTH (sin middleware JWT).
+ * Leyenda: endpoints protegidos con JWT + RBAC.
  */
 
 import { Company } from "./companies.model";
@@ -11,7 +13,7 @@ export const companiesSwagger = {
   tags: [
     {
       name: "Companies",
-      description: "CRUD de empresas — **SIN AUTH** (sin middleware JWT)",
+      description: "CRUD de empresas — **JWT + RBAC** (requiere autenticación y permiso activo)",
     },
   ],
   paths: {
@@ -19,8 +21,8 @@ export const companiesSwagger = {
       get: {
         tags: ["Companies"],
         summary: "Listar empresas activos",
-        description: "SIN AUTH — retorna registros con is_active=true",
-        security: [],
+        description: "JWT + RBAC — retorna registros con is_active=true",
+        security: bearerSecurity,
         responses: {
           "200": {
             description: "Lista de empresas",
@@ -43,8 +45,8 @@ export const companiesSwagger = {
       post: {
         tags: ["Companies"],
         summary: "Crear empresa",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         requestBody: {
           required: true,
           content: {
@@ -74,8 +76,8 @@ export const companiesSwagger = {
       get: {
         tags: ["Companies"],
         summary: "Obtener empresa por id",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": {
@@ -97,8 +99,8 @@ export const companiesSwagger = {
       put: {
         tags: ["Companies"],
         summary: "Actualizar empresa (PUT — reemplazo)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -116,8 +118,8 @@ export const companiesSwagger = {
       patch: {
         tags: ["Companies"],
         summary: "Actualizar empresa (PATCH — parcial)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -135,8 +137,8 @@ export const companiesSwagger = {
       delete: {
         tags: ["Companies"],
         summary: "Eliminar empresa (fisico)",
-        description: "SIN AUTH — borra la fila",
-        security: [],
+        description: "JWT + RBAC — borra la fila",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Eliminada" },
@@ -148,8 +150,8 @@ export const companiesSwagger = {
       patch: {
         tags: ["Companies"],
         summary: "Eliminar empresa (logico)",
-        description: "SIN AUTH — is_active = false",
-        security: [],
+        description: "JWT + RBAC — is_active = false",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Desactivada" },

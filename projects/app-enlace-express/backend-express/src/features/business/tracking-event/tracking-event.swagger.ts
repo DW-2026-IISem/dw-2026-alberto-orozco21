@@ -1,8 +1,10 @@
+import { bearerSecurity } from "../../../shared/http/swagger-security";
+
 export const trackingEventSwagger = {
   tags: [
     {
       name: "TrackingEvents",
-      description: "CRUD de eventos de seguimiento — **SIN AUTH** (sin middleware JWT)",
+      description: "CRUD de eventos de seguimiento — **JWT + RBAC** (requiere autenticación y permiso activo)",
     },
   ],
   paths: {
@@ -10,8 +12,8 @@ export const trackingEventSwagger = {
       get: {
         tags: ["TrackingEvents"],
         summary: "Listar eventos de seguimiento activos",
-        description: "SIN AUTH — retorna registros con is_active=true",
-        security: [],
+        description: "JWT + RBAC — retorna registros con is_active=true",
+        security: bearerSecurity,
         responses: {
           "200": {
             description: "Lista de eventos",
@@ -34,8 +36,8 @@ export const trackingEventSwagger = {
       post: {
         tags: ["TrackingEvents"],
         summary: "Crear evento de seguimiento",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         requestBody: {
           required: true,
           content: {
@@ -66,8 +68,8 @@ export const trackingEventSwagger = {
       get: {
         tags: ["TrackingEvents"],
         summary: "Obtener evento por id",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": {
@@ -89,8 +91,8 @@ export const trackingEventSwagger = {
       put: {
         tags: ["TrackingEvents"],
         summary: "Actualizar evento (PUT — reemplazo)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -108,8 +110,8 @@ export const trackingEventSwagger = {
       patch: {
         tags: ["TrackingEvents"],
         summary: "Actualizar evento (PATCH — parcial)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -127,8 +129,8 @@ export const trackingEventSwagger = {
       delete: {
         tags: ["TrackingEvents"],
         summary: "Eliminar evento (físico)",
-        description: "SIN AUTH — borra la fila",
-        security: [],
+        description: "JWT + RBAC — borra la fila",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Eliminado" },
@@ -140,8 +142,8 @@ export const trackingEventSwagger = {
       patch: {
         tags: ["TrackingEvents"],
         summary: "Desactivar evento (eliminación lógica)",
-        description: "SIN AUTH — is_active = false",
-        security: [],
+        description: "JWT + RBAC — is_active = false",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Desactivado" },

@@ -12,7 +12,12 @@ import { trackingEventSwagger } from "../features/business/tracking-event/tracki
 import { deliveryProofSwagger } from "../features/business/delivery-proof/delivery-proof.swagger";
 import { invoiceSwagger } from "../features/business/invoice/invoice.swagger";
 import { usersSwagger } from "../features/auth/users/users.swagger";
-import { bearerSecurityScheme } from "../shared/http/swagger-security";
+import {
+  bearerSecurity,
+  bearerSecurityScheme,
+  forbiddenResponse,
+  unauthorizedResponse,
+} from "../shared/http/swagger-security";
 import { rolesSwagger } from "../features/auth/roles/roles.swagger";
 import { resourcesSwagger } from "../features/auth/resources/resources.swagger";
 import { roleUsersSwagger } from "../features/auth/role-users/role-users.swagger";
@@ -47,6 +52,48 @@ const featureSwaggerModules: FeatureSwaggerModule[] = [
   resourceRolesSwagger
 ];
 
+const BUSINESS_PATH_PREFIXES = [
+  "/api/companies",
+  "/api/contacts",
+  "/api/address",
+  "/api/messengers",
+  "/api/rates",
+  "/api/routes",
+  "/api/shipments",
+  "/api/packages",
+  "/api/tracking_events",
+  "/api/delivery_proofs",
+  "/api/invoices",
+];
+
+function secureBusinessOperations(paths: Record<string, unknown>): void {
+  for (const [path, rawPathItem] of Object.entries(paths)) {
+    if (!BUSINESS_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+      continue;
+    }
+    if (typeof rawPathItem !== "object" || rawPathItem === null) continue;
+
+    const pathItem = rawPathItem as Record<string, unknown>;
+    for (const method of ["get", "post", "put", "patch", "delete"]) {
+      const rawOperation = pathItem[method];
+      if (typeof rawOperation !== "object" || rawOperation === null) continue;
+
+      const operation = rawOperation as Record<string, unknown>;
+      const responses =
+        typeof operation.responses === "object" && operation.responses !== null
+          ? (operation.responses as Record<string, unknown>)
+          : {};
+
+      operation.security = bearerSecurity;
+      operation.responses = {
+        ...responses,
+        "401": unauthorizedResponse,
+        "403": forbiddenResponse,
+      };
+    }
+  }
+}
+
 export function buildOpenApiDocument() {
   const tags: unknown[] = [];
   const paths: Record<string, unknown> = {};
@@ -59,6 +106,7 @@ export function buildOpenApiDocument() {
       Object.assign(schemas, mod.components.schemas);
     }
   }
+  secureBusinessOperations(paths);
 
   return {
     openapi: "3.0.3",
@@ -66,7 +114,7 @@ export function buildOpenApiDocument() {
       title: "EnlaceExpress API",
       version: "1.0.0",
       description:
-        "API EnlaceExpress (Express + Sequelize). Las rutas business permanecen SIN AUTH en este laboratorio; la administración de usuarios requiere JWT + RBAC.",
+        "API EnlaceExpress (Express + Sequelize). Las rutas de negocio requieren JWT + RBAC; autenticación sin permiso devuelve 401/403. La modalidad OPEN solo aplica a rutas configuradas explícitamente sin middleware.",
     },
     servers: [
       { url: `http://localhost:${process.env.PORT || 4000}`, description: "Local" },

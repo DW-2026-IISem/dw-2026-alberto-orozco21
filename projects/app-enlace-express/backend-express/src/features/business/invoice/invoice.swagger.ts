@@ -1,8 +1,10 @@
+import { bearerSecurity } from "../../../shared/http/swagger-security";
+
 export const invoiceSwagger = {
   tags: [
     {
       name: "Invoices",
-      description: "CRUD de facturas — **SIN AUTH** (sin middleware JWT)",
+      description: "CRUD de facturas — **JWT + RBAC** (requiere autenticación y permiso activo)",
     },
   ],
   paths: {
@@ -10,8 +12,8 @@ export const invoiceSwagger = {
       get: {
         tags: ["Invoices"],
         summary: "Listar facturas activas",
-        description: "SIN AUTH — retorna registros con is_active=true",
-        security: [],
+        description: "JWT + RBAC — retorna registros con is_active=true",
+        security: bearerSecurity,
         responses: {
           "200": {
             description: "Lista de facturas",
@@ -34,8 +36,8 @@ export const invoiceSwagger = {
       post: {
         tags: ["Invoices"],
         summary: "Crear factura",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         requestBody: {
           required: true,
           content: {
@@ -66,8 +68,8 @@ export const invoiceSwagger = {
       get: {
         tags: ["Invoices"],
         summary: "Obtener factura por id",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": {
@@ -89,8 +91,8 @@ export const invoiceSwagger = {
       put: {
         tags: ["Invoices"],
         summary: "Actualizar factura (PUT — reemplazo)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -108,8 +110,8 @@ export const invoiceSwagger = {
       patch: {
         tags: ["Invoices"],
         summary: "Actualizar factura (PATCH — parcial)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -127,8 +129,8 @@ export const invoiceSwagger = {
       delete: {
         tags: ["Invoices"],
         summary: "Eliminar factura (físico)",
-        description: "SIN AUTH — borra la fila",
-        security: [],
+        description: "JWT + RBAC — borra la fila",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Eliminada" },
@@ -140,8 +142,8 @@ export const invoiceSwagger = {
       patch: {
         tags: ["Invoices"],
         summary: "Desactivar factura (eliminación lógica)",
-        description: "SIN AUTH — is_active = false",
-        security: [],
+        description: "JWT + RBAC — is_active = false",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Desactivada" },

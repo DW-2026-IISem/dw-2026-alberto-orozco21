@@ -1,41 +1,25 @@
 import { Application } from "express";
+import { authenticate, authorize } from "../../auth/access";
 import { ContactController } from "./contact.controller";
 
 export class ContactRoutes {
   public contactController: ContactController = new ContactController();
 
   public routes(app: Application): void {
-    // ================== RUTAS SIN AUTENTICACION / SIN MIDDLEWARE JWT ==================
-
-    // getAll
     app
       .route("/api/contacts")
-      .get(this.contactController.getAll.bind(this.contactController));
+      .get(authenticate, authorize, this.contactController.getAll.bind(this.contactController))
+      .post(authenticate, authorize, this.contactController.create.bind(this.contactController));
 
-    // getOne
     app
       .route("/api/contacts/:id")
-      .get(this.contactController.getOne.bind(this.contactController));
+      .get(authenticate, authorize, this.contactController.getOne.bind(this.contactController))
+      .put(authenticate, authorize, this.contactController.updatePut.bind(this.contactController))
+      .patch(authenticate, authorize, this.contactController.updatePatch.bind(this.contactController))
+      .delete(authenticate, authorize, this.contactController.deletePhysical.bind(this.contactController));
 
-    // create
-    app
-      .route("/api/contacts")
-      .post(this.contactController.create.bind(this.contactController));
-
-    // update (PUT / PATCH)
-    app
-      .route("/api/contacts/:id")
-      .put(this.contactController.updatePut.bind(this.contactController))
-      .patch(this.contactController.updatePatch.bind(this.contactController));
-
-    // delete fisico
-    app
-      .route("/api/contacts/:id")
-      .delete(this.contactController.deletePhysical.bind(this.contactController));
-
-    // delete logico
     app
       .route("/api/contacts/:id/deactivate")
-      .patch(this.contactController.deleteLogical.bind(this.contactController));
+      .patch(authenticate, authorize, this.contactController.deleteLogical.bind(this.contactController));
   }
 }

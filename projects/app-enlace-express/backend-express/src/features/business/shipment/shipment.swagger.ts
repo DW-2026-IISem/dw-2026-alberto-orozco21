@@ -1,8 +1,10 @@
+import { bearerSecurity } from "../../../shared/http/swagger-security";
+
 export const shipmentSwagger = {
   tags: [
     {
       name: "Shipments",
-      description: "CRUD de envíos — **SIN AUTH** (sin middleware JWT)",
+      description: "CRUD de envíos — **JWT + RBAC** (requiere autenticación y permiso activo)",
     },
   ],
   paths: {
@@ -10,8 +12,8 @@ export const shipmentSwagger = {
       get: {
         tags: ["Shipments"],
         summary: "Listar envíos activos",
-        description: "SIN AUTH — retorna registros con is_active=true",
-        security: [],
+        description: "JWT + RBAC — retorna registros con is_active=true",
+        security: bearerSecurity,
         responses: {
           "200": {
             description: "Lista de envíos",
@@ -34,8 +36,8 @@ export const shipmentSwagger = {
       post: {
         tags: ["Shipments"],
         summary: "Crear envío",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         requestBody: {
           required: true,
           content: {
@@ -66,8 +68,8 @@ export const shipmentSwagger = {
       get: {
         tags: ["Shipments"],
         summary: "Obtener envío por id",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": {
@@ -89,8 +91,8 @@ export const shipmentSwagger = {
       put: {
         tags: ["Shipments"],
         summary: "Actualizar envío (PUT — reemplazo)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -108,8 +110,8 @@ export const shipmentSwagger = {
       patch: {
         tags: ["Shipments"],
         summary: "Actualizar envío (PATCH — parcial)",
-        description: "SIN AUTH",
-        security: [],
+        description: "JWT + RBAC",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         requestBody: {
           required: true,
@@ -127,8 +129,8 @@ export const shipmentSwagger = {
       delete: {
         tags: ["Shipments"],
         summary: "Eliminar envío (físico)",
-        description: "SIN AUTH — borra la fila",
-        security: [],
+        description: "JWT + RBAC — borra la fila",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Eliminado" },
@@ -140,8 +142,8 @@ export const shipmentSwagger = {
       patch: {
         tags: ["Shipments"],
         summary: "Desactivar envío (eliminación lógica)",
-        description: "SIN AUTH — is_active = false",
-        security: [],
+        description: "JWT + RBAC — is_active = false",
+        security: bearerSecurity,
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: {
           "200": { description: "Desactivado" },

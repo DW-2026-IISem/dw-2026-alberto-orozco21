@@ -15318,3 +15318,270 @@ SELECT COUNT(*) FROM resource_roles;  -- 110 si solo ADMIN tiene el catálogo co
 ```
 
 ![alt text](img-express/select_iss21.png)
+
+----
+
+##  23. ISS-22 — Middlewares de acceso y las tres modalidades en rutas
+
+**Objetivo:** materializar las tres modalidades mediante dos middlewares componibles y aplicarlos a las rutas existentes sin tocar controllers, services ni repositories.
+
+```
+OPEN            app.route(...).get(controller)
+JWT             app.route(...).get(authenticate, controller)
+JWT + RBAC      app.route(...).get(authenticate, authorize, controller)
+```
+
+**Bloqueado por:** ISS-21 (la matriz debe existir para que authorize tenga algo que consultar).
+
+Criterios de aceptación (ISS-22) — consolidados
+
+- [X] 23.1 authenticate valida el Bearer token, verifica algoritmo/issuer/audience/exp y carga el usuario activo en req.auth
+- [X] 23.2 authorize resuelve (method, path) y busca concesión activa; deny by default → 403
+- [X] 23.3 access/index.ts reexporta ambos middlewares
+- [X] 23.4 los 11 módulos business de EnlaceExpress aplican authenticate, authorize
+- [X] 23.5 documentadas las tres modalidades y qué códigos produce cada una
+- [X] 23.6 sin token → 401; con token pero sin concesión → 403; con concesión → 200/201
+- [X] npx tsc --noEmit OK
+
+## 23.1 authenticate — modalidad JWT
+
+Hace exactamente cuatro cosas, en este orden:
+
+1. Lee el encabezado Authorization: Bearer <token> (RFC 6750). Si falta o está mal formado → 401.
+
+2. Verifica el JWT con algoritmo, emisor y audiencia fijos (RFC 8725). Si falla → 401.
+
+3. Carga el usuario en BD y exige status = 'active'. Si no existe o está inactivo → 401.
+
+4. Deja la identidad en req.auth (tipado por auth-user.ts) y llama a next().
+
+> No consulta roles ni permisos. La autorización es responsabilidad del siguiente middleware: mezclar ambas impediría tener endpoints solo-JWT.
+
+```bash
+: > src/features/auth/access/authenticate.middleware.ts
+cat >> src/features/auth/access/authenticate.middleware.ts << 'EOF'
+import { NextFunction, Request, Response } from "express";
+import { AppError } from "../../../shared/errors/app-error";
+import { sendError } from "../../../shared/http/error-response";
+import { extractBearerToken, verifyAccessToken } from "../../../shared/auth/jwt";
+import { UsersRepository } from "../users/users.repository";
+
+/**
+ * **MODALIDAD 2 — JWT (identidad).** Middleware de autenticación.
+ *
+ * Responde únicamente a la pregunta **¿quién eres?**:
+ *
+ *  1. Lee el token de `Authorization: Bearer <token>` (RFC 6750).
+ *  2. Verifica firma, algoritmo, `iss`, `aud`, `exp` (RFC 8725).
+ *  3. **Revalida contra la base de datos** que el usuario sigue existiendo y con
+ *     `status = active`. Un token firmado sigue siendo válido después de
+ *     desactivar la cuenta; esta revalidación hace que la desactivación tenga
+ *     efecto inmediato.
+ *
+ * NO consulta la matriz de permisos: eso es responsabilidad de `authorize`.
+ * Si todo va bien, deja la identidad en `req.auth` y cede el paso.
+ *
+ * Cualquier fallo se responde con **401 (no autenticado)**.
+ */
+const usersRepository = new UsersRepository();
+
+export async function authenticate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const token = extractBearerToken(req.headers.authorization);
+    if (!token) {
+      throw new AppError(401, "Missing Bearer token");
+    }
+
+    const payload = verifyAccessToken(token);
+
+    // Defensa en profundidad: `verifyAccessToken` ya garantiza que `sub` es un
+    // entero positivo. Se vuelve a comprobar para que ningún cambio futuro en la
+    // verificación pueda enviar un `NaN` al repositorio (500 en vez de 401).
+    const userId = Number(payload.sub);
+    if (!Number.isInteger(userId) || userId < 1) {
+      throw new AppError(401, "Invalid or expired access token");
+    }
+
+    const user = await usersRepository.findById(userId);
+
+    if (!user || user.status !== "active") {
+      throw new AppError(401, "User is not active");
+    }
+
+    req.auth = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      tokenId: payload.jti,
+    };
+    next();
+  } catch (error) {
+    sendError(res, error);
+  }
+}
+EOF
+```
+
+## 23.2 authorize — modalidad JWT + RBAC
+
+Recibe la petición, normaliza el (method, path) real y comprueba si el usuario autenticado alcanza ese recurso por el grafo:
+
+```
+req.auth.user
+  → role_users (active)
+  → roles (active)
+  → resource_roles (active)
+  → resources (active, method = req.method, path ≈ req.path)
+```
+
+Si no hay concesión → 403 (deny by default). Como la consulta se hace en cada petición, revocar un permiso tiene efecto inmediato (no hay que esperar a que caduque el token, porque los permisos no viajan en él).
+
+```bash
+: > src/features/auth/access/authorize.middleware.ts
+cat >> src/features/auth/access/authorize.middleware.ts << 'EOF'
+import { NextFunction, Request, Response } from "express";
+import { AppError } from "../../../shared/errors/app-error";
+import { sendError } from "../../../shared/http/error-response";
+import { isOperationGranted, normalizePath } from "../../../shared/auth/resource-match";
+import { ResourceRolesRepository } from "../resource-roles/resource-roles.repository";
+
+/**
+ * **MODALIDAD 3 — RBAC (identidad + autorización granular).** Middleware de
+ * autorización.
+ *
+ * Debe montarse **después** de `authenticate`. Responde a la segunda pregunta:
+ * *¿puede esta identidad ejecutar `method + path`?*
+ *
+ * Cómo resuelve la decisión:
+ *  1. Toma la identidad ya resuelta en `req.auth`.
+ *  2. Consulta la **cadena completa** de autorización en la base de datos
+ *     (`resource_roles → roles → role_users → resources`, todos los eslabones
+ *     activos) para ese `user_id`.
+ *  3. Compara el par `(method, path)` de la petición con las concesiones,
+ *     por patrón (`/api/shipments/:id` casa con `/api/shipments/42`).
+ *
+ * Reglas:
+ *  - **Deny by default**: sin concesión activa que cubra la operación -> 403.
+ *  - **401** si no hay identidad (falta `authenticate` o el token no valió).
+ *  - **403** si hay identidad válida pero no hay permiso.
+ *
+ * No recibe parámetros: el recurso y la acción se derivan de la propia petición.
+ * Añadir un permiso es insertar filas en la base de datos, nunca tocar el código.
+ */
+const resourceRolesRepository = new ResourceRolesRepository();
+
+export async function authorize(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.auth) {
+      throw new AppError(401, "Authentication required");
+    }
+
+    const method = req.method.toUpperCase();
+    const path = normalizePath(req.originalUrl);
+
+    const granted = await resourceRolesRepository.findEffectiveForUser(req.auth.id);
+
+    if (!isOperationGranted(granted, method, path)) {
+      throw new AppError(403, `Forbidden: no grant for ${method} ${path}`);
+    }
+
+    next();
+  } catch (error) {
+    sendError(res, error);
+  }
+}
+EOF
+```
+
+## 23.3 Barrel de acceso
+
+```bash
+: > src/features/auth/access/index.ts
+cat >> src/features/auth/access/index.ts << 'EOF'
+export * from "./authenticate.middleware";
+export * from "./authorize.middleware";
+EOF
+```
+
+## 23.4 Adaptación: proteger las 11 rutas de negocio con JWT + RBAC
+
+En este backend no hay cinco features de ventas: ya están registrados once
+módulos de EnlaceExpress en `src/config/index.ts`. Conserva sus handlers y añade
+`authenticate, authorize` antes de cada controller en los métodos GET, POST,
+PUT, PATCH y DELETE de:
+
+`companies`, `contact`, `address`, `messenger`, `rate`, `route`, `shipment`,
+`package`, `tracking-event`, `delivery-proof` e `invoice`.
+
+Ejemplo sobre el archivo existente
+`src/features/business/companies/companies.routes.ts` (el mismo patrón aplica a
+los otros diez archivos; sus rutas son las que ya declaran esos módulos):
+
+```typescript
+import { authenticate, authorize } from "../../auth/access";
+
+app.route("/api/companies")
+  .get(authenticate, authorize, this.companiesController.getAll.bind(this.companiesController))
+  .post(authenticate, authorize, this.companiesController.create.bind(this.companiesController));
+
+app.route("/api/companies/:id")
+  .get(authenticate, authorize, this.companiesController.getOne.bind(this.companiesController))
+  .put(authenticate, authorize, this.companiesController.updatePut.bind(this.companiesController))
+  .patch(authenticate, authorize, this.companiesController.updatePatch.bind(this.companiesController))
+  .delete(authenticate, authorize, this.companiesController.deletePhysical.bind(this.companiesController));
+
+app.route("/api/companies/:id/deactivate")
+  .patch(authenticate, authorize, this.companiesController.deleteLogical.bind(this.companiesController));
+```
+
+No copies las rutas business del proyecto de ejemplo ni reemplaces estos archivos desde los
+bloques del ejemplo. Protege cada operación explícitamente: sin token debe
+responder 401; con token pero sin concesión, 403. Los recursos de `RESOURCE_CATALOG`
+deben coincidir exactamente con cada método y path registrado. RBAC solo
+controla operaciones; no limita qué filas puede ver o modificar cada usuario.
+
+## 23.5 Las tres modalidades en una tabla
+
+|Modalidad | Middleware en la ruta | Qué exige | Sin cumplir |
+|----------|-----------------------|-----------|-------------|
+|OPEN |	—	|nada |	—|
+|JWT|	authenticate|	access token válido y usuario activo|	401|
+|JWT + RBAC |	authenticate, authorize	|token válido y concesión activa de (method, path)	|401 (sin token) / 403 (sin permiso)|
+
+|Petición |	Resultado|
+|---------|----------|
+|GET /api/companies sin Authorization	|401|
+|GET /api/companies con token de operador	|403 hasta que se le conceda ese recurso|
+|POST /api/companies con token de operador	|403 (denegación por defecto)|
+|POST /api/companies con token de admin	|201 (si ADMIN tiene la concesión)|
+|GET /api/companies/abc con token válido	|400 (paramId)|
+|Cualquier ruta con token caducado o manipulado	|401|
+
+## 23.6 Verificación de 401 y 403
+
+```bash
+npm run dev
+```
+
+
+`http://localhost:4000/api/companies` 401 — sin token
+
+![alt text](img-express/401_sin_tokent.png)
+
+
+`http://localhost:4000/api/companies` 401 — token manipulado
+
+```
+- Bearer Token
+Authorization: Bearer no.es.un.jwt
+```
+
+![alt text](img-express/401_token_manipulado.png)
