@@ -1,0 +1,68 @@
+@baseUrl = http://localhost:4000
+@token = replace-with-an-access-token
+@id = 1
+
+### Crear usuario; password se hashea y no forma parte de la respuesta
+POST {{baseUrl}}/api/usuarios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "nuevo.usuario",
+  "email": "nuevo.usuario@enlace-express.local",
+  "password": "Password123!",
+  "avatar": null
+}
+
+### Repetir username o email devuelve 409
+POST {{baseUrl}}/api/usuarios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "email": "otro@enlace-express.local",
+  "password": "Password123!"
+}
+
+### PUT reemplaza username/email/avatar, nunca contraseña ni estado
+PUT {{baseUrl}}/api/usuarios/{{id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "usuario.actualizado",
+  "email": "actualizado@enlace-express.local",
+  "avatar": null
+}
+
+### PATCH solo admite username, email y avatar
+PATCH {{baseUrl}}/api/usuarios/{{id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "avatar": "https://example.com/avatar.png"
+}
+
+### Cambiar contraseña requiere la contraseña actual
+PATCH {{baseUrl}}/api/usuarios/{{id}}/password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "current_password": "Password123!",
+  "new_password": "Password456!"
+}
+
+### Consultar los permisos efectivos del usuario
+GET {{baseUrl}}/api/usuarios/{{id}}/permisos
+Authorization: Bearer {{token}}
+
+### Desactivar usuario; los JWT de esa identidad dejan de autenticar
+PATCH {{baseUrl}}/api/usuarios/{{id}}/deactivate
+Authorization: Bearer {{token}}
+
+### Eliminación física
+DELETE {{baseUrl}}/api/usuarios/{{id}}
+Authorization: Bearer {{token}}

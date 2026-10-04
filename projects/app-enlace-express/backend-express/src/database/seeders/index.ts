@@ -19,6 +19,7 @@ import { seedPackages } from "../../features/business/package/package.seeder";
 import { seedTrackingEvents } from "../../features/business/tracking-event/tracking-event.seeder";
 import { seedDeliveryProofs } from "../../features/business/delivery-proof/delivery-proof.seeder";
 import { seedInvoices } from "../../features/business/invoice/invoice.seeder";
+import { seedUsers } from "../../features/auth/users/users.seeder";
 import { resolveSeedCounts } from "./counts";
 
 dotenv.config();
@@ -57,6 +58,7 @@ export async function runAllSeeders(): Promise<void> {
   }
 
   // Orden: business (padres → hijos)
+  await seedUsers(counts.users);
   await seedCompanies(counts.companies);
   await seedContacts(counts.contacts);
   await seedAddresses(counts.addresses);

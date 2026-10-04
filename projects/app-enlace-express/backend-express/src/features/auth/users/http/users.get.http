@@ -1,0 +1,18 @@
+@baseUrl = http://localhost:4000
+@token = replace-with-an-access-token
+@id = 1
+
+### Listar usuarios activos (JWT + permiso GET /api/usuarios)
+GET {{baseUrl}}/api/usuarios
+Authorization: Bearer {{token}}
+
+### Obtener un usuario activo
+GET {{baseUrl}}/api/usuarios/{{id}}
+Authorization: Bearer {{token}}
+
+### El id inválido devuelve 400
+GET {{baseUrl}}/api/usuarios/not-an-id
+Authorization: Bearer {{token}}
+
+### Sin token devuelve 401
+GET {{baseUrl}}/api/usuarios

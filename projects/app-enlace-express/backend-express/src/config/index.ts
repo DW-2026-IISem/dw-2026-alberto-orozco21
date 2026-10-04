@@ -71,6 +71,7 @@ export class App {
     this.routePrv.trackingEventRoutes.routes(this.app);
     this.routePrv.deliveryProofRoutes.routes(this.app);
     this.routePrv.invoiceRoutes.routes(this.app);
+    this.routePrv.usersRoutes.routes(this.app);
   }
 
   private docs(): void {

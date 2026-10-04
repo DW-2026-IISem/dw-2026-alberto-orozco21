@@ -9,6 +9,7 @@ import { PackageRoutes } from "../features/business/package/package.routes";
 import { TrackingEventRoutes } from "../features/business/tracking-event/tracking-event.routes";
 import { DeliveryProofRoutes } from "../features/business/delivery-proof/delivery-proof.routes";
 import { InvoiceRoutes } from "../features/business/invoice/invoice.routes";
+import { UsersRoutes } from "../features/auth/users/users.routes";
 
 export class Routes {
   public companiesRoutes: CompaniesRoutes = new CompaniesRoutes();
@@ -22,4 +23,5 @@ export class Routes {
   public trackingEventRoutes: TrackingEventRoutes = new TrackingEventRoutes();
   public deliveryProofRoutes: DeliveryProofRoutes = new DeliveryProofRoutes();
   public invoiceRoutes: InvoiceRoutes = new InvoiceRoutes();
+  public usersRoutes: UsersRoutes = new UsersRoutes();
 }

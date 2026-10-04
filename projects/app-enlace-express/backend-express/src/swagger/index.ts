@@ -11,6 +11,8 @@ import { packageSwagger } from "../features/business/package/package.swagger";
 import { trackingEventSwagger } from "../features/business/tracking-event/tracking-event.swagger";
 import { deliveryProofSwagger } from "../features/business/delivery-proof/delivery-proof.swagger";
 import { invoiceSwagger } from "../features/business/invoice/invoice.swagger";
+import { usersSwagger } from "../features/auth/users/users.swagger";
+import { bearerSecurityScheme } from "../shared/http/swagger-security";
 
 export type FeatureSwaggerModule = {
   tags: unknown[];
@@ -33,7 +35,8 @@ const featureSwaggerModules: FeatureSwaggerModule[] = [
   packageSwagger,
   trackingEventSwagger,
   deliveryProofSwagger,
-  invoiceSwagger
+  invoiceSwagger,
+  usersSwagger
 ];
 
 export function buildOpenApiDocument() {
@@ -55,14 +58,17 @@ export function buildOpenApiDocument() {
       title: "EnlaceExpress API",
       version: "1.0.0",
       description:
-        "API EnlaceExpress (Express + Sequelize). Todas las rutas business son **SIN AUTH** en este lab.",
+        "API EnlaceExpress (Express + Sequelize). Las rutas business permanecen SIN AUTH en este laboratorio; la administración de usuarios requiere JWT + RBAC.",
     },
     servers: [
       { url: `http://localhost:${process.env.PORT || 4000}`, description: "Local" },
     ],
     tags,
     paths,
-    components: { schemas },
+    components: {
+      schemas,
+      securitySchemes: bearerSecurityScheme,
+    },
   };
 }
 
