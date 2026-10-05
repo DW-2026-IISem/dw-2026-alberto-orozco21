@@ -21,6 +21,11 @@ export class RoleUser extends Model<RoleUserI> implements RoleUserI {
 
 RoleUser.init(
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,

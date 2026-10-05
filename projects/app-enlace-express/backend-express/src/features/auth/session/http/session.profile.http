@@ -1,0 +1,29 @@
+@baseUrl = http://localhost:4000
+
+# @name login
+POST {{baseUrl}}/api/sesion/login
+Content-Type: application/json
+
+{
+  "identifier": "admin",
+  "password": "Admin123!"
+}
+
+@accessToken = {{login.response.body.$.access_token}}
+@refreshToken = {{login.response.body.$.refresh_token}}
+
+### Perfil propio (JWT, sin autorización RBAC adicional)
+GET {{baseUrl}}/api/sesion/perfil
+Authorization: Bearer {{accessToken}}
+
+### Permisos efectivos (JWT)
+GET {{baseUrl}}/api/permisos
+Authorization: Bearer {{accessToken}}
+
+### Cerrar la sesión (OPEN, revoca el refresh token)
+POST {{baseUrl}}/api/sesion/logout
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}

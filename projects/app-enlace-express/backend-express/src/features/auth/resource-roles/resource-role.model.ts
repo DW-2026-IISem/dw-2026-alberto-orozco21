@@ -21,6 +21,11 @@ export class ResourceRole extends Model<ResourceRoleI> implements ResourceRoleI 
 
 ResourceRole.init(
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     role_id: {
       type: DataTypes.INTEGER,
       allowNull: false,

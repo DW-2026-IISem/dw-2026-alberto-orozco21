@@ -1,0 +1,19 @@
+@baseUrl = http://localhost:4000
+
+# @name login
+POST {{baseUrl}}/api/sesion/login
+Content-Type: application/json
+
+{
+  "identifier": "admin",
+  "password": "Admin123!"
+}
+
+### Para usuario inexistente o contraseña incorrecta se responde 401 genérico
+POST {{baseUrl}}/api/sesion/login
+Content-Type: application/json
+
+{
+  "identifier": "usuario-invalido",
+  "password": "incorrecta"
+}

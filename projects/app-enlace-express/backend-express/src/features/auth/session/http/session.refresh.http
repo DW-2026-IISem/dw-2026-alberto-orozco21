@@ -1,0 +1,18 @@
+@baseUrl = http://localhost:4000
+
+# @name login
+POST {{baseUrl}}/api/sesion/login
+Content-Type: application/json
+
+{
+  "identifier": "admin",
+  "password": "Admin123!"
+}
+
+###
+POST {{baseUrl}}/api/sesion/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{login.response.body.$.refresh_token}}"
+}

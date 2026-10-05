@@ -1,7 +1,15 @@
 @baseUrl = http://localhost:4000
-# ISS-23 adds session management only; obtain this access token from the login endpoint
-# when the session/login feature is implemented.
-@token = replace-with-a-valid-access-token
+
+# @name login
+POST {{baseUrl}}/api/sesion/login
+Content-Type: application/json
+
+{
+  "identifier": "admin",
+  "password": "Admin123!"
+}
+
+@token = {{login.response.body.$.access_token}}
 @sessionId = 1
 
 ### Listar mis sesiones activas. La respuesta no contiene token_hash.
