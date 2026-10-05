@@ -17075,3 +17075,296 @@ desarrollo; usa los valores reales configurados para tu entorno.
 La política de `OPERADOR` no está definida por el proyecto todavía. Para
 comprobar 403, asigna temporalmente un usuario autenticado a un rol sin la
 concesión probada; no presupongas permisos del proyecto de ejemplo.
+
+## Cierre del laboratorio (backend completo)
+
+## Las tres modalidades — mapa de rutas EnlaceExpress
+
+|Modalidad|Middlewares|Rutas|
+|---|---|---|
+|OPEN|—|`POST /api/sesion/login`, `/api/sesion/refresh`, `/api/sesion/logout`, Swagger|
+|JWT|`authenticate`|Perfil y permisos efectivos; gestión de sesiones propias (`/api/sesiones...`)|
+|JWT + RBAC|`authenticate`, `authorize`|Administración auth (`usuarios`, `roles`, `recursos`, asignaciones y concesiones) y los once módulos business: `/api/companies`, `/api/contacts`, `/api/address`, `/api/messengers`, `/api/rates`, `/api/routes`, `/api/shipments`, `/api/packages`, `/api/tracking_events`, `/api/delivery_proofs`, `/api/invoices`|
+
+Cada combinación de método y path es un recurso individual; verifica que los
+paths del catálogo coincidan con las rutas registradas. Las rutas de sesión
+OPEN/JWT no forman parte del catálogo RBAC.
+
+```
+src
+├── config
+│   └── index.ts
+├── database
+│   ├── db.ts
+│   └── seeders
+│       ├── counts.ts
+│       └── index.ts
+├── features
+│   ├── auth
+│   │   ├── access
+│   │   │   ├── authenticate.middleware.ts
+│   │   │   ├── authorize.middleware.ts
+│   │   │   └── index.ts
+│   │   ├── rbac.associations.ts
+│   │   ├── refresh-tokens
+│   │   │   ├── dto
+│   │   │   │   ├── index.ts
+│   │   │   │   └── refresh-token-response.dto.ts
+│   │   │   ├── http
+│   │   │   │   └── sessions.get.http
+│   │   │   ├── refresh-token.model.ts
+│   │   │   ├── refresh-tokens.controller.ts
+│   │   │   ├── refresh-tokens.repository.ts
+│   │   │   ├── refresh-tokens.routes.ts
+│   │   │   ├── refresh-tokens.service.ts
+│   │   │   └── refresh-tokens.swagger.ts
+│   │   ├── resource-roles
+│   │   │   ├── dto
+│   │   │   │   ├── create-resource-role.dto.ts
+│   │   │   │   ├── effective-permission.dto.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── list-resource-roles.dto.ts
+│   │   │   │   └── resource-role-response.dto.ts
+│   │   │   ├── http
+│   │   │   │   └── resource-roles.grant.http
+│   │   │   ├── resource-role.model.ts
+│   │   │   ├── resource-roles.controller.ts
+│   │   │   ├── resource-roles.repository.ts
+│   │   │   ├── resource-roles.routes.ts
+│   │   │   ├── resource-roles.seeder.ts
+│   │   │   ├── resource-roles.service.ts
+│   │   │   └── resource-roles.swagger.ts
+│   │   ├── resources
+│   │   │   ├── dto
+│   │   │   │   ├── create-resource.dto.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── patch-resource.dto.ts
+│   │   │   │   ├── resource-response.dto.ts
+│   │   │   │   └── update-resource.dto.ts
+│   │   │   ├── http
+│   │   │   │   ├── resources.get.http
+│   │   │   │   └── resources.write.http
+│   │   │   ├── resource-catalog.ts
+│   │   │   ├── resource.model.ts
+│   │   │   ├── resources.controller.ts
+│   │   │   ├── resources.repository.ts
+│   │   │   ├── resources.routes.ts
+│   │   │   ├── resources.seeder.ts
+│   │   │   ├── resources.service.ts
+│   │   │   └── resources.swagger.ts
+│   │   ├── role-users
+│   │   │   ├── dto
+│   │   │   │   ├── create-role-user.dto.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   └── role-user-response.dto.ts
+│   │   │   ├── http
+│   │   │   │   └── role-users.assign.http
+│   │   │   ├── role-user.model.ts
+│   │   │   ├── role-users.controller.ts
+│   │   │   ├── role-users.repository.ts
+│   │   │   ├── role-users.routes.ts
+│   │   │   ├── role-users.seeder.ts
+│   │   │   ├── role-users.service.ts
+│   │   │   └── role-users.swagger.ts
+│   │   ├── roles
+│   │   │   ├── dto
+│   │   │   │   ├── create-role.dto.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── patch-role.dto.ts
+│   │   │   │   ├── role-response.dto.ts
+│   │   │   │   └── update-role.dto.ts
+│   │   │   ├── http
+│   │   │   │   ├── roles.get.http
+│   │   │   │   └── roles.write.http
+│   │   │   ├── role.model.ts
+│   │   │   ├── roles.controller.ts
+│   │   │   ├── roles.repository.ts
+│   │   │   ├── roles.routes.ts
+│   │   │   ├── roles.seeder.ts
+│   │   │   ├── roles.service.ts
+│   │   │   └── roles.swagger.ts
+│   │   ├── session
+│   │   │   ├── dto
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── login.dto.ts
+│   │   │   │   ├── logout-session.dto.ts
+│   │   │   │   ├── refresh-session.dto.ts
+│   │   │   │   └── session-response.dto.ts
+│   │   │   ├── http
+│   │   │   │   ├── session.e2e.http
+│   │   │   │   ├── session.login.http
+│   │   │   │   ├── session.profile.http
+│   │   │   │   └── session.refresh.http
+│   │   │   ├── session.controller.ts
+│   │   │   ├── session.routes.ts
+│   │   │   ├── session.service.ts
+│   │   │   └── session.swagger.ts
+│   │   └── users
+│   │       ├── dto
+│   │       │   ├── change-password.dto.ts
+│   │       │   ├── create-user.dto.ts
+│   │       │   ├── index.ts
+│   │       │   ├── patch-user.dto.ts
+│   │       │   ├── update-user.dto.ts
+│   │       │   └── user-response.dto.ts
+│   │       ├── http
+│   │       │   ├── users.get.http
+│   │       │   └── users.write.http
+│   │       ├── user.model.ts
+│   │       ├── users.controller.ts
+│   │       ├── users.repository.ts
+│   │       ├── users.routes.ts
+│   │       ├── users.seeder.ts
+│   │       ├── users.service.ts
+│   │       └── users.swagger.ts
+│   └── business
+│       ├── address
+│       │   ├── address.associations.ts
+│       │   ├── address.controller.ts
+│       │   ├── address.model.ts
+│       │   ├── address.routes.ts
+│       │   ├── address.seeder.ts
+│       │   ├── address.swagger.ts
+│       │   └── http
+│       │       ├── addresses.create.http
+│       │       ├── addresses.delete.http
+│       │       ├── addresses.get.http
+│       │       └── addresses.update.http
+│       ├── companies
+│       │   ├── companies.controller.ts
+│       │   ├── companies.model.ts
+│       │   ├── companies.routes.ts
+│       │   ├── companies.seeder.ts
+│       │   ├── companies.swagger.ts
+│       │   ├── company.associations.ts
+│       │   └── http
+│       │       ├── companies.create.http
+│       │       ├── companies.get.http
+│       │       ├── companies.update.http
+│       │       └── companiess.delete.http
+│       ├── contact
+│       │   ├── contact.associations.ts
+│       │   ├── contact.controller.ts
+│       │   ├── contact.model.ts
+│       │   ├── contact.routes.ts
+│       │   ├── contact.seeder.ts
+│       │   ├── contact.swagger.ts
+│       │   └── http
+│       │       ├── contacts.create.http
+│       │       ├── contacts.delete.http
+│       │       ├── contacts.get.http
+│       │       └── contacts.update.http
+│       ├── delivery-proof
+│       │   ├── delivery-proof.associations.ts
+│       │   ├── delivery-proof.controller.ts
+│       │   ├── delivery-proof.model.ts
+│       │   ├── delivery-proof.routes.ts
+│       │   ├── delivery-proof.seeder.ts
+│       │   ├── delivery-proof.swagger.ts
+│       │   └── http
+│       │       ├── delivery_proofs.create.http
+│       │       ├── delivery_proofs.delete.http
+│       │       ├── delivery_proofs.get.http
+│       │       └── delivery_proofs.update.http
+│       ├── invoice
+│       │   ├── http
+│       │   │   ├── invoices.create.http
+│       │   │   ├── invoices.delete.http
+│       │   │   ├── invoices.get.http
+│       │   │   └── invoices.update.http
+│       │   ├── invoice.associations.ts
+│       │   ├── invoice.controller.ts
+│       │   ├── invoice.model.ts
+│       │   ├── invoice.routes.ts
+│       │   ├── invoice.seeder.ts
+│       │   └── invoice.swagger.ts
+│       ├── messenger
+│       │   ├── http
+│       │   │   ├── messengers.create.http
+│       │   │   ├── messengers.delete.http
+│       │   │   ├── messengers.get.http
+│       │   │   └── messengers.update.http
+│       │   ├── messenger.controller.ts
+│       │   ├── messenger.model.ts
+│       │   ├── messenger.routes.ts
+│       │   ├── messenger.seeder.ts
+│       │   └── messenger.swagger.ts
+│       ├── package
+│       │   ├── http
+│       │   │   ├── packages.create.http
+│       │   │   ├── packages.delete.http
+│       │   │   ├── packages.get.http
+│       │   │   └── packages.update.http
+│       │   ├── package.associations.ts
+│       │   ├── package.controller.ts
+│       │   ├── package.model.ts
+│       │   ├── package.routes.ts
+│       │   ├── package.seeder.ts
+│       │   └── package.swagger.ts
+│       ├── rate
+│       │   ├── http
+│       │   │   ├── rates.create.http
+│       │   │   ├── rates.delete.http
+│       │   │   ├── rates.get.http
+│       │   │   └── rates.update.http
+│       │   ├── rate.controller.ts
+│       │   ├── rate.model.ts
+│       │   ├── rate.routes.ts
+│       │   ├── rate.seeder.ts
+│       │   └── rate.swagger.ts
+│       ├── route
+│       │   ├── http
+│       │   │   ├── routes.create.http
+│       │   │   ├── routes.delete.http
+│       │   │   ├── routes.get.http
+│       │   │   └── routes.update.http
+│       │   ├── route.associations.ts
+│       │   ├── route.controller.ts
+│       │   ├── route.model.ts
+│       │   ├── route.routes.ts
+│       │   ├── route.seeder.ts
+│       │   └── route.swagger.ts
+│       ├── shipment
+│       │   ├── http
+│       │   │   ├── shipments.create.http
+│       │   │   ├── shipments.delete.http
+│       │   │   ├── shipments.get.http
+│       │   │   └── shipments.update.http
+│       │   ├── shipment.associations.ts
+│       │   ├── shipment.controller.ts
+│       │   ├── shipment.model.ts
+│       │   ├── shipment.routes.ts
+│       │   ├── shipment.seeder.ts
+│       │   └── shipment.swagger.ts
+│       └── tracking-event
+│           ├── http
+│           │   ├── tracking_events.create.http
+│           │   ├── tracking_events.delete.http
+│           │   ├── tracking_events.get.http
+│           │   └── tracking_events.update.http
+│           ├── tracking-event.associations.ts
+│           ├── tracking-event.controller.ts
+│           ├── tracking-event.model.ts
+│           ├── tracking-event.routes.ts
+│           ├── tracking-event.seeder.ts
+│           └── tracking-event.swagger.ts
+├── routes
+│   └── index.ts
+├── server.ts
+├── shared
+│   ├── auth
+│   │   ├── auth-user.ts
+│   │   ├── jwt.ts
+│   │   ├── password.ts
+│   │   └── resource-match.ts
+│   ├── database
+│   │   └── with-transaction.ts
+│   ├── errors
+│   │   └── app-error.ts
+│   └── http
+│       ├── base-controller.ts
+│       ├── error-response.ts
+│       └── swagger-security.ts
+└── swagger
+    └── index.ts
+```

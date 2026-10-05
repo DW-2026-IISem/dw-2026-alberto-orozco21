@@ -29,9 +29,8 @@ import { resolveSeedCounts } from "./counts";
 dotenv.config();
 
 /**
- * SeedersRunner — ejecuta TODOS los seeders de features, en orden de dependencias
- * (padres antes que hijos): empresa -> contacto -> direccion -> mensajero -> tarifa
- * -> ruta -> envio -> paquete -> evento_tracking -> prueba_entrega -> factura.
+ * SeedersRunner — ejecuta primero el catálogo de seguridad y sus asignaciones,
+ * luego los seeders business en orden de dependencias (padres antes que hijos).
  *
  * Uso:
  *   npm run db:seed
@@ -61,8 +60,14 @@ export async function runAllSeeders(): Promise<void> {
     }
   }
 
-  // Orden: business (padres → hijos)
+  // Orden auth (dependencias): roles y recursos antes de asignaciones y concesiones.
+  await seedRoles();
+  await seedResources();
   await seedUsers(counts.users);
+  await seedRoleUsers();
+  await seedResourceRoles();
+
+  // Orden business (padres → hijos).
   await seedCompanies(counts.companies);
   await seedContacts(counts.contacts);
   await seedAddresses(counts.addresses);
@@ -74,10 +79,6 @@ export async function runAllSeeders(): Promise<void> {
   await seedTrackingEvents(counts.tracking_events);
   await seedDeliveryProofs(counts.delivery_proofs);
   await seedInvoices(counts.invoices);
-  await seedRoles();
-  await seedResources();
-  await seedRoleUsers();
-  await seedResourceRoles();
 
   console.log("🌱 SeedersRunner finalizado");
 }
