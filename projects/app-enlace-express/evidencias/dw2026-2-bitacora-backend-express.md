@@ -17449,3 +17449,13 @@ Metod `DELETE`
 **contacts - deleteCompanyPhysical**
 
 ![alt text](img-express/delete_contacts.png)
+
+### 2. Swagger
+
+**companies**
+
+![alt text](img-express/get_swagger_companies.png)
+
+**contacts**
+
+![alt text](img-express/get_one_swagger_contacts.png)
