@@ -17376,13 +17376,15 @@ src
 - **companies**
 - **contact**
 
-### 1. HTTP
+## Sin autenticación
 
 Entidades `companies` y `contacts` sin autenticación
 
 ![alt text](img-express/companies_open.png)
 
 ![alt text](img-express/contacts_open.png)
+
+### 1. HTTP
 
 Metodo `GET`
 
@@ -17459,3 +17461,39 @@ Metod `DELETE`
 **contacts**
 
 ![alt text](img-express/get_one_swagger_contacts.png)
+
+## Solo autenticación
+
+Entidades `companies` y `contacts` con solo autenticación
+
+![alt text](img-express/companies_auth.png)
+
+![alt text](img-express/contacts_auth.png)
+
+### 1. HTTP
+
+**Sin token**
+
+![alt text](img-express/companies_sintoken.png)
+
+**con token valido**
+
+![alt text](img-express/companies_token.png)
+
+**con token invalido**
+
+![alt text](img-express/companies_token_invalido.png)
+
+### 2. Swagger
+
+**Sin token**
+
+![alt text](img-express/contact_swagger_sintoken.png)
+
+**con token valido**
+
+![alt text](img-express/contacts_swagger_token.png)
+
+**con token invalido**
+
+![alt text](img-express/contact_swagger_tokeninvalido.png)
