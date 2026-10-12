@@ -1,7 +1,7 @@
 ### Feature Contact — UPDATE (PUT) / UPDATE (PATCH)
 ### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
 @baseUrl = http://localhost:4000
-@id = 1
+@id = 16
 
 # @name updateContactPut
 PUT {{baseUrl}}/api/contacts/{{id}}
@@ -9,10 +9,10 @@ Content-Type: application/json
 
 {
   "empresa_id": 1,
-  "nombre": "Ejemplo nombre",
-  "cargo": "Ejemplo cargo",
-  "telefono": "Ejemplo telefono",
-  "email": "Ejemplo email",
+  "nombre": "Alberto Orozco",
+  "cargo": "Gerente",
+  "telefono": "301 234 5678",
+  "email": "alberto_gerente@enlaceexpress.com",
   "is_principal": true,
   "is_active": true
 }
@@ -24,5 +24,5 @@ PATCH {{baseUrl}}/api/contacts/{{id}}
 Content-Type: application/json
 
 {
-  "nombre": "Ejemplo nombre"
+  "cargo": "Administrador"
 }

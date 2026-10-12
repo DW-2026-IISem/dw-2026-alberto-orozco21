@@ -1,15 +1,15 @@
 ### Feature Company — UPDATE (PUT) / UPDATE (PATCH)
 ### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
 @baseUrl = http://localhost:4000
-@id = 1
+@id = 16
 
 # @name updateCompanyPut
 PUT {{baseUrl}}/api/companies/{{id}}
 Content-Type: application/json
 
 {
-  "nit": "Ejemplo nit",
-  "razon_social": "Ejemplo razon_social",
+  "nit": "123456789",
+  "razon_social": "Ejemplo EnlaceExpress con metodo PUT",
   "is_active": true
 }
 
@@ -20,5 +20,5 @@ PATCH {{baseUrl}}/api/companies/{{id}}
 Content-Type: application/json
 
 {
-  "razon_social": "Ejemplo razon_social"
+  "razon_social": "Ejemplo  EnlaceExpress con metodo PATCH"
 }

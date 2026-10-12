@@ -17368,3 +17368,84 @@ src
 └── swagger
     └── index.ts
 ```
+
+## Pruebas
+
+**Tablas seleccionadas:**
+
+- **companies**
+- **contact**
+
+### 1. HTTP
+
+Entidades `companies` y `contacts` sin autenticación
+
+![alt text](img-express/companies_open.png)
+
+![alt text](img-express/contacts_open.png)
+
+Metodo `GET`
+
+**companies - getAll**
+
+![alt text](img-express/get_companies.png)
+
+**companies - getOne**
+
+![alt text](img-express/get_one_companies.png)
+
+**contacts - getAll**
+
+![alt text](img-express/get_all_contacts.png)
+
+**contacts - getOne**
+
+![alt text](img-express/get_one_contacts.png)
+
+Metodo `POST`
+
+**companies**
+
+![alt text](img-express/post_companies.png)
+
+**contacts**
+
+![alt text](img-express/post_contacts.png)
+
+Metodo `PUT`
+
+**companies**
+
+![alt text](img-express/put_companies.png)
+
+**contacts**
+
+![alt text](img-express/put_contacts.png)
+
+Metodo `PATCH`
+
+**companies**
+
+![alt text](img-express/patch_companies.png)
+
+**contacts**
+
+![alt text](img-express/patch_contacts.png)
+
+Metod `DELETE`
+
+**companies - deleteCompanyLogical**
+
+![alt text](img-express/delete_logico_companies.png)
+
+**companies - deleteCompanyPhysical**
+
+![alt text](img-express/delete_companies.png)
+
+**contacts - deleteCompanyLogical**
+
+![alt text](img-express/delete_logico_contacts.png)
+
+**contacts - deleteCompanyPhysical**
+
+![alt text](img-express/delete_contacts.png)

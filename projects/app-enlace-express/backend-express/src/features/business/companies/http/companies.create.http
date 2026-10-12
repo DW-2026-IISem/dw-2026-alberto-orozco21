@@ -7,7 +7,7 @@ POST {{baseUrl}}/api/companies
 Content-Type: application/json
 
 {
-  "nit": "Ejemplo nit",
-  "razon_social": "Ejemplo razon_social",
+  "nit": "999999999",
+  "razon_social": "Prueba EnlaceExpress",
   "is_active": true
 }
