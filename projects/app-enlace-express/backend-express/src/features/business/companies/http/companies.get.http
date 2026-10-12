@@ -3,7 +3,7 @@
 @baseUrl = http://localhost:4000
 @id = 1
 
-@token = remplazar-por-token
+@token = token-valido
 
 # @name getAllCompanies
 GET {{baseUrl}}/api/companies

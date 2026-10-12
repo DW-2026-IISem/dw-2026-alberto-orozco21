@@ -17497,3 +17497,25 @@ Entidades `companies` y `contacts` con solo autenticación
 **con token invalido**
 
 ![alt text](img-express/contact_swagger_tokeninvalido.png)
+
+## Autenticacion y JWT Token + Refresh
+
+Cambiamos `JWT_ACCESS_TTL` a 15 segundos
+
+![alt text](img-express/token_15seg.png)
+
+Generamos un token nuevo
+
+![alt text](img-express/nuevo_token.png)
+
+Luego de 15 segundos el token expira
+
+![alt text](img-express/token_expira.png)
+
+Usamos el refresh_token para extender la sesion 
+
+![alt text](img-express/refresh_token_prueba.png)
+
+Volvemos a tener acceso a las rutas protegidas
+
+![alt text](img-express/nuevo_acceso.png)

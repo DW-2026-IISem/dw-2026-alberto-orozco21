@@ -14,5 +14,5 @@ POST {{baseUrl}}/api/sesion/refresh
 Content-Type: application/json
 
 {
-  "refresh_token": "{{login.response.body.$.refresh_token}}"
+  "refresh_token": "refresh-token"
 }
