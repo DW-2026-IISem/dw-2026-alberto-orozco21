@@ -17519,3 +17519,89 @@ Usamos el refresh_token para extender la sesion
 Volvemos a tener acceso a las rutas protegidas
 
 ![alt text](img-express/nuevo_acceso.png)
+
+## Autenticacion y JWT Token + Refresh + RBAC
+
+Entidades `companies` y `contacts` con `authenticate` y `authorize` 
+
+![alt text](img-express/companies_rbac.png)
+
+![alt text](img-express/contact_rbac.png)
+
+1. **Creamos un nuevo usuario**
+
+![alt text](img-express/user.png)
+
+2. **Creamos un nuevo rol**
+
+![alt text](img-express/rol.png)
+
+3. **Asignamos el rol a usuario**
+
+![alt text](img-express/rol_user.png)
+
+4. **Asignacion de permisos**
+
+`GET	/api/companies`
+
+![alt text](img-express/companies_get_rol.png)
+
+`GET	/api/companies/:id`
+
+![alt text](img-express/get_id_companies_rol.png)
+
+`POST	/api/companies`
+
+![alt text](img-express/post_comaonies_rol.png)
+
+`GET	/api/contacts`
+
+![alt text](img-express/get_contact_rol.png)
+
+`GET	/api/contacts/:id`
+
+![alt text](img-express/get_id_contact_rol.png)
+
+`POST	/api/contacts`
+
+![alt text](img-express/post_contact_rol.png)
+
+5. **Iniciar session con usuario nuevo**
+
+![alt text](img-express/login_alberto.png)
+
+6. **Rutas autorizadas**
+
+### HTTP
+
+`GET	/api/contacts`
+
+![alt text](img-express/get_contact_alberto.png)
+
+`GET	/api/contacts/:id`
+
+![alt text](img-express/get_id_contact_alberto.png)
+
+`POST	/api/contacts`
+
+![alt text](img-express/post_contact_alberto.png)
+
+### Swagger
+
+`GET	/api/companies`
+
+![alt text](img-express/get_companies_alberto.png)
+
+`GET	/api/companies/:id`
+
+![alt text](img-express/get_id_companies.png)
+
+`POST	/api/companies`
+
+![alt text](img-express/post_companies_alberto.png)
+
+7. **Rutas no autorizadas** 
+
+![alt text](img-express/no_permiso.png)
+
+![alt text](img-express/no_permiso_2.png)

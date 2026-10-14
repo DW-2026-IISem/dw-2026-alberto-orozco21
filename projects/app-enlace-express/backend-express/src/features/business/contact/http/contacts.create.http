@@ -2,16 +2,20 @@
 ### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
 @baseUrl = http://localhost:4000
 
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFsYmVydG8iLCJpYXQiOjE3OTE5Mzc2NzQsImV4cCI6MTc5MTkzODU3NCwiYXVkIjoiZW5sYWNlLWV4cHJlc3MtYXBpIiwiaXNzIjoiZW5sYWNlLWV4cHJlc3MiLCJzdWIiOiIzIiwianRpIjoiZWFkZmUxOTgtMDIwZC00YzExLTgxYWMtODBjMmEwMWYwMWFmIn0.Y4Xil_9ZTw9OYzsRTj_wLvQLbHCC_kEZkndlSirIlcE
+
 # @name createContact
 POST {{baseUrl}}/api/contacts
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
   "empresa_id": 1,
   "nombre": "Alberto Orozco",
-  "cargo": "Repartidor",
-  "telefono": "3000000000",
-  "email": "alberto@enlaceexpress.com",
+  "cargo": "Jefe",
+  "telefono": "322578243",
+  "email": "alberto_orozco@enlaceexpress.com",
   "is_principal": true,
   "is_active": true
 }
+
