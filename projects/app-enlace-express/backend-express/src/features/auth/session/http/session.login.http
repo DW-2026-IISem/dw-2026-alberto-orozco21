@@ -5,8 +5,8 @@ POST {{baseUrl}}/api/sesion/login
 Content-Type: application/json
 
 {
-  "identifier": "admin",
-  "password": "Admin123!"
+  "identifier": "operador",
+  "password": "Operador123!"
 }
 
 ### Para usuario inexistente o contraseña incorrecta se responde 401 genérico
@@ -14,6 +14,6 @@ POST {{baseUrl}}/api/sesion/login
 Content-Type: application/json
 
 {
-  "identifier": "usuario-invalido",
-  "password": "incorrecta"
+  "identifier": "admin",
+  "password": "Admin123!"
 }

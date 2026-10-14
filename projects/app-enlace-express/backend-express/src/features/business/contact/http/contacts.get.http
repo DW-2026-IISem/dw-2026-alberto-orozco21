@@ -1,12 +1,15 @@
 ### Feature Contact — GET ALL / GET ONE
 ### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
 @baseUrl = http://localhost:4000
-@id = 1
+@id = 15
+
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFsYmVydG8iLCJpYXQiOjE3OTE5Mzc2NzQsImV4cCI6MTc5MTkzODU3NCwiYXVkIjoiZW5sYWNlLWV4cHJlc3MtYXBpIiwiaXNzIjoiZW5sYWNlLWV4cHJlc3MiLCJzdWIiOiIzIiwianRpIjoiZWFkZmUxOTgtMDIwZC00YzExLTgxYWMtODBjMmEwMWYwMWFmIn0.Y4Xil_9ZTw9OYzsRTj_wLvQLbHCC_kEZkndlSirIlcE
 
 # @name getAllContact
 GET {{baseUrl}}/api/contacts
-
+Authorization: Bearer {{token}}
 ###
 
 # @name getOneContact
 GET {{baseUrl}}/api/contacts/{{id}}
+Authorization: Bearer {{token}}

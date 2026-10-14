@@ -2,11 +2,15 @@
 ### Leyenda: SIN AUTH (sin middleware JWT / sin autenticacion)
 @baseUrl = http://localhost:4000
 @id = 1
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Im9wZXJhZG9yIiwiaWF0IjoxNzkxOTk0NjkwLCJleHAiOjE3OTE5OTgyOTAsImF1ZCI6ImVubGFjZS1leHByZXNzLWFwaSIsImlzcyI6ImVubGFjZS1leHByZXNzIiwic3ViIjoiMiIsImp0aSI6IjYwNTg1ZWZmLTY1MDctNDZiMi1hZTdlLTY1YTU4YWNmYmFlZSJ9.GeLRCxLtXNhIO85htsYG5DpLuufq1WCrXKuOYJrjgiI
+
 
 # @name getAllShipment
 GET {{baseUrl}}/api/shipments
+Authorization: Bearer {{token}}
 
 ###
 
 # @name getOneShipment
 GET {{baseUrl}}/api/shipments/{{id}}
+Authorization: Bearer {{token}}

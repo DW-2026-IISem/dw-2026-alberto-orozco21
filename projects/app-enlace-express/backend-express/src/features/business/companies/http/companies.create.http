@@ -4,8 +4,8 @@
 
 # @name createCompany
 POST {{baseUrl}}/api/companies
-Content-Type: application/json
 
+Content-Type: application/json
 {
   "nit": "999999999",
   "razon_social": "Prueba EnlaceExpress",
