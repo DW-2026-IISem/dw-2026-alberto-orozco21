@@ -67,7 +67,7 @@ curl -s -X POST http://localhost:4000/api/sesion/login \
 curl -s http://localhost:4000/api/sesion/perfil \
   -H "Authorization: Bearer $TOKEN"
 
-![alt text](image.png)
+![alt text](img-angular/permisos_jwt.png)
 
 3. **Permisos efectivos (JWT)**
 curl -s http://localhost:4000/api/permisos \
@@ -132,3 +132,138 @@ curl -s http://localhost:4000/api/permisos \
 ```
 
 ![alt text](img-angular/comprobacion_iss00.png)
+
+## ISS-01 · Bootstrap Angular 22 con CLI, Tailwind y PrimeNG
+
+**Objetivo**
+
+- Crear el proyecto Angular 22 sin una carpeta adicional, integrar Tailwind CSS 4, instalar PrimeNG 22 y dejar el tema Aura funcionando. Al final, ng serve debe mostrar la pantalla inicial sin errores.
+
+### 1.1 Crear el proyecto en la carpeta actual
+
+Desde la carpeta del proyecto:
+
+```bash
+cd ~/ia-lab/dw-2026-alberto-orozco21/projects/app-enlace-express/
+npx @angular/cli@22 new frontend-enlace-express \
+  --style=tailwind \
+  --ssr=false \
+  --routing \
+  --zoneless \
+  --skip-git \
+  --package-manager=npm
+```
+
+![alt text](img-angular/new_project.png)
+
+### 1.2 Instalar PrimeNG compatible con Angular
+
+**Criterios de este sub-ítem**
+
+- [X] primeng, @primeuix/themes, primeicons y @angular/cdk instalados
+- [X] Las versiones instaladas declaran compatibilidad con Angular 22
+- [X] package-lock.json actualizado y conservado
+
+El tema moderno no se importa desde `primeng/resources/themes`. El preset Aura vive en `@primeuix/themes`.
+
+Consulta primero las peer dependencies:
+
+```bash
+ng version
+npm view primeng version peerDependencies --json
+npm install primeng @primeuix/themes primeicons @angular/cdk
+```
+
+![alt text](img-angular/versiones.png)
+
+Verifica versiones:
+
+```bash
+npm ls primeng @primeuix/themes primeicons @angular/cdk --depth=0
+```
+
+![alt text](img-angular/versiones2.png)
+
+### 1.3 Estilos globales
+
+**Criterios de este sub-ítem**
+
+- [X] src/styles.css declara @layer theme, base, primeng, utilities;
+- [X] Importa tailwindcss
+- [X] Importa primeicons/primeicons.css
+- [X] No contiene selectores .p-*, ::ng-deep ni clases de aplicación
+
+**Crea/reemplaza src/styles.css:**
+
+```bash
+cat > src/styles.css <<'EOF'
+@layer theme, base, primeng, utilities;
+@import 'tailwindcss';
+@import 'primeicons/primeicons.css';
+EOF
+```
+
+El orden de capas es lo que permite que las utilidades de Tailwind ganen sobre el tema de PrimeNG sin !important. Es la única hoja global del proyecto.
+
+### 1.4 Configurar PrimeNG en app.config.ts
+
+**Criterios de este sub-ítem**
+
+- [X] providePrimeNG registra preset: Aura
+- [X] darkModeSelector: '.app-dark'
+- [X] cssLayer declara name: 'primeng' y order: 'theme, base, primeng, utilities'
+- [X] MessageService y ConfirmationService registrados
+- [X] provideRouter incluye withComponentInputBinding() y withInMemoryScrolling
+
+**Reemplaza src/app/app.config.ts:**
+
+```bash
+cat > src/app/app.config.ts <<'EOF'
+import {
+  ApplicationConfig,
+  provideBrowserGlobalErrorListeners,
+} from '@angular/core';
+import {
+  provideRouter,
+  withComponentInputBinding,
+  withInMemoryScrolling,
+} from '@angular/router';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { providePrimeNG } from 'primeng/config';
+import Aura from '@primeuix/themes/aura';
+import { environment } from '../environments/environment';
+
+import { routes } from './app.routes';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideBrowserGlobalErrorListeners(),
+
+    provideRouter(
+      routes,
+      withComponentInputBinding(),
+      withInMemoryScrolling({ scrollPositionRestoration: 'top' }),
+    ),
+
+    // PrimeNG 22: tema Aura. El modo oscuro se activa con la clase .app-dark.
+    providePrimeNG({
+      license: environment.primeUiLicense || undefined,
+      ripple: true,
+      inputVariant: 'outlined',
+      theme: {
+        preset: Aura,
+        options: {
+          darkModeSelector: '.app-dark',
+          cssLayer: { name: 'primeng', order: 'theme, base, primeng, utilities' },
+        },
+      },
+    }),
+
+    MessageService,
+    ConfirmationService,
+  ],
+};
+EOF
+```
+
+En ISS-02 se añade `provideHttpClient()`. Los interceptores se generan e incorporan en ISS-08, cuando sus servicios ya existen.
