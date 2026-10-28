@@ -267,3 +267,223 @@ EOF
 ```
 
 En ISS-02 se añade `provideHttpClient()`. Los interceptores se generan e incorporan en ISS-08, cuando sus servicios ya existen.
+
+### 1.4.1 Licencia de PrimeNG 22 (obligatoria para la entrega limpia)
+
+**Criterios de este sub-ítem**
+
+- [X] Se identifica [PrimeUI] No license key configured en la consola como aviso de licencia, no un error de código
+- [X] La clave Community se pega en primeUiLicense (environment*.ts, ISS-02 §2.1) y el aviso desaparece
+- [X] La clave no se publica en el repositorio si es comercial
+
+Desde la versión 22, PrimeNG es parte de PrimeUI, una familia comercial. El paquete incluye @primeui/license-manager, que verifica la clave sin conexión al arrancar (providePrimeNG). Si no hay clave o no es válida:
+
+|Dónde|	Qué aparece|
+|-----|------------|
+|Consola|	[PrimeUI] No license key configured for primeui.|
+|Consola|	[PrimeUI] PrimeUI license is not configured.|
+|Esquina inferior derecha|	Banda roja Invalid PrimeUI License (Shadow DOM, pointer-events: none)|
+
+
+**La aplicación funciona igual:** los componentes se dibujan y el tema Aura se aplica. El aviso es de licencia, no un fallo de Angular. Para una entrega profesional y para capturas de evidencia limpias hay que registrar la clave.
+
+Cómo obtenerla (gratuita para el laboratorio):
+
+1. Entra a https://primeui.dev/licenses y revisa los requisitos de la Community License: menos de 1 M USD de ingresos anuales, menos de 5 desarrolladores, menos de 10 empleados y menos de 3 M USD de financiación. Los estudiantes y el uso académico califican.
+
+2. Solicítala en https://primeui.dev con tu correo.
+
+3. Recibes la clave por correo. Pégala en src/environments/environment.development.ts (primeUiLicense) para ng serve, y en environment.ts para ng build (misma clave en ambos en el laboratorio).
+
+4. Recarga: el aviso desaparece y la consola no vuelve a registrar el mensaje.
+
+```
+// src/environments/environment.development.ts (y el mismo valor en environment.ts)
+export const environment = {
+  // ...
+  primeUiLicense: '', // clave personal; no uses una cadena de ejemplo del manual
+};
+```
+
+`app.config.ts` ya enlaza la licencia: `license: environment.primeUiLicense || undefined`. Los pasos detallados del campo están en ISS-02 §2.1.
+
+### 1.5 Pantalla de arranque: App compone el componente demo/ejemplo
+
+**Criterios de este sub-ítem**
+
+- [X] src/app/app.ts importa el componente Ejemplo y lo declara en imports
+- [X] src/app/app.html contiene <app-ejemplo /> dentro de un <main> con utilidades Tailwind
+- [X] src/app/app.css queda vacío: el aspecto viene de Tailwind y del tema Aura
+- [X] src/app/app.spec.ts prueba que app-ejemplo se pinta, en lugar del `<h1>` por defecto
+- [X] src/app/app.routes.ts sigue vacío: en ISS-01 no hay rutas
+- [X] Existe src/app/demo/ejemplo/ con ejemplo.ts, ejemplo.html, ejemplo.css y ejemplo.spec.ts
+- [X] Al abrir http://localhost:4000 se ve la tarjeta del producto con su precio y sus botones
+
+La plantilla que genera el CLI es una página de bienvenida de Angular llena de enlaces. Se reemplaza, pero no por una pantalla vacía: el resultado de ISS-01 es una pantalla mínima que se ve y que sirve de ejemplo de todo lo que explica 1.9.
+
+La pantalla vive en un componente aparte, `demo/ejemplo`, para que la explicación no se mezcle con App. App se queda con una sola responsabilidad: poner la etiqueta. No se usa el router todavía: en ISS-01 el objetivo es entender qué es un componente, y eso se ve con una etiqueta en la plantilla. El router aparece en ISS-01B, cuando hay una pantalla de negocio que mostrar.
+
+```
+index.html → <app-root> → App (composición) → <app-ejemplo /> → demo/ejemplo
+```
+
+La regla mental que queda de esta sección: un componente es una etiqueta HTML que se escribe en la plantilla de otro componente. La etiqueta es el selector de su @Component.
+
+`src/app/app.ts`
+
+```bash
+cat > src/app/app.ts <<'EOF'
+import { Component } from '@angular/core';
+import { Ejemplo } from './demo/ejemplo/ejemplo';
+
+/**
+ * Componente principal (`<app-root>`).
+ *
+ * Es el primero que Angular dibuja. En ISS-01 solo compone el componente de
+ * ejemplo, para que se vea en pantalla con una etiqueta. Las rutas llegan en
+ * ISS-01B, cuando existe una pantalla de negocio que mostrar.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-root',
+  imports: [Ejemplo],
+  templateUrl: './app.html',
+  styleUrl: './app.css',
+})
+export class App {}
+EOF
+```
+
+`src/app/app.html`
+
+```bash
+cat > src/app/app.html <<'EOF'
+<!-- Marco de la aplicación: fondo, ancho máximo y padding con utilidades Tailwind. -->
+<main class="min-h-dvh bg-slate-50 p-6 text-slate-900">
+  <div class="mx-auto w-full max-w-4xl">
+    <!-- Composición: una etiqueta en la plantilla pinta el componente Ejemplo. -->
+    <app-ejemplo />
+  </div>
+</main>
+EOF
+```
+
+`<app-ejemplo />` es una etiqueta normal de HTML: Angular la reconoce porque Ejemplo declara selector: 'app-ejemplo' y está en el imports de App. No hay nada más. Si quitáramos Ejemplo de imports, la etiqueta no se pintaría.
+
+`src/app/app.routes.ts`
+
+```bash
+cat > src/app/app.routes.ts <<'EOF'
+import { Routes } from '@angular/router';
+
+/**
+ * Rutas de la aplicación.
+ *
+ * Vacío a propósito: en ISS-01 la pantalla se compone con etiquetas en `app.html`
+ * (`<app-ejemplo />`). El router se presenta en ISS-01B, con una pantalla real.
+ */
+export const routes: Routes = [];
+EOF
+```
+
+`provideRouter(routes)` ya está en app.config.ts desde que el CLI creó el proyecto; el arreglo vacío es válido y no impide arrancar. No se rellena hasta ISS-01B.
+
+`src/app/app.css`
+
+```bash
+cat > src/app/app.css <<'EOF'
+/*
+ * Estilos propios del componente App.
+ *
+ * Queda VACÍO a propósito: el aspecto se resuelve con utilidades Tailwind en el
+ * HTML y con el tema Aura de PrimeNG (PATRON-VISUAL). Angular mantiene el archivo
+ * porque `styleUrl` lo referencia y solo afecta a `<app-root>`.
+ */
+EOF
+```
+
+![alt text](img-angular/archivos_app.png)
+
+**PARCHE** — prueba del componente. La prueba generada por el CLI busca el `<h1>` de la plantilla por defecto y falla después de reemplazar app.html. Reemplázala por pruebas de la composición. El componente `demo/ejemplo` tiene su propia prueba (`ejemplo.spec.ts`), que se explica en 1.9.
+
+```bash
+import { TestBed } from '@angular/core/testing';
+import { App } from './app';
+
+describe('App', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [App],
+    }).compileComponents();
+  });
+
+  it('should create the app', () => {
+    const fixture = TestBed.createComponent(App);
+    expect(fixture.componentInstance).toBeTruthy();
+  });
+
+  it('should render the example component', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('app-ejemplo')).toBeTruthy();
+  });
+
+  it('should show the product loaded by the example component', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Café molido 500 g');
+  });
+});
+```
+
+### 1.6 Personalizar index.html
+Criterios de este sub-ítem
+
+- [X] lang="es"
+- [X] `<title>StoreLab Express II · Angular 22</title>`
+- [X] `<body class="m-0 bg-slate-100 font-sans text-slate-900">`
+- [X] `meta description` presente
+
+```bash
+cat > src/index.html <<'EOF'
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>StoreLab Express II · Angular 22</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Frontend Angular 22 con Signals, PrimeNG y Tailwind para StoreLab Express.">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body class="m-0 bg-slate-100 font-sans text-slate-900">
+  <app-root></app-root>
+</body>
+</html>
+EOF
+```
+
+![alt text](img-angular/index.html.png)
+
+Las clases del `<body>` son utilidades Tailwind: fondo, fuente y color de texto. No se redefinen fuentes ni colores del tema con CSS propio.
+
+### 1.7 Ajustar el presupuesto de build
+
+**Criterios de este sub-ítem**
+
+- [ ] En projects → … → architect → build → configurations → production → budgets, el presupuesto initial es maximumWarning: "750kB" y maximumError: "1MB"
+
+El bundle inicial con PrimeNG supera los 500 kB por defecto. En angular.json, dentro de projects → ... → architect → build → configurations → production → budgets, cambia el primer presupuesto:
+
+```json
+{
+  "type": "initial",
+  "maximumWarning": "750kB",
+  "maximumError": "1MB"
+}
+```
+
+Sin este ajuste, ng build termina con un warning (no error). En ISS-11 se explica por qué no conviene subirlo más allá de 1 MB.
+

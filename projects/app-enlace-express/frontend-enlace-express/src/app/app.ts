@@ -1,12 +1,18 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component } from '@angular/core';
+import { Ejemplo } from './demo/ejemplo/ejemplo';
 
+/**
+ * Componente principal (`<app-root>`).
+ *
+ * Es el primero que Angular dibuja. En ISS-01 solo compone el componente de
+ * ejemplo, para que se vea en pantalla con una etiqueta. Las rutas llegan en
+ * ISS-01B, cuando existe una pantalla de negocio que mostrar.
+ */
 @Component({
-  imports: [RouterOutlet],
+  host: { class: 'block' },
   selector: 'app-root',
-  styleUrl: './app.css',
+  imports: [Ejemplo],
   templateUrl: './app.html',
+  styleUrl: './app.css',
 })
-export class App {
-  protected readonly title = signal('frontend-enlace-express');
-}
+export class App {}
