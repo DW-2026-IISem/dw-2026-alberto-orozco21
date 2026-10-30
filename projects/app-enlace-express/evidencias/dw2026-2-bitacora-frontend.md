@@ -485,5 +485,401 @@ El bundle inicial con PrimeNG supera los 500 kB por defecto. En angular.json, de
 }
 ```
 
+### 1.8 Primera ejecución
+
+**Criterios de este sub-ítem**
+
+- [X] npm start compila sin errores
+- [X] http://localhost:4200 responde 200 y muestra el componente de ejemplo
+- [X] Se ve la tarjeta del producto con nombre, precio, estado y botones
+- [X] Pulsar +1000 cambia el precio y el «Precio final con IVA» sin recargar la página
+- [X] Cambiar estado cambia la etiqueta (Activo/Inactivo) y el mensaje inferior
+- [X] Escribir en Nombre actualiza el texto «Vista previa»
+- [X] Console muestra [ejemplo] … en cada cambio (lo escribe effect())
+- [X] Network carga styles.css, main.js y los chunks con estado 200
+- [X] El `<title>` de la pestaña es StoreLab Express II · Angular 22
+
+```bash
+npm start
+```
+
+![alt text](img-angular/start_demo.png)
+
+Abre http://localhost:4200. Debe verse la pantalla de 1.5: la tarjeta Objeto producto, las dos tarjetas de explicación y las utilidades Tailwind que lo centran. Al pulsar +1000 el precio base sube y el valor con IVA se recalcula; Cambiar estado alterna la etiqueta y el aviso; Reiniciar vuelve al objeto inicial.
+
+No hay URL por pantalla: en ISS-01 el router está configurado pero sin rutas, así que cualquier dirección muestra la misma composición.
+
 Sin este ajuste, ng build termina con un warning (no error). En ISS-11 se explica por qué no conviene subirlo más allá de 1 MB.
 
+### 1.9 Anatomía del componente demo/ejemplo y signals
+
+**Criterios de este sub-ítem**
+
+- [X] Explica en qué orden arranca la aplicación y qué archivo hace cada paso
+- [X] Identifica los cuatro archivos de un componente y la función de cada uno
+- [X] Relaciona cada parte de la pantalla con la línea de ejemplo.ts o ejemplo.html que la produce
+- [X] Distingue signal (estado), computed (valor derivado) y effect (efecto secundario)
+- [X] Explica cómo se actualiza un objeto guardado en un signal sin mutarlo
+- [X] Explica por qué no hace falta Zone.js ni llamar a ChangeDetectorRef
+- [X] Explica cómo el selector: 'app-ejemplo' produce la etiqueta `<app-ejemplo />` de app.html
+
+Esta sección explica el mismo código que ya está en pantalla: `src/app/demo/ejemplo/`. Es un componente pequeño y completo: un objeto, cuatro operaciones y tres tarjetas. No hay un ejemplo aparte que borrar después.
+
+```
+src/app/demo/ejemplo/
+├── ejemplo.ts       ← la clase: estado, derivados, efecto y métodos
+├── ejemplo.html     ← la plantilla: tarjetas, campos y botones
+├── ejemplo.css      ← la excepción: una clase para explicar el aislamiento
+└── ejemplo.spec.ts  ← la prueba: crea el componente y comprueba el cambio de estado
+```
+
+### 1.9.1 De index.html a la pantalla
+
+Cuando el navegador carga http://localhost:4200, Angular recorre siempre estos pasos:
+
+```
+index.html
+   └─ <app-root></app-root>                  ← el HTML solo tiene esta etiqueta
+         │
+         ├─ src/main.ts                      bootstrapApplication(App, appConfig)
+         ├─ src/app/app.config.ts            providers globales (router, PrimeNG, …)
+         └─ src/app/app.ts                    clase App + @Component(...)
+               ├─ app.html                    plantilla: <main> + <app-ejemplo />
+               ├─ app.css                     estilos propios (vacío)
+               ├─ app.spec.ts                 pruebas de App
+               └─ app.routes.ts               rutas (vacío en ISS-01)
+                     │
+                     │  <app-ejemplo />  ← la etiqueta de app.html encuentra este componente
+                     ▼
+               src/app/demo/ejemplo/
+                     ├─ ejemplo.ts            clase Ejemplo + @Component(...)
+                     ├─ ejemplo.html          plantilla: las tres tarjetas
+                     ├─ ejemplo.css           una clase de demostración
+                     └─ ejemplo.spec.ts       4 pruebas
+```
+
+**La idea central:** index.html solo tiene una etiqueta. Angular la sustituye por App, y App pinta demo/ejemplo porque escribió su etiqueta en la plantilla. El componente de ejemplo declara su estado en ejemplo.ts y lo dibuja con ejemplo.html. Todo lo demás del curso son componentes dentro de componentes.
+
+De selector a etiqueta: por qué `<app-ejemplo />` funciona
+app.html contiene una sola referencia al componente:
+
+```html
+<main class="min-h-dvh bg-slate-50 p-6 text-slate-900">
+  <div class="mx-auto w-full max-w-4xl">
+    <app-ejemplo />
+  </div>
+</main>
+```
+
+Si el selector es 'app-ejemplo', la etiqueta es <app-ejemplo>. Si se quita Ejemplo de imports, Angular no reconoce la etiqueta y la deja como un elemento HTML inerte (sin error de compilación, porque el nombre es válido). Ese es el primer error del curso: el componente «no se ve» porque falta el import.
+
+En el DOM, el elemento conserva su etiqueta y recibe las clases de host:
+
+```
+div.mx-auto.w-full.max-w-4xl
+└── <app-ejemplo class="block" _ngcontent-…>   ← la etiqueta que escribiste en app.html
+      └── <div class="flex flex-col gap-6">     ← ejemplo.html
+```
+Ese `class="block"` no está escrito en app.html: sale de host: { class: 'block' } en la metadata de Ejemplo. Es la forma de dar clases al elemento anfitrión sin envolverlo en otro div.
+
+> El router llega después. Preguntar «¿y si quiero que la URL decida qué componente se pinta?» es correcto, pero es otra lección: ISS-01B introduce RouterOutlet cuando ya hay una pantalla de negocio. En ISS-01 el router está configurado (provideRouter) pero sin rutas.
+
+### 1.9.2 Los cuatro archivos de un componente
+Un componente Angular es una clase TypeScript + una plantilla + unos estilos + una prueba:
+
+```
+src/app/demo/ejemplo/
+├── ejemplo.ts        ← la clase (estado y lógica) + @Component(...)
+├── ejemplo.html      ← la plantilla (lo que se ve)
+├── ejemplo.css       ← los estilos de ESTE componente
+└── ejemplo.spec.ts   ← la prueba
+```
+
+La metadata es lo que convierte una clase normal en un componente:
+
+```typescript
+@Component({
+  host: { class: 'block' },              // clases del elemento anfitrión <app-ejemplo>
+  selector: 'app-ejemplo',               // etiqueta HTML que lo representa
+  imports: [ButtonModule, CardModule, InputTextModule, MessageModule, TagModule],
+  templateUrl: './ejemplo.html',         // vista externa
+  styleUrl: './ejemplo.css',             // estilos externos
+})
+export class Ejemplo {}
+```
+
+> Nombres en Angular 22: el CLI ya no genera app.component.ts ni AppComponent. Genera app.ts con la clase App. Ambos estilos funcionan, pero el material usa el actual: el sufijo .component se omite porque la carpeta y el @Component ya lo dicen.
+
+### 1.9.3 Leer ejemplo.ts línea a línea
+
+```typescript
+// 1. Se importan solo las piezas que se usan.
+import { Component, computed, effect, signal } from '@angular/core';
+import { ButtonModule } from 'primeng/button';
+import { CardModule } from 'primeng/card';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TagModule } from 'primeng/tag';
+
+// 2. El objeto que se muestra y se modifica.
+export interface Producto {
+  nombre: string;
+  precio: number;
+  activo: boolean;
+}
+
+// 3. @Component describe CÓMO se pinta la clase.
+@Component({
+  host: { class: 'block' },              // <app-ejemplo> se comporta como bloque
+  selector: 'app-ejemplo',               // se usa como <app-ejemplo></app-ejemplo>
+  imports: [ButtonModule, CardModule, InputTextModule, MessageModule, TagModule],
+  templateUrl: './ejemplo.html',
+  styleUrl: './ejemplo.css',
+})
+export class Ejemplo {
+  // 4. ESTADO: el signal guarda un objeto completo.
+  protected readonly producto = signal<Producto>(productoInicial());
+
+  // 5. DERIVADOS: se calculan desde `producto()`, nunca se asignan.
+  protected readonly precioFinal = computed(() =>
+    Math.round(this.producto().precio * 1.19),
+  );
+  protected readonly estadoTexto = computed(() =>
+    this.producto().activo ? 'Activo' : 'Inactivo',
+  );
+
+  // 6. EFECTO: se ejecuta al crear y en cada cambio del objeto.
+  private readonly registro = effect(() => {
+    const { nombre, precio, activo } = this.producto();
+    console.log(`[ejemplo] ${nombre} · precio ${precio} · ${activo ? 'activo' : 'inactivo'}`);
+  });
+
+  // 7. Métodos que la plantilla llama desde los eventos.
+  protected cambiarNombre(event: Event): void {
+    const nombre = (event.target as HTMLInputElement).value;
+    this.producto.update((actual) => ({ ...actual, nombre }));
+  }
+
+  protected variarPrecio(delta: number): void {
+    this.producto.update((actual) => ({
+      ...actual,
+      precio: Math.max(0, actual.precio + delta),
+    }));
+  }
+
+  protected alternarEstado(): void {
+    this.producto.update((actual) => ({ ...actual, activo: !actual.activo }));
+  }
+
+  protected reiniciar(): void {
+    this.producto.set(productoInicial());
+  }
+}
+```
+
+La función auxiliar evita compartir el mismo objeto entre el estado inicial y el reinicio:
+
+```typescript
+function productoInicial(): Producto {
+  return { nombre: 'Café molido 500 g', precio: 18000, activo: true };
+}
+```
+
+Las piezas de la plantilla que producen lo que se ve:
+
+```html
+<!-- 1. Interpolación: muestra un campo del objeto. -->
+<p class="text-2xl font-bold text-slate-900">{{ producto().precio }}</p>
+
+<!-- 2. Property binding + event binding sobre un campo editable. -->
+<input pInputText [value]="producto().nombre" (input)="cambiarNombre($event)" />
+
+<!-- 3. Event binding con argumento: el botón llama al método con 1000. -->
+<button pButton type="button" (click)="variarPrecio(1000)">
+  <span pButtonLabel>+1000</span>
+</button>
+
+<!-- 4. Property binding booleano: el tag cambia de color según `activo`. -->
+<p-tag [value]="estadoTexto()" [severity]="producto().activo ? 'success' : 'danger'" />
+```
+
+`{{ producto().precio }}` no es una función de la plantilla: es la lectura del signal (producto()) y, sobre el objeto, la propiedad (precio). Sin el primer paréntesis Angular mostraría la función en lugar del valor.
+
+> Qué pasa con app.routes.ts. Sigue vacío (export const routes: Routes = [];). provideRouter(routes) está configurado, pero sin rutas no hay navegación: la pantalla se compone con etiquetas. El router se presenta en ISS-01B con una pantalla real.
+
+### 1.9.4 Las cuatro formas de conectar la clase con el HTML
+
+> [(ngModel)] requiere FormsModule y se usa en formularios sencillos. En este curso los formularios de negocio usan Reactive Forms (FormGroup y formControlName), que se presentan en ISS-03. El ejemplo escribe el binding a mano ([value] + (input)) para que se vea de dónde sale el valor nuevo.
+
+Y el flujo de control moderno, que reemplaza a *ngIf y *ngFor. El ejemplo lo usa para elegir el mensaje según el estado del producto:
+
+```typescript
+@if (producto().activo) {
+  <p-message severity="success" variant="simple">
+    Producto activo: la API lo devolvería en <code>GET /api/productos</code>.
+  </p-message>
+} @else {
+  <p-message severity="warn" variant="simple">
+    Producto inactivo: el borrado lógico lo oculta de las listas.
+  </p-message>
+}
+
+<!-- El mismo bloque aplica a una lista del negocio. -->
+@if (clients().length === 0) {
+  <p>No hay clientes activos.</p>
+} @else {
+  <ul>
+    @for (client of clients(); track client.id) {
+      <li>{{ client.name }}</li>
+    }
+  </ul>
+}
+```
+
+track le dice a Angular cómo identificar cada elemento de la lista; con él evita volver a dibujar filas que no cambiaron. @for exige track en Angular 22.
+
+### 1.9.5 Signals: el estado que avisa a la vista
+
+Un signal es una caja con un valor que notifica a quien lo lee cuando cambia. Se crea con signal(valorInicial), se lee con () y se modifica con .set() o .update().
+
+Dónde está en Ejemplo. El estado es un objeto Producto; la plantilla lee sus campos y los botones lo cambian:
+
+```typescript
+// ejemplo.ts — declaración y cambios del estado
+protected readonly producto = signal<Producto>(productoInicial());
+
+protected variarPrecio(delta: number): void {
+  this.producto.update((actual) => ({
+    ...actual,                              // conserva nombre y activo
+    precio: Math.max(0, actual.precio + delta),
+  }));
+}
+
+protected reiniciar(): void {
+  this.producto.set(productoInicial());     // valor nuevo, no depende del anterior
+}
+```
+
+```html
+<!-- ejemplo.html — lectura del signal: siempre con paréntesis -->
+<p class="text-2xl font-bold text-slate-900">{{ producto().precio }}</p>
+<p class="text-sm text-slate-500">
+  Precio final con IVA (19 %): <strong>{{ precioFinal() }}</strong>
+</p>
+<p-tag [value]="estadoTexto()" [severity]="producto().activo ? 'success' : 'danger'" />
+```
+
+**Actualizar un objeto dentro de un signal**
+
+Este es el punto que más se equivoca al empezar. Un signal compara referencias, no campos: si se modifica el objeto en el sitio, el signal sigue apuntando al mismo objeto y la vista no se entera.
+
+```typescript
+// MAL: muta el objeto y conserva la misma referencia.
+const actual = this.producto();
+actual.precio = actual.precio + 1000;   // el signal no notifica: nadie llamó a set/update
+
+// BIEN: crea un objeto nuevo y entrégaselo al signal.
+this.producto.update((actual) => ({ ...actual, precio: actual.precio + 1000 }));
+```
+
+Al pulsar +1000, el signal cambia, Angular repinta el precio base y el valor con IVA, y la etiqueta de estado sigue igual porque producto().activo no cambió. Nadie llamó a ChangeDetectorRef.
+
+> Comprobado en este workspace: la pantalla arranca con 18000 y IVA 21420; +1000 deja 19000 y 22610, -1000 vuelve a 18000, y Reiniciar restaura el objeto completo. Esas cuatro transiciones están en ejemplo.spec.ts y se ejecutan con npm test -- --watch=false.
+
+Si el número no cambia, revisa que leíste producto() con paréntesis y que el método devuelve un objeto nuevo dentro de .update(), no una mutación.
+
+### 1.9.6 computed y effect: derivar y reaccionar
+
+- computed calcula un valor a partir de otros signals. No guarda estado propio: se recalcula cuando cambia una dependencia y solo se recalcula si alguien lo lee.
+
+- effect ejecuta un efecto secundario (guardar, registrar, enfocar) cuando cambian los signals que lee. No se usa para calcular estado.
+
+```typescript
+// ejemplo.ts — dos valores derivados y un efecto secundario
+protected readonly precioFinal = computed(() =>
+  Math.round(this.producto().precio * 1.19),
+);
+
+protected readonly estadoTexto = computed(() =>
+  this.producto().activo ? 'Activo' : 'Inactivo',
+);
+
+private readonly registro = effect(() => {
+  const { nombre, precio, activo } = this.producto();
+  console.log(`[ejemplo] ${nombre} · precio ${precio} · ${activo ? 'activo' : 'inactivo'}`);
+});
+```
+
+```html
+<!-- ejemplo.html — los derivados se leen igual que un signal -->
+<p class="text-sm text-slate-500">
+  Precio final con IVA (19 %): <strong>{{ precioFinal() }}</strong>
+</p>
+<p-tag [value]="estadoTexto()" [severity]="producto().activo ? 'success' : 'danger'" />
+```
+
+**Regla del curso:** si un valor se puede calcular a partir de otros signals, es computed. Si hay que hacer algo cuando cambia, es effect. Guardar en un signal lo que ya se deduce de otro signal crea dos fuentes de verdad que se desincronizan. Aquí precioFinal no existe como signal propio: se deriva de producto().precio. Si se guardara el IVA en el objeto, habría que acordarse de recalcularlo en cada cambio de precio.
+
+### 1.9.7 Zoneless: por qué la vista se actualiza sin Zone.js
+
+Angular 22 arranca sin Zone.js por defecto. Antes, Angular parcheaba todas las APIs asíncronas para saber cuándo revisar la vista; ahora el propio código avisa:
+
+Por eso el estado del curso se declara con signal. Una propiedad public total = 0 funciona al inicio, pero al cambiarla desde una promesa el HTML puede quedarse con el valor viejo. Con signal, el cambio siempre llega a la vista.
+
+### 1.9.8 Estilos globales y estilos del componente
+
+**Regla del curso:** el aspecto de la aplicación se construye con PrimeNG (controles) y Tailwind (espaciado, tipografía, color). No se escribe CSS de negocio. La única excepción es la caja de la tarjeta «Estilos» del ejemplo, porque su propósito es explicar cómo funciona el CSS del componente:
+
+```css
+/* src/app/demo/ejemplo/ejemplo.css — únicamente demostrativo. */
+.ejemplo-alcance {
+  border: 2px dashed #0f766e;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  background-color: #f0fdfa;
+}
+```
+
+```html
+<!-- La misma caja, con el resto del contenido en Tailwind. -->
+<div class="ejemplo-alcance mt-4 text-sm text-slate-700">…</div>
+```
+
+**Qué es el encapsulamiento**: Angular compila el CSS del componente con `ViewEncapsulation.Emulated`: agrega un atributo como `_ngcontent-ng-c4132172110` a los elementos de la plantilla y escribe la regla calificada (`.ejemplo-alcance[_ngcontent-…]`). Por eso una clase definida en ejemplo.css no afecta a otro componente, aunque se llame igual. El atributo se ve al inspeccionar el DOM y es normal.
+
+```html
+<div class="ejemplo-alcance mt-4 …" _ngcontent-ng-c4132172110>…</div>
+```
+
+**Consecuencia práctica:** si dos componentes necesitan el mismo borde, no se copia la clase en los dos `.css`; se resuelve con una utilidad Tailwind o con un componente compartido. En el curso ganan Tailwind y PrimeNG porque el estilo queda en el HTML, junto a la estructura, y el tema Aura mantiene la coherencia entre controles.
+
+## Verificación del ISS
+
+```bash
+# 1. El servidor debe compilar
+ng build
+
+# 2. Debe imprimir la configuración de Tailwind/PrimeNG
+grep -R "providePrimeNG\|@import 'tailwindcss'" src | head
+
+# 3. Versiones compatibles
+npm ls primeng @primeuix/themes primeicons @angular/cdk --depth=0
+
+# 4. Presupuesto y estilos
+node -e "const a=require('./angular.json');const p=a.projects[Object.keys(a.projects)[0]];console.log(p.architect.build.configurations.production.budgets[0])"
+cat src/styles.css
+
+# 5. La composición y el componente de ejemplo declaran signals
+grep -n "imports: \[Ejemplo\]" src/app/app.ts
+grep -n "app-ejemplo" src/app/app.html
+grep -n "signal(\|computed(\|effect(" src/app/demo/ejemplo/ejemplo.ts
+```
+
+```bash
+# 6. Pruebas de App y del componente de ejemplo
+npm test -- --watch=false
+```
+
+![alt text](img-angular/verificacion_iss01A.png)
+
+![alt text](img-angular/demo.png)
