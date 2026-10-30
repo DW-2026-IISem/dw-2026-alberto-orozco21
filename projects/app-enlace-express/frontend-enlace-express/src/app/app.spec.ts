@@ -1,10 +1,12 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { App } from './app';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [provideRouter([])],
     }).compileComponents();
   });
 
@@ -13,30 +15,10 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  async function createApp(): Promise<HTMLElement> {
+  it('should render the router outlet', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
-    return fixture.nativeElement as HTMLElement;
-  }
-
-  it('should compose the three layout regions', async () => {
-    const compiled = await createApp();
-    expect(compiled.querySelector('app-header')).toBeTruthy();
-    expect(compiled.querySelector('aside app-aside')).toBeTruthy();
-    expect(compiled.querySelector('app-footer')).toBeTruthy();
-    expect(compiled.querySelector('app-ejemplo')).toBeNull();
-  });
-
-  it('should render the application name in the header', async () => {
-    const compiled = await createApp();
-    const header = compiled.querySelector('app-header') as HTMLElement;
-    expect(header.textContent).toContain('EnlaceExpress');
-  });
-
-  it('should render the initial title in the content', async () => {
-    const compiled = await createApp();
-    const main = compiled.querySelector('main') as HTMLElement;
-    expect(main.textContent).toContain('Inicio');
-    expect(main.textContent).toContain('Bienvenido a EnlaceExpress.');
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('router-outlet')).toBeTruthy();
   });
 });

@@ -2,8 +2,13 @@ import { Routes } from '@angular/router';
 
 /**
  * Rutas de la aplicación.
- *
- * Vacío a propósito: en ISS-01 la pantalla se compone con etiquetas en `app.html`
- * (`<app-ejemplo />`). El router se presenta en ISS-01B, con una pantalla real.
  */
-export const routes: Routes = [];
+export const routes: Routes = [
+	{
+		path: 'construir',
+		loadComponent: () =>
+			import('./features/construir/construir').then((module) => module.Construir),
+	},
+	{ path: '', pathMatch: 'full', redirectTo: 'construir' },
+	{ path: '**', redirectTo: 'construir' },
+];

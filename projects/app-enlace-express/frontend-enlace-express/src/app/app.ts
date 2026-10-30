@@ -1,21 +1,16 @@
 import { Component } from '@angular/core';
-import { Header } from './layout/header/header';
-import { Aside } from './layout/aside/aside';
-import { Footer } from './layout/footer/footer';
+import { RouterOutlet } from '@angular/router';
 
 /**
  * Componente principal (`<app-root>`).
  *
- * Es el primero que Angular dibuja. Compone las cuatro regiones de la pantalla:
- * Header arriba, Aside a la izquierda, contenido y Footer abajo.
+ * Punto de entrada: el router selecciona qué pantalla se dibuja en su outlet.
  */
 @Component({
   host: { class: 'block' },
   selector: 'app-root',
-  imports: [Header, Aside, Footer],
+  imports: [RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
-export class App {
-  protected readonly title = 'Inicio';
-}
+export class App {}

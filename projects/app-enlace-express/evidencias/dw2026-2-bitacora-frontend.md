@@ -1202,3 +1202,818 @@ Abre http://localhost:4200 y comprueba:
 Para provocar el caso de contenido largo, añade párrafos dentro de `<main>` y observa que solo el Footer se desplaza: el Header y el Aside no se mueven porque están en el flujo normal del `flex` vertical.
 
 ![alt text](img-angular/start_iss01A.png)
+
+## Fase I: Frontend — ISS-01B — Menú PrimeNG y primera interacción
+
+**Objetivo:** pasar de una maqueta a una pantalla que responde. Al terminar: PanelMenu en el Aside, botón de menú en el Header, Drawer en pantalla pequeña y selección que cambia el contenido local. Sin rutas de negocio y sin API.
+
+**Bloqueado por:** ISS-01A.
+
+**Criterios de aceptación (ISS-01B) — consolidados**
+
+- [X] 1.1 Explica la diferencia entre input() (dato del padre al hijo), output() (aviso del hijo al padre) y signal() (estado propio)
+- [X] 1.2 aside.ts declara `items = input<MenuItem[]>([])` y aside.html lo pinta con `<p-panelmenu [model]="items()" [multiple]="true" />`
+- [X] 1.2 aside.css sigue sin reglas: la apariencia es de Aura y Tailwind
+- [X] 1.3 El Header emite menuRequested y su botón está siempre visible: por debajo de lg abre el Drawer, desde lg alterna el Aside fijo
+- [X] 1.4 Existe src/app/features/construir/ con construir.ts, construir.html, construir.css y construir.spec.ts
+- [X] 1.4 mobileOpen, sidebarCollapsed y title son signal; elegir una opción cambia el título y cierra el Drawer
+- [X] 1.4 El layout se compone una sola vez en construir.html y se reutiliza en el Drawer
+- [X] 1.5 app.ts importa RouterOutlet y app.html contiene solo `<router-outlet />`
+- [X] 1.5 app.routes.ts declara construir con loadComponent, redirige '' y ** a construir
+- [X] 1.6 A 1280 px se ve Inicio, 11 opciones de Operación y 6 de Administración; a 390 px se oculta y el botón abre el Drawer
+- [X] 1.6 A 1280 px el botón de menú se ve y oculta/muestra el Aside sin abrir el Drawer
+- [X] 1.6 La URL no cambia al elegir una opción y Network no registra llamadas /api
+- [X] ng build termina con código 0, construir se empaqueta como chunk diferido y las pruebas pasan
+
+> demo/ejemplo no participa. La introducción a Angular quedó en ISS-01. No tiene ruta, no está en el menú y no se compone en este ISS.
+
+### 1.1 Los conceptos que se agregan, uno por vez
+
+`Criterios de este sub-ítem`
+
+- [X] Distingue los tres canales de datos: entrada, salida y estado
+- [X] Reconoce `MenuItem[]` como el contrato del menú de PrimeNG
+- [X] Explica `[(visible)]` como ida y vuelta en un solo atributo
+
+|Concepto	|Qué resuelve	|Dónde se ve en este ISS|
+|--------|-------------|-----------------------|
+|input()	|Dato que el padre entrega al hijo; el hijo no lo modifica|	items en Aside, appName en Header|
+|output()	|Aviso del hijo al padre; el hijo no navega ni cierra nada por su cuenta	|menuRequested, |navigated
+|signal()|	Estado propio del componente, observado por la plantilla|	title, mobileOpen en Construir|
+|[propiedad]|	Enlace de la clase a la plantilla|	[model]="items()" en PanelMenu|
+|(evento)|	Acción al recibir un aviso	|(menuRequested)="mobileOpen.set(true)"|
+|[(visible)]|	Ida y vuelta: el Drawer abre y también actualiza el estado al cerrarse|	[(visible)]|="mobileOpen"
+|MenuItem[]	|Forma tipada del menú de PrimeNG: label, icon, command|	items en Construir|
+
+**La frontera del ISS**. Los tres componentes de `layout/` son presentación: reciben datos y avisan. El único con estado es Construir. Esa separación es la que permite reutilizar el layout en `ISS-02` sin duplicar `Header`, `Aside` ni `Footer`, y la que evita inyectar servicios de autenticación en componentes visuales.
+
+**PARCHE** — standalone: true sobra. Angular 22 genera componentes standalone por defecto. Los ejemplos de material antiguo lo incluyen; es válido, pero redundante. Este curso no lo escribe.
+
+### 1.2 El Aside recibe el menú con input()
+Criterios de este sub-ítem
+
+- [X] Aside declara `items = input<MenuItem[]>([])`
+- [X] La plantilla usa `[model]="items()":` se lee el signal con paréntesis
+- [X] El Aside no construye el menú ni conoce rutas: solo lo pinta
+- [X] aside.css no contiene reglas
+
+`src/app/layout/aside/aside.ts`
+
+```typescript
+import { Component, input, output } from '@angular/core';
+import { MenuItem } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { PanelMenuModule } from 'primeng/panelmenu';
+
+/**
+ * Menú lateral de la aplicación.
+ *
+ * Presentación pura: recibe el menú ya construido por `input()` y avisa de la
+ * navegación con `output()`. No conoce rutas, permisos ni la API.
+ */
+@Component({
+  host: { class: 'block h-full' },
+  selector: 'app-aside',
+  imports: [ButtonModule, PanelMenuModule],
+  templateUrl: './aside.html',
+  styleUrl: './aside.css',
+})
+export class Aside {
+  readonly appName = input('EnlaceExpress');
+
+  /** Opciones del menú, en el formato `MenuItem` de PrimeNG. */
+  readonly items = input<MenuItem[]>([]);
+
+  /** Datos de sesión con valores por defecto: ISS-08 los completa. */
+  readonly showSession = input(false);
+  readonly username = input('');
+  readonly roleLabel = input('Sin rol');
+  readonly permissionCount = input(0);
+
+  /** Aviso al padre: se seleccionó una opción (lo usa el Drawer en móvil). */
+  readonly navigated = output<void>();
+
+  /** Aviso al padre: se pidió cerrar sesión. */
+  readonly logoutRequested = output<void>();
+
+  /**
+   * Un clic dentro del menú puede caer en el propio ítem o en un hijo suyo.
+   * `closest` resuelve ambos casos con un solo listener en el `<nav>`.
+   */
+  onNavigationClick(event: Event): void {
+    const target = event.target;
+    if (target instanceof Element && target.closest('.p-panelmenu-item-link')) {
+      this.navigated.emit();
+    }
+  }
+}
+```
+
+`src/app/layout/aside/aside.html`
+
+```html
+<div class="flex h-full flex-col border-r border-slate-200 bg-white text-slate-900">
+  <div class="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
+    <i class="pi pi-link text-lg text-teal-700" aria-hidden="true"></i>
+    <div class="min-w-0">
+      <p class="truncate text-sm font-semibold text-slate-900">{{ appName() }}</p>
+      <p class="text-[11px] uppercase tracking-wider text-slate-400">
+        Panel administrativo
+      </p>
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-y-auto p-3">
+    <nav aria-label="Navegación principal" (click)="onNavigationClick($event)">
+      <p-panelmenu [model]="items()" [multiple]="true" />
+    </nav>
+  </div>
+
+  @if (showSession()) {
+    <div class="border-t border-slate-200 p-4">
+      <p class="text-sm font-medium text-slate-900">{{ username() || 'Invitado' }}</p>
+      <p class="text-xs text-slate-400">{{ roleLabel() }}</p>
+      <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
+        <span>{{ permissionCount() }} permisos</span>
+        <button
+          pButton
+          type="button"
+          text
+          rounded
+          aria-label="Cerrar sesión"
+          (click)="logoutRequested.emit()"
+        >
+          <i pButtonIcon class="pi pi-sign-out"></i>
+        </button>
+      </div>
+    </div>
+  }
+</div>
+```
+
+### 1.3 El Header avisa al padre con output()
+Criterios de este sub-ítem
+
+- [X] El botón de menú lleva `aria-label="Mostrar u ocultar el menú"` y no lleva `lg:hidden`
+- [X] Al pulsarlo emite menuRequested; el Header no abre nada ni consulta el ancho
+- [X] showSession sigue en false: no hay datos de sesión hasta ISS-08
+- [X] header.css no contiene reglas
+
+`src/app/layout/header/header.ts`
+
+```typescript
+import { Component, input, output } from '@angular/core';
+import { MenuItem } from 'primeng/api';
+import { AvatarModule } from 'primeng/avatar';
+import { ButtonModule } from 'primeng/button';
+import { MenuModule } from 'primeng/menu';
+import { TagModule } from 'primeng/tag';
+
+/**
+ * Barra superior de la aplicación.
+ *
+ * Es presentación pura: recibe los datos por `input()` y avisa al padre con
+ * `output()`. No inyecta servicios, no consulta la API y no conoce permisos.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-header',
+  imports: [AvatarModule, ButtonModule, MenuModule, TagModule],
+  templateUrl: './header.html',
+  styleUrl: './header.css',
+})
+export class Header {
+  /** Nombre visible de la aplicación. */
+  readonly appName = input('EnlaceExpress');
+
+  /** Datos de sesión con valores por defecto: ISS-08 los completa. */
+  readonly username = input('');
+  readonly initials = input('IN');
+  readonly roleLabel = input('Sin rol');
+  readonly authEnabled = input(true);
+  readonly showSession = input(false);
+  readonly userItems = input<MenuItem[]>([]);
+
+  /** Aviso al padre: el botón de menú se pulsó (solo visible en móvil). */
+  readonly menuRequested = output<void>();
+}
+```
+
+`src/app/layout/header/header.html`
+
+```html
+<header
+  class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6"
+>
+  <!-- Botón de menú: siempre visible; el padre decide qué hacer (aside fijo o Drawer). -->
+  <button
+    pButton
+    type="button"
+    text
+    rounded
+    aria-label="Mostrar u ocultar el menú"
+    (click)="menuRequested.emit()"
+  >
+    <i pButtonIcon class="pi pi-bars"></i>
+  </button>
+
+  <div class="min-w-0 flex-1">
+    <p class="truncate text-sm font-semibold text-slate-900">{{ appName() }}</p>
+    <p class="truncate text-xs text-slate-500">
+      Gestión logística de envíos
+    </p>
+  </div>
+
+  @if (showSession() && !authEnabled()) {
+    <p-tag value="Fase I · sin auth" severity="warn" [rounded]="true" />
+  }
+  @if (username()) {
+    <p-tag
+      [value]="roleLabel()"
+      severity="info"
+      [rounded]="true"
+      class="hidden sm:inline-flex"
+    />
+  }
+
+  @if (showSession()) {
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      outlined
+      (click)="userMenuPanel.toggle($event)"
+      aria-label="Menú de usuario"
+    >
+      <p-avatar [label]="initials()" shape="circle" size="normal" />
+      <span class="hidden max-w-32 truncate text-sm font-medium text-slate-700 sm:block">
+        {{ username() }}
+      </span>
+      <i class="pi pi-chevron-down pr-1 text-[10px] text-slate-400"></i>
+    </button>
+    <p-menu #userMenuPanel [model]="userItems()" [popup]="true" appendTo="body" />
+  }
+</header>
+```
+
+**Por qué el hijo no abre el Drawer**. El Drawer vive en Construir. Si el Header lo abriera, tendría que conocer el estado de otra pantalla. Con `output()` el Header solo dice «se pulsó el botón»; quien decide qué hacer es el padre:
+
+```html
+<app-header (menuRequested)="onMenuToggle()" />
+```
+
+Esa es la diferencia entre un componente reutilizable y uno acoplado.
+
+> **PARCHE** — `<class="lg:hidden">` era un error de diseño. La primera versión ocultaba el botón con `lg:hidden`, así que desaparecía justo desde 1024 px, que es donde el Aside fijo ya se ve. Resultado: en escritorio el menú no se podía ocultar y en pantallas anchas el usuario no encontraba el botón. El botón debe estar siempre; lo que cambia es qué hace según el ancho. El Header no consulta el ancho (sigue siendo presentación pura): quien decide es el padre, con `onMenuToggle()`.
+
+`sticky top-0 z-30` mantiene la barra visible al hacer scroll y por encima del contenido. El `@if (showSession())` deja el bloque de usuario fuera del DOM hasta ISS-08: no se pinta un avatar vacío que luego haya que ocultar.
+
+### 1.4 features/construir: estado local y Drawer móvil
+Criterios de este sub-ítem
+
+- [X] mobileOpen, sidebarCollapsed y title son signal, no propiedades normales
+- [X] Todas las opciones seleccionables del menú llaman a un único método seleccionar
+- [X] seleccionar cambia el título y cierra el Drawer
+- [X] onMenuToggle alterna el Aside fijo en escritorio y abre el Drawer en móvil
+- [X] El Aside aparece una vez en el layout de escritorio y otra en el Drawer, con el mismo items
+- [X] construir.css no contiene reglas
+
+```bash
+ng generate component features/construir --skip-tests --defaults
+```
+
+El `--skip-tests` no es para evitar pruebas: la prueba de esta pantalla se escribe completa en este ISS (más abajo) y sustituye a la plantilla vacía del CLI.
+
+`src/app/features/construir/construir.ts`
+
+```typescript
+import { Component, signal } from '@angular/core';
+import { MenuItem } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { CardModule } from 'primeng/card';
+import { DrawerModule } from 'primeng/drawer';
+import { watchMediaQuery } from '../../core/utils/media-query';
+import { Aside } from '../../layout/aside/aside';
+import { Footer } from '../../layout/footer/footer';
+import { Header } from '../../layout/header/header';
+
+/**
+ * Pantalla del prototipo.
+ *
+ * Es el único componente con estado en ISS-01B: guarda el título elegido y el
+ * estado del menú. El layout solo recibe datos por `input()`; así en ISS-02 se
+ * puede reutilizar sin duplicar Header, Aside ni Footer.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-construir',
+  imports: [Aside, ButtonModule, CardModule, DrawerModule, Footer, Header],
+  templateUrl: './construir.html',
+  styleUrl: './construir.css',
+})
+export class Construir {
+  /** `lg` de Tailwind: desde aquí el Aside es fijo y el botón lo alterna. */
+  private readonly isDesktop = watchMediaQuery('(min-width: 1024px)');
+
+  /** Escritorio: el Aside fijo se oculta y el contenido se ensancha. */
+  readonly sidebarCollapsed = signal(false);
+
+  /** Móvil: el Drawer se abre desde el botón y se cierra al elegir una opción. */
+  readonly mobileOpen = signal(false);
+
+  /** Título del contenido. Cambia al elegir una opción del menú, sin HTTP. */
+  readonly title = signal('Inicio');
+
+  /**
+   * Menú en el formato `MenuItem` de PrimeNG.
+   *
+   * `command` ejecuta una función al elegir la opción. Todavía no navega: solo
+   * cambia el título. En ISS-02 cada comando apuntará a una ruta real.
+   */
+  readonly items: MenuItem[] = [
+    {
+      label: 'Operación',
+      icon: 'pi pi-truck',
+      items: [
+        { label: 'Empresas', icon: 'pi pi-building', command: () => this.seleccionar('Empresas') },
+        { label: 'Contactos', icon: 'pi pi-id-card', command: () => this.seleccionar('Contactos') },
+        { label: 'Direcciones', icon: 'pi pi-map-marker', command: () => this.seleccionar('Direcciones') },
+        { label: 'Mensajeros', icon: 'pi pi-send', command: () => this.seleccionar('Mensajeros') },
+        { label: 'Tarifas', icon: 'pi pi-dollar', command: () => this.seleccionar('Tarifas') },
+        { label: 'Rutas', icon: 'pi pi-map', command: () => this.seleccionar('Rutas') },
+        { label: 'Envíos', icon: 'pi pi-box', command: () => this.seleccionar('Envíos') },
+        { label: 'Paquetes', icon: 'pi pi-inbox', command: () => this.seleccionar('Paquetes') },
+        {
+          label: 'Eventos de seguimiento',
+          icon: 'pi pi-history',
+          command: () => this.seleccionar('Eventos de seguimiento'),
+        },
+        {
+          label: 'Comprobantes de entrega',
+          icon: 'pi pi-check-square',
+          command: () => this.seleccionar('Comprobantes de entrega'),
+        },
+        { label: 'Facturas', icon: 'pi pi-file', command: () => this.seleccionar('Facturas') },
+      ],
+    },
+    {
+      label: 'Administración',
+      icon: 'pi pi-shield',
+      items: [
+        { label: 'Usuarios', icon: 'pi pi-users', command: () => this.seleccionar('Usuarios') },
+        { label: 'Roles', icon: 'pi pi-key', command: () => this.seleccionar('Roles') },
+        { label: 'Recursos', icon: 'pi pi-list', command: () => this.seleccionar('Recursos') },
+        {
+          label: 'Asignaciones de rol',
+          icon: 'pi pi-user-plus',
+          command: () => this.seleccionar('Asignaciones de rol'),
+        },
+        {
+          label: 'Concesiones de recursos',
+          icon: 'pi pi-lock',
+          command: () => this.seleccionar('Concesiones de recursos'),
+        },
+        { label: 'Sesiones', icon: 'pi pi-history', command: () => this.seleccionar('Sesiones') },
+      ],
+    },
+  ];
+
+  /**
+   * Un solo botón, dos disposiciones: en escritorio alterna el Aside fijo; por
+   * debajo de `lg` abre el Drawer (donde el Aside fijo no cabe).
+   */
+  protected onMenuToggle(): void {
+    if (this.isDesktop()) {
+      this.sidebarCollapsed.update((collapsed) => !collapsed);
+      return;
+    }
+    this.mobileOpen.set(true);
+  }
+
+  /** Una sola puerta de entrada al estado: la usan las opciones seleccionables. */
+  protected seleccionar(titulo: string): void {
+    this.title.set(titulo);
+    this.mobileOpen.set(false);
+  }
+}
+```
+
+**El helper que decide el ancho**
+
+`src/app/core/utils/media-query.ts`
+
+```typescript
+import { DestroyRef, Signal, inject, signal } from '@angular/core';
+
+/**
+ * Observa una media query CSS y la expone como signal de solo lectura.
+ */
+export function watchMediaQuery(query: string): Signal<boolean> {
+  const destroyRef = inject(DestroyRef);
+
+  const media =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(query)
+      : null;
+
+  const matches = signal(media?.matches ?? false);
+
+  if (media) {
+    const listener = (event: MediaQueryListEvent): void => matches.set(event.matches);
+    media.addEventListener('change', listener);
+    destroyRef.onDestroy(() => media.removeEventListener('change', listener));
+  }
+
+  return matches.asReadonly();
+}
+```
+
+`src/app/features/construir/construir.html`
+
+```html
+<div class="flex min-h-screen flex-col bg-slate-100">
+  <app-header (menuRequested)="onMenuToggle()" />
+
+  <div class="flex flex-1">
+    <!--
+      Escritorio: Aside fijo que el botón del Header puede ocultar.
+      Por debajo de lg no se pinta: el menú vive en el Drawer.
+    -->
+    @if (!sidebarCollapsed()) {
+      <aside class="hidden w-72 shrink-0 lg:block">
+        <app-aside [items]="items" (navigated)="mobileOpen.set(false)" />
+      </aside>
+    }
+
+    <main id="contenido" class="min-w-0 flex-1 p-4 sm:p-6">
+      <p-card class="block">
+        <h1 class="text-2xl font-semibold text-slate-900">{{ title() }}</h1>
+        <p class="mt-3 text-slate-600">
+          Bienvenido a EnlaceExpress. Elige una opción del menú para explorar la estructura.
+        </p>
+        <p class="mt-2 text-sm text-slate-500">
+          Esta primera pantalla usa datos locales. Los formularios y la conexión con
+          Express se incorporan después.
+        </p>
+      </p-card>
+    </main>
+  </div>
+
+  <app-footer />
+</div>
+
+<!-- Móvil: el mismo Aside, otra disposición. -->
+<p-drawer [(visible)]="mobileOpen" header="Menú" position="left" styleClass="w-72">
+  <app-aside [items]="items" (navigated)="mobileOpen.set(false)" />
+</p-drawer>
+```
+
+**El flujo de un clic, de principio a fin**
+
+```
+clic en «Envíos» (dentro del Aside)
+  ├─ PanelMenu ejecuta item.command()
+  │     └─ seleccionar('Envíos') → title.set('Envíos') y mobileOpen.set(false)
+  └─ el clic burbujea al <nav>, que emite navigated
+        └─ Construir: (navigated)="mobileOpen.set(false)"   ← idempotente
+```
+
+Dos caminos que terminan en el mismo estado. No es redundancia inútil: el `command` funciona también con teclado, y `navigated` cubre el caso en que el Aside se reutilice con enlaces reales en ISS-02. Ambos llaman a .`set(false)`, así que no puede quedar desincronizado.
+
+**El flujo del botón de menú, según el ancho**
+
+        └─ Construir: (navigated)="mobileOpen.set(false)"   ← idempotente
+```
+clic en el botón del Header
+  ├─ Header: (click)="menuRequested.emit()"        ← no sabe dónde está
+  └─ Construir: onMenuToggle()
+        ├─ ancho ≥ 1024px  → sidebarCollapsed.update(v => !v)   ← aside fijo
+        └─ ancho < 1024px  → mobileOpen.set(true)               ← Drawer
+        └─ Construir: (navigated)="mobileOpen.set(false)"   ← idempotente
+```
+
+`@if (!sidebarCollapsed())` envuelve el `<aside>:` en escritorio desaparece del DOM, no se oculta con una clase. Así el contenido recupera el ancho real y no queda un hueco de 288 px.
+
+**Prueba de la pantalla**
+
+`src/app/features/construir/construir.spec.ts`
+
+```typescript
+import { TestBed } from '@angular/core/testing';
+import { Construir } from './construir';
+
+/**
+ * jsdom no implementa `matchMedia`, así que `watchMediaQuery` devuelve `false`
+ * y el componente se comporta como móvil. El caso de escritorio se prueba aquí
+ * sustituyendo la función antes de crear el componente.
+ */
+function stubDesktopMedia(matches: boolean): () => void {
+  const original = window.matchMedia;
+
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (query: string) =>
+      ({
+        matches,
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }) as unknown as MediaQueryList,
+  });
+
+  return () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: original,
+    });
+  };
+}
+
+describe('Construir', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [Construir],
+    }).compileComponents();
+  });
+
+  async function crearPantalla() {
+    const fixture = TestBed.createComponent(Construir);
+    await fixture.whenStable();
+    return { fixture, compilado: fixture.nativeElement as HTMLElement };
+  }
+
+  function botonMenu(compilado: HTMLElement): HTMLButtonElement {
+    const boton = compilado.querySelector(
+      'app-header button[aria-label="Mostrar u ocultar el menú"]',
+    );
+    expect(boton).toBeTruthy();
+    return boton as HTMLButtonElement;
+  }
+
+  function opcionDelMenu(compilado: HTMLElement, etiqueta: string): HTMLElement {
+    const opcion = [...compilado.querySelectorAll('a, button')].find(
+      (elemento) => elemento.textContent?.trim() === etiqueta,
+    );
+    expect(opcion).toBeTruthy();
+    return opcion as HTMLElement;
+  }
+
+  it('should compose the layout and start on Inicio', async () => {
+    const { compilado } = await crearPantalla();
+
+    expect(compilado.querySelector('app-header')).toBeTruthy();
+    expect(compilado.querySelector('aside app-aside')).toBeTruthy();
+    expect(compilado.querySelector('app-footer')).toBeTruthy();
+    expect(compilado.querySelector('main h1')?.textContent).toContain('Inicio');
+  });
+
+  it('should render backend entity options in their menu groups', async () => {
+    const { fixture, compilado } = await crearPantalla();
+
+    for (const etiqueta of ['Inicio', 'Operación', 'Administración']) {
+      expect(compilado.textContent).toContain(etiqueta);
+    }
+
+    opcionDelMenu(compilado, 'Operación').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (const etiqueta of [
+      'Empresas',
+      'Contactos',
+      'Direcciones',
+      'Mensajeros',
+      'Tarifas',
+      'Rutas',
+      'Envíos',
+      'Paquetes',
+      'Eventos de seguimiento',
+      'Comprobantes de entrega',
+      'Facturas',
+    ]) {
+      expect(compilado.textContent).toContain(etiqueta);
+    }
+
+    opcionDelMenu(compilado, 'Administración').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (const etiqueta of [
+      'Usuarios',
+      'Roles',
+      'Recursos',
+      'Asignaciones de rol',
+      'Concesiones de recursos',
+      'Sesiones',
+    ]) {
+      expect(compilado.textContent).toContain(etiqueta);
+    }
+  });
+
+  it('should always show the menu button, not only on small screens', async () => {
+    const { compilado } = await crearPantalla();
+
+    // `lg:hidden` ocultaba el botón justo cuando el Aside ya era visible.
+    expect(botonMenu(compilado).classList.contains('lg:hidden')).toBe(false);
+  });
+
+  it('should change the title without navigating when an option is chosen', async () => {
+    const { fixture, compilado } = await crearPantalla();
+
+    opcionDelMenu(compilado, 'Operación').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    opcionDelMenu(compilado, 'Empresas').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(compilado.querySelector('main h1')?.textContent).toContain('Empresas');
+    // Sigue en la misma pantalla: no hay recarga ni petición HTTP.
+    expect(compilado.querySelector('app-construir, main')).toBeTruthy();
+  });
+
+  it('should open the mobile drawer when the header requests it', async () => {
+    const { fixture, compilado } = await crearPantalla();
+    const componente = fixture.componentInstance as unknown as {
+      mobileOpen: () => boolean;
+    };
+
+    expect(componente.mobileOpen()).toBe(false);
+
+    const botonMenu = compilado.querySelector(
+      'app-header button[aria-label="Mostrar u ocultar el menú"]',
+    ) as HTMLButtonElement;
+    expect(botonMenu).toBeTruthy();
+
+    botonMenu.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(componente.mobileOpen()).toBe(true);
+  });
+
+  it('should hide the fixed aside on desktop instead of opening the drawer', async () => {
+    const restaurar = stubDesktopMedia(true);
+
+    try {
+      const { fixture, compilado } = await crearPantalla();
+      expect(compilado.querySelector('aside app-aside')).toBeTruthy();
+
+      botonMenu(compilado).click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.sidebarCollapsed()).toBe(true);
+      expect(compilado.querySelector('aside')).toBeNull();
+      expect(fixture.componentInstance.mobileOpen()).toBe(false);
+    } finally {
+      restaurar();
+    }
+  });
+
+  it('should close the drawer after choosing an option', async () => {
+    const { fixture, compilado } = await crearPantalla();
+    const componente = fixture.componentInstance as unknown as {
+      mobileOpen: () => boolean;
+    };
+
+    const botonMenu = compilado.querySelector(
+      'app-header button[aria-label="Mostrar u ocultar el menú"]',
+    ) as HTMLButtonElement;
+    botonMenu.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(componente.mobileOpen()).toBe(true);
+
+    opcionDelMenu(compilado, 'Operación').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(componente.mobileOpen()).toBe(true);
+
+    opcionDelMenu(compilado, 'Envíos').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(componente.mobileOpen()).toBe(false);
+    expect(compilado.querySelector('main h1')?.textContent).toContain('Envíos');
+  });
+});
+```
+
+La prueba del Drawer lee el signal desde la instancia (mobileOpen()), no del DOM: el Drawer de PrimeNG se monta en un overlay y comprobar su visibilidad con selectores es frágil. Se verifica el estado, que es lo que el componente controla.
+
+La prueba de escritorio sustituye window.matchMedia antes de crear el componente, porque watchMediaQuery lee la media query al construirse. Así se comprueban las dos ramas del mismo botón: Drawer en móvil, Aside alternado en escritorio.
+
+### 1.5 App pasa a ser punto de entrada con router-outlet
+
+**Criterios de este sub-ítem**
+
+- [X] app.ts importa solo RouterOutlet
+- [X] app.html contiene únicamente <router-outlet />
+- [X] app.routes.ts usa loadComponent para construir
+- [X] '' y ** redirigen a construir
+
+Este es el momento de presentar RouterOutlet, no ISS-01: ahora existe una pantalla real que mostrar por URL. La idea en una frase: `<router-outlet />` es un ancla; el router inserta a su lado el componente de la ruta activa.
+
+`src/app/app.ts`
+
+```typescript
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+
+/**
+ * Componente principal (`<app-root>`).
+ *
+ * Desde ISS-01B es solo el punto de entrada: el router elige qué componente se
+ * dibuja dentro de `<router-outlet />` según la URL.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-root',
+  imports: [RouterOutlet],
+  templateUrl: './app.html',
+  styleUrl: './app.css',
+})
+export class App {}
+```
+
+`src/app/app.html`
+
+```html
+<!-- El router dibuja aquí el componente de la ruta activa (app.routes.ts). -->
+<router-outlet />
+```
+
+`src/app/app.routes.ts`
+
+```typescript
+import { Routes } from '@angular/router';
+
+/**
+ * Rutas de la aplicación.
+ *
+ * ISS-01B presenta el router con una pantalla real. `loadComponent` descarga
+ * `Construir` solo cuando se visita su URL: el bundle inicial no lo incluye.
+ */
+export const routes: Routes = [
+  {
+    path: 'construir',
+    loadComponent: () =>
+      import('./features/construir/construir').then((m) => m.Construir),
+  },
+  { path: '', pathMatch: 'full', redirectTo: 'construir' },
+  { path: '**', redirectTo: 'construir' },
+];
+```
+
+El enlace a `/login` todavía no existe. La pantalla de login es ISS-08. Este ISS no importa RouterLink ni escribe `<a routerLink="/login">:` el prototipo no ofrece una ruta que llevaría a un 404. El texto de bienvenida lo anuncia («los formularios y la conexión con Express se incorporan después»).
+
+**Prueba del punto de entrada**
+
+`src/app/app.spec.ts`
+
+```typescript
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { App } from './app';
+
+describe('App', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [App],
+      // Sin rutas: esta prueba comprueba el punto de entrada, no las pantallas.
+      providers: [provideRouter([])],
+    }).compileComponents();
+  });
+
+  it('should create the app', () => {
+    const fixture = TestBed.createComponent(App);
+    expect(fixture.componentInstance).toBeTruthy();
+  });
+
+  it('should render the router outlet', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const compilado = fixture.nativeElement as HTMLElement;
+    expect(compilado.querySelector('router-outlet')).toBeTruthy();
+  });
+});
+```
+
+### 1.6 Comprobar antes de avanzar
+
+**Criterios de este sub-ítem**
+
+- [X] A 1280 px se ven las entidades agrupadas de Operación y Administración y no hay scroll horizontal
+- [X] A 1280 px el botón de menú se ve y al pulsarlo oculta el Aside (sin abrir el Drawer)
+- [X] A 390 px el Aside no se ve y el botón del Header abre el Drawer
+- [X] Elegir una opción cambia el título y cierra el Drawer
+- [X] La URL no cambia y Network no registra /api
+- [X] Con teclado se recorre el menú y se activa con Enter
+- [X] ng build termina con código 0
+
+```
+npm start
+```
+
+![alt text](img-angular/start_iss01B.png)
