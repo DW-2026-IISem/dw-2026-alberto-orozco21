@@ -883,3 +883,322 @@ npm test -- --watch=false
 ![alt text](img-angular/verificacion_iss01A.png)
 
 ![alt text](img-angular/demo.png)
+
+## Fase I: Frontend — ISS-01A — Esqueleto Header / Aside / contenido / Footer
+
+**Objetivo:** construir primero la pantalla. Al terminar, http://localhost:4200 muestra Header arriba, Aside a la izquierda del contenido y Footer abajo a todo el ancho, con datos fijos y sin llamadas a la API.
+
+**Bloqueado por:** ISS-01.
+
+**Criterios de aceptación (ISS-01A) — consolidados**
+
+- [X] 1.1 Explica por qué un componente generado no aparece hasta que el padre lo declara en imports y usa su selector
+- [X] 1.2 Existen src/app/layout/header/, src/app/layout/aside/ y src/app/layout/footer/, cada una con .ts, .html y .css
+- [X] 1.3 header.ts declara title y header.html lo muestra con {{ title }}
+- [X] 1.3 Los tres .css de layout/ no contienen reglas: solo un comentario que explica por qué están vacíos
+- [X] 1.4 app.ts importa Header, Aside y Footer y los declara en imports
+- [X] 1.4 app.html compone las cuatro regiones: `<app-header />`, `<aside>`con `<app-aside />`, `<main>` con el contenido y `<app-footer />`
+- [X] 1.4 app.html ya no contiene `<app-ejemplo />`: demo/ejemplo no forma parte de la aplicación
+- [X] 1.5 Se ven las cuatro regiones, el Footer queda abajo y no hay desplazamiento horizontal
+- [X] 1.5 En Network no aparece ninguna petición /api
+- [X] ng build termina con código 0 y las pruebas pasan
+
+> **demo/ejemplo** no se usa en ningún ISS posterior. Fue la introducción a Angular de ISS-01. No está en el menú, no tiene ruta, no se compone en el layout y no se reutiliza. Al reemplazar app.html en 1.4 deja de verse; el componente y su prueba siguen en el proyecto solo como material de consulta de ISS-01.
+
+### 1.1 Qué es un componente y por qué el padre debe importarlo
+
+Un componente reúne una clase TypeScript (datos y lógica), una plantilla HTML (lo que se ve) y un archivo de estilos. `@Component` relaciona esos archivos:
+
+|Campo	|Pregunta que responde	|Ejemplo en este ISS|
+|-------|-----------------------|-------------------|
+|selector	|¿Con qué etiqueta se usa en otra plantilla?	|selector: 'app-header' → <app-header />|
+|imports|	¿Qué usa su plantilla?|	[] en Header de ISS-01A|
+|templateUrl	|¿Dónde está el HTML?|	./header.html|
+|styleUrl|	¿Dónde están los estilos privados?	|./header.css|
+|host|	¿Qué clases lleva el elemento anfitrión?	|host: { class: |'block' }|
+
+**Regla que resuelve el error más común:** un componente generado existe, pero no se ve hasta que otro componente lo declara en su imports y escribe su etiqueta en su plantilla. Son dos pasos, no uno:
+
+```typescript
+// app.ts — paso 1: declarar el componente para que la plantilla lo reconozca
+imports: [Header, Aside, Footer],
+```
+
+```html
+<!-- app.html — paso 2: usar su selector como etiqueta -->
+<app-header />
+```
+
+**PARCHE** — standalone: true ya no hace falta. El CLI de Angular 22 genera componentes standalone por defecto. Escribir standalone: true es válido y no rompe nada, pero la plantilla del proyecto lo omite. Si copias ejemplos antiguos que lo incluyen, no hay conflicto: simplemente es redundante.
+
+Usamos `layout/` para conservar la organización del curso. El Header de la aplicación es distinto de `shared/ui/page-header`, que titula una pantalla de negocio.
+
+### 1.2 Generar las tres piezas de layout/
+Criterios de este sub-ítem
+
+
+```bash
+ng generate component layout/header --skip-tests --defaults
+ng generate component layout/aside --skip-tests --defaults
+ng generate component layout/footer --skip-tests --defaults
+```
+
+En una reconstrucción desde cero, el CLI crea además un `header.spec.ts` si no usas `--skip-tests`. En este curso esas pruebas no se necesitan: el comportamiento de la pantalla se comprueba desde `app.spec.ts`.
+
+### 1.3 Contenido de cada componente
+Criterios de este sub-ítem
+
+
+Los tres componentes son de presentación: no inyectan servicios, no consultan la API y no conocen permisos. Esa frontera es la que permite reutilizar el layout en ISS-02 sin duplicarlo.
+
+**Header**
+
+`src/app/layout/header/header.ts`
+
+```typescript
+import { Component } from '@angular/core';
+
+/**
+ * Barra superior de la aplicación.
+ *
+ * ISS-01A: solo muestra el nombre. En ISS-01B recibe datos por `input()`, emite
+ * `menuRequested` y añade el menú de usuario. No consulta la API.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-header',
+  templateUrl: './header.html',
+  styleUrl: './header.css',
+})
+export class Header {
+  readonly title = 'EnlaceExpress';
+}
+```
+
+`src/app/layout/header/header.html`
+
+```html
+<header
+  class="flex h-16 items-center border-b border-slate-200 bg-white px-6 font-semibold"
+>
+  <!-- Interpolación: `title` es una propiedad de la clase Header. -->
+  <p class="truncate text-sm font-semibold text-slate-900">{{ title }}</p>
+</header>
+```
+
+`{{ title }}` es interpolación: Angular lee la propiedad de la clase y escribe su texto. Cambia el valor en header.ts y comprueba que cambia el encabezado sin tocar el HTML. Ese es el primer enlace entre clase y plantilla.
+
+h-16 fija la altura, border-b dibuja la separación y truncate evita que un texto largo rompa la barra. Todo es Tailwind: no hay CSS propio.
+
+**Aside**
+
+`src/app/layout/aside/aside.ts`
+
+```typescript
+import { Component } from '@angular/core';
+
+/**
+ * Menú lateral de la aplicación.
+ *
+ * ISS-01A: solo el contenedor. En ISS-01B recibe `items` por `input()` y pinta
+ * `p-panelmenu`. No conoce rutas ni permisos: eso llega en ISS-02/ISS-08.
+ */
+@Component({
+  host: { class: 'block h-full' },
+  selector: 'app-aside',
+  templateUrl: './aside.html',
+  styleUrl: './aside.css',
+})
+export class Aside {}
+```
+
+`src/app/layout/aside/aside.html`
+
+```html
+<nav aria-label="Navegación principal" class="h-full bg-slate-950 p-6 text-white">
+  <p class="text-xs font-medium uppercase tracking-wider text-slate-400">Navegación</p>
+  <p class="mt-2 text-sm">Menú de EnlaceExpress</p>
+  <p class="mt-4 text-xs text-slate-400">
+    En ISS-01B este bloque pasa a ser un <code>p-panelmenu</code>.
+  </p>
+</nav>
+```
+
+`aria-label` no es decorativo: nombra la región de navegación para lectores de pantalla y permite localizarla en las pruebas. El ancho no se decide aquí: lo fija el padre en app.html, porque el Aside debe poder ocultarse en móvil (ISS-01B) sin cambiar el componente.
+
+**Footer**
+
+`src/app/layout/footer/footer.ts`
+
+```typescript
+import { Component } from '@angular/core';
+
+/**
+ * Pie de página de la aplicación.
+ *
+ * Presentación pura: no tiene estado ni depende de servicios.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-footer',
+  templateUrl: './footer.html',
+  styleUrl: './footer.css',
+})
+export class Footer {}
+```
+
+`src/app/layout/footer/footer.html`
+
+```html
+<footer
+  class="border-t border-slate-200 bg-white px-4 py-4 text-center text-xs text-slate-500 sm:px-6"
+>
+  EnlaceExpress · Gestión de clientes, productos y ventas
+</footer>
+```
+
+**Los tres** `.css`
+
+Cada archivo contiene solo un comentario. No hay reglas:
+
+```
+/*
+ * Estilos del Header.
+ *
+ * Vacío a propósito: la apariencia se resuelve con utilidades Tailwind en
+ * `header.html` y con el tema Aura de PrimeNG (PATRON-VISUAL).
+ */
+```
+
+`aside.css` y `footer.css` siguen el mismo criterio. El archivo existe porque styleUrl lo referencia y Angular lo necesita para el encapsulamiento (ISS-01, 1.9.8); si algún día se escribe una regla, solo afectará a ese componente.
+
+### 1.4 Componer las cuatro regiones en App
+Criterios de este sub-ítem
+
+
+`src/app/app.ts`
+
+```typescript
+import { Component } from '@angular/core';
+import { Header } from './layout/header/header';
+import { Aside } from './layout/aside/aside';
+import { Footer } from './layout/footer/footer';
+
+/**
+ * Componente principal (`<app-root>`).
+ *
+ * Es el primero que Angular dibuja. Compone las cuatro regiones de la pantalla:
+ * Header arriba, Aside a la izquierda, el contenido del centro y Footer abajo.
+ * El contenido del centro todavía es fijo; en ISS-01B pasa a cambiar con el menú
+ * y en ISS-02 llega el router.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-root',
+  imports: [Header, Aside, Footer],
+  templateUrl: './app.html',
+  styleUrl: './app.css',
+})
+export class App {
+  /** Título de la pantalla inicial. En ISS-01B cambia al elegir el menú. */
+  protected readonly title = 'Inicio';
+}
+```
+
+`src/app/app.html`
+
+```html
+<!-- Contenedor de las cuatro regiones: Tailwind para el alto y la dirección. -->
+<div class="flex min-h-screen flex-col bg-slate-100">
+  <app-header />
+
+  <div class="flex flex-1">
+    <!-- Aside fijo de 16rem; en ISS-01B se oculta en pantallas pequeñas. -->
+    <aside class="w-64 shrink-0">
+      <app-aside />
+    </aside>
+
+    <!-- min-w-0 evita que un contenido ancho desborde el flex y cree scroll. -->
+    <main id="contenido" class="min-w-0 flex-1 p-6">
+      <h1 class="text-2xl font-semibold text-slate-900">{{ title }}</h1>
+      <p class="mt-2 text-slate-600">Bienvenido a EnlaceExpress.</p>
+    </main>
+  </div>
+
+  <app-footer />
+</div>
+```
+
+**Prueba de la composición**
+
+`src/app/app.spec.ts` no busca el `<h1>` de la plantilla por defecto: comprueba las regiones y el texto inicial.
+
+```typescript
+import { TestBed } from '@angular/core/testing';
+import { App } from './app';
+
+describe('App', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [App],
+    }).compileComponents();
+  });
+
+  async function crearApp() {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('should create the app', () => {
+    const fixture = TestBed.createComponent(App);
+    expect(fixture.componentInstance).toBeTruthy();
+  });
+
+  it('should compose the three layout regions', async () => {
+    const compilado = await crearApp();
+    expect(compilado.querySelector('app-header')).toBeTruthy();
+    expect(compilado.querySelector('aside app-aside')).toBeTruthy();
+    expect(compilado.querySelector('app-footer')).toBeTruthy();
+  });
+
+  it('should render the application name in the header', async () => {
+    const compilado = await crearApp();
+    const header = compilado.querySelector('app-header') as HTMLElement;
+    expect(header.textContent).toContain('EnlaceExpress');
+  });
+
+  it('should render the initial title in the content', async () => {
+    const compilado = await crearApp();
+    const main = compilado.querySelector('main') as HTMLElement;
+    expect(main.textContent).toContain('Inicio');
+    expect(main.textContent).toContain('Bienvenido a EnlaceExpress.');
+  });
+});
+```
+
+La consulta `aside app-aside` verifica dos cosas a la vez: que el Aside está dentro del elemento que fija su ancho y que el componente se pintó.
+
+### 1.5 Comprobar antes de avanzar
+Criterios de este sub-ítem
+
+
+```bash
+npm start
+```
+
+Abre http://localhost:4200 y comprueba:
+
+|Comprobación visual |Resultado esperado|
+|--------------------|------------------|
+|Header|	Barra blanca de 64 px con StoreLab Express II|
+|Aside|	Columna oscura de 256 px con Menú de StoreLab|
+|Contenido|	Inicio y Bienvenido a StoreLab.|
+|Footer	|Franja inferior a todo el ancho con StoreLab · Gestión de clientes, productos y ventas|
+|Con poco contenido	|El Footer queda pegado al borde inferior de la ventana|
+|Con mucho contenido|	El Footer baja; aparece scroll vertical, nunca horizontal|
+|Network	|Sin peticiones /api: aún no hay servicios|
+
+Para provocar el caso de contenido largo, añade párrafos dentro de `<main>` y observa que solo el Footer se desplaza: el Header y el Aside no se mueven porque están en el flujo normal del `flex` vertical.
+
+![alt text](img-angular/start_iss01A.png)

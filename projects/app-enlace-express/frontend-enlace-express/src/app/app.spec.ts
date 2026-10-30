@@ -5,21 +5,38 @@ describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-    })
-      .compileComponents();
+    }).compileComponents();
   });
 
   it('should create the app', () => {
     const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
+    expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('should render the example component and its product', async () => {
+  async function createApp(): Promise<HTMLElement> {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('app-ejemplo')).toBeTruthy();
-    expect(compiled.textContent).toContain('Café molido 500 g');
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('should compose the three layout regions', async () => {
+    const compiled = await createApp();
+    expect(compiled.querySelector('app-header')).toBeTruthy();
+    expect(compiled.querySelector('aside app-aside')).toBeTruthy();
+    expect(compiled.querySelector('app-footer')).toBeTruthy();
+    expect(compiled.querySelector('app-ejemplo')).toBeNull();
+  });
+
+  it('should render the application name in the header', async () => {
+    const compiled = await createApp();
+    const header = compiled.querySelector('app-header') as HTMLElement;
+    expect(header.textContent).toContain('EnlaceExpress');
+  });
+
+  it('should render the initial title in the content', async () => {
+    const compiled = await createApp();
+    const main = compiled.querySelector('main') as HTMLElement;
+    expect(main.textContent).toContain('Inicio');
+    expect(main.textContent).toContain('Bienvenido a EnlaceExpress.');
   });
 });
