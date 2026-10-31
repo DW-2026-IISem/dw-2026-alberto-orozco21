@@ -8,12 +8,13 @@ import { Aside } from '../../layout/aside/aside';
 import { Footer } from '../../layout/footer/footer';
 import { Header } from '../../layout/header/header';
 import { CompanyList } from '../companies/company-list/company-list';
+import { ContactList } from '../contacts/contact-list/contact-list';
 import { ShipmentList } from '../shipments/shipment-list/shipment-list';
 
 @Component({
   host: { class: 'block' },
   selector: 'app-construir',
-  imports: [Aside, ButtonModule, CardModule, CompanyList, DrawerModule, Footer, Header, ShipmentList],
+  imports: [Aside, ButtonModule, CardModule, CompanyList, ContactList, DrawerModule, Footer, Header, ShipmentList],
   templateUrl: './construir.html',
   styleUrl: './construir.css',
 })

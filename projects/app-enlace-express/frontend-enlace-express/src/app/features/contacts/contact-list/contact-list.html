@@ -1,0 +1,51 @@
+<app-page-header title="Contactos" subtitle="Personas asociadas a una empresa. Una empresa puede tener un contacto principal.">
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()"><i pButtonIcon class="pi pi-plus"></i><span pButtonLabel>Nuevo contacto</span></button>
+</app-page-header>
+
+@if (error()) { <p-message severity="error" styleClass="mb-4 w-full">{{ error() }}</p-message> }
+@if (companiesError()) {
+  <div class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+    <p-message severity="warn" styleClass="w-full">No se pudieron cargar las empresas para el formulario. {{ companiesError() }}</p-message>
+    <button pButton type="button" severity="secondary" (click)="loadCompanies()"><i pButtonIcon class="pi pi-refresh"></i><span pButtonLabel>Reintentar</span></button>
+  </div>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table [value]="visibleRows()" [loading]="loading()" [paginator]="visibleRows().length > 10" [rows]="10" dataKey="id" tableStyleClass="min-w-3xl">
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input pInputText type="search" aria-label="Buscar contactos" placeholder="Buscar por nombre, cargo, email, teléfono o empresa…" [value]="filter()" (input)="filter.set($any($event.target).value)" class="w-full" />
+      </div>
+      @if (filter()) { <p class="mt-2 text-xs text-slate-500">{{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».</p> }
+    </ng-template>
+    <ng-template #header><tr>
+      <th pSortableColumn="nombre"><div class="flex items-center gap-1">Nombre <p-sort-icon field="nombre" /></div></th>
+      <th>Empresa</th><th>Contacto</th><th>Principal</th><th>Estado</th><th class="w-40 text-right">Acciones</th>
+    </tr></ng-template>
+    <ng-template #body let-row><tr>
+      <td><p class="font-medium text-slate-800">{{ row.nombre }}</p><p class="text-xs text-slate-400">{{ row.cargo || 'Sin cargo' }}</p></td>
+      <td><span class="text-sm text-slate-700">{{ companyName()(row.empresa_id) }}</span></td>
+      <td><p class="text-sm text-slate-700">{{ row.email || '—' }}</p><p class="text-xs text-slate-400">{{ row.telefono || 'Sin teléfono' }}</p></td>
+      <td>@if (row.is_principal) { <p-tag value="Principal" severity="info" [rounded]="true" /> } @else { <span class="text-slate-400">—</span> }</td>
+      <td><app-status-tag [isActive]="row.is_active" /></td>
+      <td><div class="flex justify-end gap-1">
+        <button pButton type="button" text rounded severity="secondary" aria-label="Editar contacto" pTooltip="Editar" (click)="openEdit(row)"><i pButtonIcon class="pi pi-pencil"></i></button>
+        <button pButton type="button" text rounded severity="warn" aria-label="Dar de baja" pTooltip="Baja lógica" (click)="deactivate(row)"><i pButtonIcon class="pi pi-ban"></i></button>
+        <button pButton type="button" text rounded severity="danger" aria-label="Eliminar contacto" pTooltip="Eliminar" (click)="remove(row)"><i pButtonIcon class="pi pi-trash"></i></button>
+      </div></td>
+    </tr></ng-template>
+    <ng-template #emptymessage><tr><td colspan="6">
+      @if (filter()) {
+        <app-empty-state icon="pi pi-search" title="Sin coincidencias" message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos." />
+      } @else {
+        <app-empty-state icon="pi pi-id-card" title="Sin registros" message="Crea el primero con el botón «Nuevo contacto» o ejecuta el seeder del backend." />
+      }
+    </td></tr></ng-template>
+  </p-table>
+</div>
+
+<p-dialog [visible]="dialogVisible()" (visibleChange)="dialogVisible.set($event)" [header]="title()" [modal]="true" [draggable]="false" [resizable]="false" [dismissableMask]="true" styleClass="w-full max-w-2xl mx-4">
+  <app-contact-form [contact]="editing()" [companies]="companies()" [saving]="saving()" [resetKey]="resetKey()" (saved)="save($event)" (cancelled)="dialogVisible.set(false)" />
+</p-dialog>
