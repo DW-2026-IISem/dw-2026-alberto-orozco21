@@ -10306,3 +10306,747 @@ export class PackageList {
 Los dos `.css` (`package-form.css`, `package-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
 
 ![alt text](img-express/crud_paquetes.png)
+
+## ISS-12 · CRUD de Tracking_events
+
+**Particularidades**
+
+- Dos selects de referencia: `envio_id` (obligatorio) y `registrado_por_id` (**mensajero**, opcional; no es un usuario).
+- `tipo` y `estado` son enums distintos: `estado` expresa la gravedad (`informativo`, `novedad_leve`, `novedad_critica`) y por eso la etiqueta de la tabla se rotula *Gravedad* para no confundirla con `is_active`.
+- El recurso se escribe con guion bajo: `/api/tracking_events`.
+
+**Archivos de esta pantalla**
+
+```bash
+ng generate component features/tracking-events/tracking-event-list --skip-tests --defaults
+ng generate component features/tracking-events/tracking-event-form --skip-tests --defaults
+```
+
+El CLI crea además `tracking-event-list.spec.ts` y `tracking-event-form.spec.ts` si no usas `--skip-tests`; las pruebas se tratan en 3.17.
+
+`src/app/features/tracking-events/tracking-event-api.ts`
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { TrackingEvent, TrackingEventPayload } from '../../core/models/tracking-event.model';
+
+/** /tracking_events — la lista llega en `{ tracking_events }` y el detalle en `{ tracking_event }`. */
+@Injectable({ providedIn: 'root' })
+export class TrackingEventApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/tracking_events`;
+
+  list(): Observable<TrackingEvent[]> {
+    return this.http
+      .get<{ tracking_events: TrackingEvent[] }>(this.base)
+      .pipe(map((response) => response.tracking_events));
+  }
+
+  get(id: number): Observable<TrackingEvent> {
+    return this.http
+      .get<{ tracking_event: TrackingEvent }>(`${this.base}/${id}`)
+      .pipe(map((response) => response.tracking_event));
+  }
+
+  create(payload: TrackingEventPayload): Observable<TrackingEvent> {
+    return this.http
+      .post<{ tracking_event: TrackingEvent }>(this.base, payload)
+      .pipe(map((response) => response.tracking_event));
+  }
+
+  update(id: number, payload: Partial<TrackingEventPayload>): Observable<TrackingEvent> {
+    return this.http
+      .patch<{ tracking_event: TrackingEvent }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.tracking_event));
+  }
+
+  replace(id: number, payload: TrackingEventPayload): Observable<TrackingEvent> {
+    return this.http
+      .put<{ tracking_event: TrackingEvent }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.tracking_event));
+  }
+
+  deactivate(id: number): Observable<unknown> {
+    return this.http.patch(`${this.base}/${id}/deactivate`, {});
+  }
+
+  remove(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/${id}`);
+  }
+}
+```
+
+`src/app/features/tracking-events/tracking-event-form/tracking-event-form.ts`
+
+```typescript
+import { Component, effect, inject, input, output } from '@angular/core';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { TextareaModule } from 'primeng/textarea';
+import { TrackingEvent, TrackingEventPayload, TrackingEventStatus, TrackingEventType } from '../../../core/models/tracking-event.model';
+import { Shipment } from '../../../core/models/shipment.model';
+import { Messenger } from '../../../core/models/messenger.model';
+import { toDateTimeInput } from '../../../core/utils/form-values';
+
+/**
+ * Formulario de evento de seguimiento, reutilizado para crear y editar.
+ *
+ * No llama a la API: recibe `trackingEvent` (o `null` para crear) y emite el payload con
+ * `saved`. El padre decide entre `POST` y `PATCH` y controla el diálogo.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-tracking-event-form',
+  imports: [MessageModule, ReactiveFormsModule, ButtonModule, InputTextModule, TextareaModule, SelectModule],
+  templateUrl: './tracking-event-form.html',
+  styleUrl: './tracking-event-form.css',
+})
+export class TrackingEventForm {
+  /** Registro a editar. `null` deja el formulario en modo creación. */
+  readonly trackingEvent = input<TrackingEvent | null>(null);
+
+  readonly shipments = input<Shipment[]>([]);
+  readonly messengers = input<Messenger[]>([]);
+
+  /** Cambia cada vez que el padre abre el diálogo: reinicia el formulario. */
+  readonly resetKey = input(0);
+
+  /** Petición en curso: deshabilita el botón y muestra su spinner. */
+  readonly saving = input(false);
+
+  readonly saved = output<TrackingEventPayload>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly tipoOptions: { label: string; value: TrackingEventType }[] = [
+    { label: 'Recogido', value: 'recogido' },
+    { label: 'En tránsito', value: 'en_transito' },
+    { label: 'En reparto', value: 'en_reparto' },
+    { label: 'Novedad', value: 'novedad' },
+    { label: 'Entregado', value: 'entregado' },
+    { label: 'Devuelto', value: 'devuelto' },
+  ];
+
+  readonly estadoOptions: { label: string; value: TrackingEventStatus }[] = [
+    { label: 'Informativo', value: 'informativo' },
+    { label: 'Novedad leve', value: 'novedad_leve' },
+    { label: 'Novedad crítica', value: 'novedad_critica' },
+  ];
+
+  readonly activeOptions = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+
+  readonly form = this.fb.group({
+    envio_id: [null as number | null, [Validators.required]],
+    tipo: ['recogido' as TrackingEventType, [Validators.required]],
+    estado: ['informativo' as TrackingEventStatus, [Validators.required]],
+    fecha: ['', [Validators.required]],
+    ubicacion: ['', [Validators.maxLength(200)]],
+    registrado_por_id: [null as number | null],
+    observaciones: ['', [Validators.maxLength(500)]],
+    is_active: [true],
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.trackingEvent();
+      // `resetKey` se lee a propósito: abrir de nuevo el diálogo debe vaciar el formulario.
+      this.resetKey();
+
+      this.form.reset({
+        envio_id: current?.envio_id ?? null,
+        tipo: current?.tipo ?? 'recogido',
+        estado: current?.estado ?? 'informativo',
+        fecha: toDateTimeInput(current?.fecha),
+        ubicacion: current?.ubicacion ?? '',
+        registrado_por_id: current?.registrado_por_id ?? null,
+        observaciones: current?.observaciones ?? '',
+        is_active: current?.is_active ?? true,
+      });
+
+      // `is_active` solo cambia con PATCH /deactivate: al editar no se ofrece.
+      if (current) {
+        this.form.controls.is_active.disable();
+      } else {
+        this.form.controls.is_active.enable();
+      }
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const payload: TrackingEventPayload = {
+      envio_id: Number(value.envio_id),
+      tipo: value.tipo,
+      estado: value.estado,
+      fecha: new Date(value.fecha).toISOString(),
+      ubicacion: value.ubicacion.trim() || null,
+      registrado_por_id: value.registrado_por_id,
+      observaciones: value.observaciones.trim() || null,
+    };
+
+    // `is_active` solo se envía al crear: en edición lo gobierna /deactivate.
+    this.saved.emit(this.trackingEvent() ? payload : { ...payload, is_active: value.is_active });
+  }
+}
+```
+
+`src/app/features/tracking-events/tracking-event-form/tracking-event-form.html`
+
+```html
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="sm:col-span-2">
+      <label for="tracking-event-envio-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Envío <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-envio-id"
+        formControlName="envio_id"
+        [options]="shipments()"
+        optionLabel="numero_guia"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.envio_id.touched && form.controls.envio_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="tracking-event-tipo" class="mb-1 block text-sm font-medium text-slate-700">
+        Tipo de evento <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-tipo"
+        formControlName="tipo"
+        [options]="tipoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.tipo.touched && form.controls.tipo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="tracking-event-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Gravedad <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="tracking-event-fecha" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha y hora <span class="text-red-500">*</span>
+      </label>
+      <input id="tracking-event-fecha" type="datetime-local" pInputText formControlName="fecha" class="w-full" />
+      @if (form.controls.fecha.touched && form.controls.fecha.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="tracking-event-ubicacion" class="mb-1 block text-sm font-medium text-slate-700">
+        Ubicación
+      </label>
+      <input
+        id="tracking-event-ubicacion"
+        pInputText
+        formControlName="ubicacion"
+        placeholder="Centro de distribución Barranquilla"
+        class="w-full"
+      />
+      @if (form.controls.ubicacion.touched && form.controls.ubicacion.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 200 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="tracking-event-registrado-por-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Registrado por
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-registrado-por-id"
+        formControlName="registrado_por_id"
+        [options]="messengers()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="tracking-event-observaciones" class="mb-1 block text-sm font-medium text-slate-700">
+        Observaciones
+      </label>
+      <textarea
+        id="tracking-event-observaciones"
+        pTextarea
+        formControlName="observaciones"
+        rows="2"
+        placeholder=""
+        class="w-full"
+      ></textarea>
+      @if (form.controls.observaciones.touched && form.controls.observaciones.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 500 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="tracking-event-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (trackingEvent()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+`src/app/features/tracking-events/tracking-event-list/tracking-event-list.ts`
+
+```typescript
+import { DatePipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { forkJoin } from 'rxjs';
+import { TrackingEvent, TrackingEventPayload } from '../../../core/models/tracking-event.model';
+import { Shipment } from '../../../core/models/shipment.model';
+import { Messenger } from '../../../core/models/messenger.model';
+import { NotificationService } from '../../../core/services/notification';
+import { toApiMessage } from '../../../core/utils/api-error';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { humanize } from '../../../core/utils/labels';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { ShipmentApi } from '../../shipments/shipment-api';
+import { MessengerApi } from '../../messengers/messenger-api';
+import { TrackingEventApi } from '../tracking-event-api';
+import { TrackingEventForm } from '../tracking-event-form/tracking-event-form';
+
+/**
+ * Lista de eventos de seguimiento con todas las operaciones del CRUD.
+ *
+ * Todo el estado vive en signals: la tabla y los contadores se repintan solos y
+ * `visibleRows` se recalcula solo cuando cambian `rows()` o `filter()`.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-tracking-event-list',
+  imports: [ButtonModule, DatePipe, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule, TrackingEventForm],
+  templateUrl: './tracking-event-list.html',
+  styleUrl: './tracking-event-list.css',
+})
+export class TrackingEventList {
+  private readonly api = inject(TrackingEventApi);
+  private readonly shipmentApi = inject(ShipmentApi);
+  private readonly messengerApi = inject(MessengerApi);
+  private readonly notify = inject(NotificationService);
+  private readonly confirmation = inject(ConfirmationService);
+
+  /** Datos del backend (`GET /api/tracking_events`). */
+  readonly rows = signal<TrackingEvent[]>([]);
+  readonly shipments = signal<Shipment[]>([]);
+  readonly messengers = signal<Messenger[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly filter = signal('');
+
+  /** Resultado de aplicar el buscador; `computed` lo memoriza. */
+  readonly visibleRows = computed(() =>
+    filterRows(this.rows(), this.filter(), (row) => [
+      row.tipo,
+      row.ubicacion,
+      row.observaciones,
+      row.estado,
+      this.shipmentName()(row.envio_id),
+      this.messengerName()(row.registrado_por_id),
+    ]),
+  );
+
+  /** `id → numero_guia` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly shipmentName = computed(() => {
+    const names = new Map<number, string>(this.shipments().map((item) => [item.id, String(item.numero_guia)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  /** `id → nombre` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly messengerName = computed(() => {
+    const names = new Map<number, string>(this.messengers().map((item) => [item.id, String(item.nombre)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<TrackingEvent | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly title = computed(() => (this.editing() ? 'Editar evento de seguimiento' : 'Nuevo evento de seguimiento'));
+
+  protected readonly humanize = humanize;
+
+  protected readonly estadoSeverity: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+    informativo: 'info',
+    novedad_leve: 'warn',
+    novedad_critica: 'danger',
+  };
+
+  constructor() {
+    this.load();
+  }
+
+  /** `GET /api/tracking_events`: recarga la tabla y limpia el error anterior. */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      rows: this.api.list(),
+      shipments: this.shipmentApi.list(),
+      messengers: this.messengerApi.list(),
+    }).subscribe({
+      next: ({ rows, shipments, messengers }) => {
+        this.rows.set(rows);
+        this.shipments.set(shipments);
+        this.messengers.set(messengers);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(row: TrackingEvent): void {
+    this.editing.set(row);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  /**
+   * El mismo manejador para crear y editar: `editing()` decide el verbo.
+   * Tras el éxito se cierra el diálogo y se recarga (el backend es la verdad).
+   */
+  save(payload: TrackingEventPayload): void {
+    const current = this.editing();
+    this.saving.set(true);
+
+    const request = current ? this.api.update(current.id, payload) : this.api.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(current ? 'Evento de seguimiento actualizado' : 'Evento de seguimiento creado');
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notify.error('No se pudo guardar', toApiMessage(error));
+      },
+    });
+  }
+
+  /** Baja lógica: `PATCH /:id/deactivate`. */
+  deactivate(row: TrackingEvent): void {
+    this.confirmation.confirm({
+      header: 'Baja lógica',
+      message: `¿Desactivar ${'el evento #' + row.id}? Su estado pasará a inactivo.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Desactivar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.api.deactivate(row.id).subscribe({
+          next: () => {
+            this.notify.warn('Evento de seguimiento desactivado');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo desactivar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+
+  /** Baja física: `DELETE /:id`. No se puede deshacer. */
+  remove(row: TrackingEvent): void {
+    this.confirmation.confirm({
+      header: 'Eliminar definitivamente',
+      message: `Se borrará ${'el evento #' + row.id} de la base de datos. Esta acción no se puede deshacer.`,
+      icon: 'pi pi-trash',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.api.remove(row.id).subscribe({
+          next: () => {
+            this.notify.success('Evento de seguimiento eliminado');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo eliminar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+`src/app/features/tracking-events/tracking-event-list/tracking-event-list.html`
+
+```html
+<app-page-header
+  title="Eventos de seguimiento"
+  subtitle="Hitos, ubicaciones y observaciones registrados sobre cada envío."
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nuevo evento de seguimiento</span>
+  </button>
+</app-page-header>
+
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-4xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar eventos de seguimiento"
+          placeholder="Buscar por envío, tipo, ubicación o mensajero…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th>Envío</th>
+        <th>Tipo</th>
+        <th pSortableColumn="fecha">
+          <div class="flex items-center gap-1">Fecha <p-sort-icon field="fecha" /></div>
+        </th>
+        <th>Ubicación</th>
+        <th>Gravedad</th>
+        <th>Registrado por</th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ shipmentName()(row.envio_id) }}</p>
+          <p class="text-xs text-slate-400">Evento #{{ row.id }}</p>
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.tipo)" severity="secondary" [rounded]="true" />
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ row.fecha | date: 'dd/MM/yyyy HH:mm' }}</span>
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ row.ubicacion || '—' }}</span>
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.estado)" [severity]="estadoSeverity[row.estado]" [rounded]="true" />
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ messengerName()(row.registrado_por_id) }}</span>
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              icon="pi pi-pencil"
+              aria-label="Editar evento de seguimiento"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              icon="pi pi-ban"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              icon="pi pi-trash"
+              aria-label="Eliminar evento de seguimiento"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="8">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-history"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nuevo evento de seguimiento» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-3xl mx-4"
+>
+  <app-tracking-event-form
+    [trackingEvent]="editing()"
+    [shipments]="shipments()"
+    [messengers]="messengers()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>
+```
+
+Los dos `.css` (`tracking-event-form.css`, `tracking-event-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
+
+![alt text](img-express/crud_evento_seguimiento.png)
