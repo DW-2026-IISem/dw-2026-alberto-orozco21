@@ -1,10 +1,177 @@
 <app-page-header
   title="Envíos"
   subtitle="Creación, seguimiento y gestión logística de los envíos."
-/>
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nuevo envío</span>
+  </button>
+</app-page-header>
 
-<app-empty-state
-  icon="pi pi-send"
-  title="El listado de envíos se implementará en ISS-03"
-  message="La capa de API ya está preparada; esta fase deja lista la estructura de navegación."
-/>
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-5xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar envíos"
+          placeholder="Buscar por guía, empresa, mensajero, prioridad o estado…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="numero_guia">
+          <div class="flex items-center gap-1">Guía <p-sort-icon field="numero_guia" /></div>
+        </th>
+        <th>Empresa</th>
+        <th>Mensajero</th>
+        <th>Prioridad</th>
+        <th>Envío</th>
+        <th pSortableColumn="costo_calculado">
+          <div class="flex items-center gap-1">Costo <p-sort-icon field="costo_calculado" /></div>
+        </th>
+        <th pSortableColumn="fecha_solicitud">
+          <div class="flex items-center gap-1">Solicitud <p-sort-icon field="fecha_solicitud" /></div>
+        </th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.numero_guia }}</p>
+          <p class="text-xs text-slate-400">#{{ row.id }}</p>
+        </td>
+        <td>
+          <span class="text-sm text-slate-700">{{ companyName()(row.empresa_id) }}</span>
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ messengerName()(row.mensajero_id) }}</span>
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.prioridad)" [severity]="prioridadSeverity[row.prioridad]" [rounded]="true" />
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.estado)" [severity]="estadoSeverity[row.estado]" [rounded]="true" />
+        </td>
+        <td>
+          {{ row.costo_calculado == null ? '—' : (row.costo_calculado | currency: 'COP' : 'symbol' : '1.0-0') }}
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ row.fecha_solicitud | date: 'dd/MM/yyyy' }}</span>
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              aria-label="Editar envío"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ><i pButtonIcon class="pi pi-pencil"></i></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ><i pButtonIcon class="pi pi-ban"></i></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              aria-label="Eliminar envío"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ><i pButtonIcon class="pi pi-trash"></i></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="9">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-box"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nuevo envío» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-4xl mx-4"
+>
+  <app-shipment-form
+    [shipment]="editing()"
+    [companies]="companies()"
+    [contacts]="contacts()"
+    [addresses]="addresses()"
+    [messengers]="messengers()"
+    [routes]="routes()"
+    [rates]="rates()"
+    [invoices]="invoices()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>

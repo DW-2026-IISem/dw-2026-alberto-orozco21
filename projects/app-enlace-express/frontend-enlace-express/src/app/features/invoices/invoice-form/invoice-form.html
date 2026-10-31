@@ -1,0 +1,193 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="invoice-numero" class="mb-1 block text-sm font-medium text-slate-700">
+        Número <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="invoice-numero"
+        pInputText
+        formControlName="numero"
+        placeholder="FAC-2026-0001"
+        class="w-full"
+      />
+      @if (form.controls.numero.touched && form.controls.numero.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 40 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-empresa-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Empresa <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="invoice-empresa-id"
+        formControlName="empresa_id"
+        [options]="companies()"
+        optionLabel="razon_social"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.empresa_id.touched && form.controls.empresa_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-periodo-desde" class="mb-1 block text-sm font-medium text-slate-700">
+        Periodo desde <span class="text-red-500">*</span>
+      </label>
+      <input id="invoice-periodo-desde" type="date" pInputText formControlName="periodo_desde" class="w-full" />
+      @if (form.controls.periodo_desde.touched && form.controls.periodo_desde.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-periodo-hasta" class="mb-1 block text-sm font-medium text-slate-700">
+        Periodo hasta <span class="text-red-500">*</span>
+      </label>
+      <input id="invoice-periodo-hasta" type="date" pInputText formControlName="periodo_hasta" class="w-full" />
+      @if (form.controls.periodo_hasta.touched && form.controls.periodo_hasta.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-fecha" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha de emisión <span class="text-red-500">*</span>
+      </label>
+      <input id="invoice-fecha" type="date" pInputText formControlName="fecha" class="w-full" />
+      @if (form.controls.fecha.touched && form.controls.fecha.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado de la factura <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="invoice-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-subtotal" class="mb-1 block text-sm font-medium text-slate-700">
+        Subtotal <span class="text-red-500">*</span>
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="invoice-subtotal"
+        formControlName="subtotal"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.subtotal.touched && form.controls.subtotal.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Obligatorio (valor mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-impuestos" class="mb-1 block text-sm font-medium text-slate-700">
+        Impuestos
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="invoice-impuestos"
+        formControlName="impuestos"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.impuestos.touched && form.controls.impuestos.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-total" class="mb-1 block text-sm font-medium text-slate-700">
+        Total <span class="text-red-500">*</span>
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="invoice-total"
+        formControlName="total"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.total.touched && form.controls.total.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Obligatorio (valor mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-fecha-pago" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha de pago
+      </label>
+      <input id="invoice-fecha-pago" type="date" pInputText formControlName="fecha_pago" class="w-full" />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="invoice-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="invoice-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (invoice()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>

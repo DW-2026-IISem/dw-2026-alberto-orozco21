@@ -1,0 +1,242 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="address-empresa-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Empresa <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="address-empresa-id"
+        formControlName="empresa_id"
+        [options]="companies()"
+        optionLabel="razon_social"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.empresa_id.touched && form.controls.empresa_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-tipo" class="mb-1 block text-sm font-medium text-slate-700">
+        Tipo <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="address-tipo"
+        formControlName="tipo"
+        [options]="tipoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.tipo.touched && form.controls.tipo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="address-alias" class="mb-1 block text-sm font-medium text-slate-700">
+        Alias <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="address-alias"
+        pInputText
+        formControlName="alias"
+        placeholder="Bodega principal"
+        class="w-full"
+      />
+      @if (form.controls.alias.touched && form.controls.alias.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 80 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="address-linea1" class="mb-1 block text-sm font-medium text-slate-700">
+        Línea 1 <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="address-linea1"
+        pInputText
+        formControlName="linea1"
+        placeholder="Calle 72 # 45-10"
+        class="w-full"
+      />
+      @if (form.controls.linea1.touched && form.controls.linea1.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 200 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="address-linea2" class="mb-1 block text-sm font-medium text-slate-700">
+        Línea 2
+      </label>
+      <input
+        id="address-linea2"
+        pInputText
+        formControlName="linea2"
+        placeholder="Bodega 3"
+        class="w-full"
+      />
+      @if (form.controls.linea2.touched && form.controls.linea2.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 200 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-ciudad" class="mb-1 block text-sm font-medium text-slate-700">
+        Ciudad <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="address-ciudad"
+        pInputText
+        formControlName="ciudad"
+        placeholder="Barranquilla"
+        class="w-full"
+      />
+      @if (form.controls.ciudad.touched && form.controls.ciudad.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 100 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-departamento" class="mb-1 block text-sm font-medium text-slate-700">
+        Departamento
+      </label>
+      <input
+        id="address-departamento"
+        pInputText
+        formControlName="departamento"
+        placeholder="Atlántico"
+        class="w-full"
+      />
+      @if (form.controls.departamento.touched && form.controls.departamento.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 100 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-pais" class="mb-1 block text-sm font-medium text-slate-700">
+        País
+      </label>
+      <input
+        id="address-pais"
+        pInputText
+        formControlName="pais"
+        placeholder="Colombia"
+        class="w-full"
+      />
+      @if (form.controls.pais.touched && form.controls.pais.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 100 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-codigo-postal" class="mb-1 block text-sm font-medium text-slate-700">
+        Código postal
+      </label>
+      <input
+        id="address-codigo-postal"
+        pInputText
+        formControlName="codigo_postal"
+        placeholder="080001"
+        class="w-full"
+      />
+      @if (form.controls.codigo_postal.touched && form.controls.codigo_postal.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 20 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-latitud" class="mb-1 block text-sm font-medium text-slate-700">
+        Latitud
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="address-latitud"
+        formControlName="latitud"
+        mode="decimal"
+        [min]="-90"
+        [max]="90"
+        [useGrouping]="false"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="7"
+      />
+      @if (form.controls.latitud.touched && form.controls.latitud.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo -90, máximo 90).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-longitud" class="mb-1 block text-sm font-medium text-slate-700">
+        Longitud
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="address-longitud"
+        formControlName="longitud"
+        mode="decimal"
+        [min]="-180"
+        [max]="180"
+        [useGrouping]="false"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="7"
+      />
+      @if (form.controls.longitud.touched && form.controls.longitud.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo -180, máximo 180).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="address-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="address-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (address()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>

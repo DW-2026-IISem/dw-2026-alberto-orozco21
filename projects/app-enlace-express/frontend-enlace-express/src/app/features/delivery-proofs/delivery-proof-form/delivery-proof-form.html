@@ -1,0 +1,219 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="delivery-proof-envio-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Envío <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="delivery-proof-envio-id"
+        formControlName="envio_id"
+        [options]="shipments()"
+        optionLabel="numero_guia"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.envio_id.touched && form.controls.envio_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-fecha-hora" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha y hora de entrega <span class="text-red-500">*</span>
+      </label>
+      <input id="delivery-proof-fecha-hora" type="datetime-local" pInputText formControlName="fecha_hora" class="w-full" />
+      @if (form.controls.fecha_hora.touched && form.controls.fecha_hora.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-receptor-nombre" class="mb-1 block text-sm font-medium text-slate-700">
+        Nombre del receptor <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="delivery-proof-receptor-nombre"
+        pInputText
+        formControlName="receptor_nombre"
+        placeholder="Juan Gómez"
+        class="w-full"
+      />
+      @if (form.controls.receptor_nombre.touched && form.controls.receptor_nombre.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 120 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-receptor-documento" class="mb-1 block text-sm font-medium text-slate-700">
+        Documento del receptor
+      </label>
+      <input
+        id="delivery-proof-receptor-documento"
+        pInputText
+        formControlName="receptor_documento"
+        placeholder="1234567890"
+        class="w-full"
+      />
+      @if (form.controls.receptor_documento.touched && form.controls.receptor_documento.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 30 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado del comprobante <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="delivery-proof-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-firma-url" class="mb-1 block text-sm font-medium text-slate-700">
+        URL de la firma
+      </label>
+      <input
+        id="delivery-proof-firma-url"
+        pInputText
+        formControlName="firma_url"
+        placeholder="https://…"
+        class="w-full"
+      />
+      @if (form.controls.firma_url.touched && form.controls.firma_url.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 255 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-foto-url" class="mb-1 block text-sm font-medium text-slate-700">
+        URL de la foto
+      </label>
+      <input
+        id="delivery-proof-foto-url"
+        pInputText
+        formControlName="foto_url"
+        placeholder="https://…"
+        class="w-full"
+      />
+      @if (form.controls.foto_url.touched && form.controls.foto_url.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 255 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-geolocalizacion-lat" class="mb-1 block text-sm font-medium text-slate-700">
+        Latitud
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="delivery-proof-geolocalizacion-lat"
+        formControlName="geolocalizacion_lat"
+        mode="decimal"
+        [min]="-90"
+        [max]="90"
+        [useGrouping]="false"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="7"
+      />
+      @if (form.controls.geolocalizacion_lat.touched && form.controls.geolocalizacion_lat.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo -90, máximo 90).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-geolocalizacion-lng" class="mb-1 block text-sm font-medium text-slate-700">
+        Longitud
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="delivery-proof-geolocalizacion-lng"
+        formControlName="geolocalizacion_lng"
+        mode="decimal"
+        [min]="-180"
+        [max]="180"
+        [useGrouping]="false"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="7"
+      />
+      @if (form.controls.geolocalizacion_lng.touched && form.controls.geolocalizacion_lng.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo -180, máximo 180).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-observaciones" class="mb-1 block text-sm font-medium text-slate-700">
+        Observaciones
+      </label>
+      <textarea
+        id="delivery-proof-observaciones"
+        pTextarea
+        formControlName="observaciones"
+        rows="2"
+        placeholder=""
+        class="w-full"
+      ></textarea>
+      @if (form.controls.observaciones.touched && form.controls.observaciones.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 500 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="delivery-proof-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (deliveryProof()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>

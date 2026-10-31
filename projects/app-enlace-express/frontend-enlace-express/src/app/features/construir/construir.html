@@ -13,8 +13,24 @@
         <app-company-list />
       } @else if (title() === 'Contactos') {
         <app-contact-list />
+      } @else if (title() === 'Direcciones') {
+        <app-address-list />
+      } @else if (title() === 'Mensajeros') {
+        <app-messenger-list />
+      } @else if (title() === 'Tarifas') {
+        <app-rate-list />
+      } @else if (title() === 'Rutas') {
+        <app-route-list />
       } @else if (title() === 'Envíos') {
         <app-shipment-list />
+      } @else if (title() === 'Facturas') {
+        <app-invoice-list />
+      } @else if (title() === 'Paquetes') {
+        <app-package-list />
+      } @else if (title() === 'Eventos de seguimiento') {
+        <app-tracking-event-list />
+      } @else if (title() === 'Comprobantes de entrega') {
+        <app-delivery-proof-list />
       } @else {
         <p-card class="block">
           <h1 class="text-2xl font-semibold text-slate-900">{{ title() }}</h1>

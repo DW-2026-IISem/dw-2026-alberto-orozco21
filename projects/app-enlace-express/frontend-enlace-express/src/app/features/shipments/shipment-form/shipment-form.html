@@ -1,0 +1,354 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="shipment-numero-guia" class="mb-1 block text-sm font-medium text-slate-700">
+        Número de guía <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="shipment-numero-guia"
+        pInputText
+        formControlName="numero_guia"
+        placeholder="EE-2026-000001"
+        class="w-full"
+      />
+      @if (form.controls.numero_guia.touched && form.controls.numero_guia.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 40 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-empresa-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Empresa <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-empresa-id"
+        formControlName="empresa_id"
+        [options]="companies()"
+        optionLabel="razon_social"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.empresa_id.touched && form.controls.empresa_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-prioridad" class="mb-1 block text-sm font-medium text-slate-700">
+        Prioridad <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-prioridad"
+        formControlName="prioridad"
+        [options]="prioridadOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.prioridad.touched && form.controls.prioridad.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado del envío <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-contacto-origen-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Contacto de origen <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-contacto-origen-id"
+        formControlName="contacto_origen_id"
+        [options]="originContacts()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.contacto_origen_id.touched && form.controls.contacto_origen_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+      <p class="mt-1 text-xs text-slate-500">Se listan los contactos de la empresa elegida.</p>
+    </div>
+
+    <div>
+      <label for="shipment-direccion-origen-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Dirección de origen <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-direccion-origen-id"
+        formControlName="direccion_origen_id"
+        [options]="originAddresses()"
+        optionLabel="alias"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.direccion_origen_id.touched && form.controls.direccion_origen_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+      <p class="mt-1 text-xs text-slate-500">Se listan las direcciones de la empresa elegida.</p>
+    </div>
+
+    <div>
+      <label for="shipment-contacto-destino-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Contacto de destino <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-contacto-destino-id"
+        formControlName="contacto_destino_id"
+        [options]="contacts()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.contacto_destino_id.touched && form.controls.contacto_destino_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-direccion-destino-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Dirección de destino <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-direccion-destino-id"
+        formControlName="direccion_destino_id"
+        [options]="addresses()"
+        optionLabel="alias"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.direccion_destino_id.touched && form.controls.direccion_destino_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-tarifa-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Tarifa <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-tarifa-id"
+        formControlName="tarifa_id"
+        [options]="rates()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.tarifa_id.touched && form.controls.tarifa_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-mensajero-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Mensajero
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-mensajero-id"
+        formControlName="mensajero_id"
+        [options]="messengers()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+    </div>
+
+    <div>
+      <label for="shipment-ruta-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Ruta
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-ruta-id"
+        formControlName="ruta_id"
+        [options]="routes()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+    </div>
+
+    <div>
+      <label for="shipment-factura-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Factura
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-factura-id"
+        formControlName="factura_id"
+        [options]="invoices()"
+        optionLabel="numero"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+    </div>
+
+    <div>
+      <label for="shipment-peso-total-kg" class="mb-1 block text-sm font-medium text-slate-700">
+        Peso total <span class="text-red-500">*</span>
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="shipment-peso-total-kg"
+        formControlName="peso_total_kg"
+        mode="decimal"
+        [min]="0"
+        suffix=" kg"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.peso_total_kg.touched && form.controls.peso_total_kg.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Obligatorio (valor mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-valor-declarado" class="mb-1 block text-sm font-medium text-slate-700">
+        Valor declarado
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="shipment-valor-declarado"
+        formControlName="valor_declarado"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.valor_declarado.touched && form.controls.valor_declarado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-costo-calculado" class="mb-1 block text-sm font-medium text-slate-700">
+        Costo calculado
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="shipment-costo-calculado"
+        formControlName="costo_calculado"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.costo_calculado.touched && form.controls.costo_calculado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-fecha-solicitud" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha de solicitud <span class="text-red-500">*</span>
+      </label>
+      <input id="shipment-fecha-solicitud" type="datetime-local" pInputText formControlName="fecha_solicitud" class="w-full" />
+      @if (form.controls.fecha_solicitud.touched && form.controls.fecha_solicitud.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-fecha-entrega-estimada" class="mb-1 block text-sm font-medium text-slate-700">
+        Entrega estimada
+      </label>
+      <input id="shipment-fecha-entrega-estimada" type="datetime-local" pInputText formControlName="fecha_entrega_estimada" class="w-full" />
+    </div>
+
+    <div>
+      <label for="shipment-fecha-entrega-real" class="mb-1 block text-sm font-medium text-slate-700">
+        Entrega real
+      </label>
+      <input id="shipment-fecha-entrega-real" type="datetime-local" pInputText formControlName="fecha_entrega_real" class="w-full" />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="shipment-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (shipment()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>

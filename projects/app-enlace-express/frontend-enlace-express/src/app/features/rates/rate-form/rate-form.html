@@ -1,0 +1,168 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="rate-nombre" class="mb-1 block text-sm font-medium text-slate-700">
+        Nombre <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="rate-nombre"
+        pInputText
+        formControlName="nombre"
+        placeholder="Urbana estándar"
+        class="w-full"
+      />
+      @if (form.controls.nombre.touched && form.controls.nombre.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 120 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-zona" class="mb-1 block text-sm font-medium text-slate-700">
+        Zona <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="rate-zona"
+        pInputText
+        formControlName="zona"
+        placeholder="Barranquilla"
+        class="w-full"
+      />
+      @if (form.controls.zona.touched && form.controls.zona.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 100 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="rate-regla-calculo" class="mb-1 block text-sm font-medium text-slate-700">
+        Regla de cálculo <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="rate-regla-calculo"
+        formControlName="regla_calculo"
+        [options]="reglaCalculoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.regla_calculo.touched && form.controls.regla_calculo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-valor-base" class="mb-1 block text-sm font-medium text-slate-700">
+        Valor base <span class="text-red-500">*</span>
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="rate-valor-base"
+        formControlName="valor_base"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.valor_base.touched && form.controls.valor_base.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Obligatorio (valor mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-valor-por-kg-adicional" class="mb-1 block text-sm font-medium text-slate-700">
+        Valor por kg adicional
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="rate-valor-por-kg-adicional"
+        formControlName="valor_por_kg_adicional"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.valor_por_kg_adicional.touched && form.controls.valor_por_kg_adicional.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-recargo-urgente-pct" class="mb-1 block text-sm font-medium text-slate-700">
+        Recargo urgente
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="rate-recargo-urgente-pct"
+        formControlName="recargo_urgente_pct"
+        mode="decimal"
+        [min]="0"
+        [max]="100"
+        suffix=" %"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.recargo_urgente_pct.touched && form.controls.recargo_urgente_pct.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0, máximo 100).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-vigencia-desde" class="mb-1 block text-sm font-medium text-slate-700">
+        Vigente desde <span class="text-red-500">*</span>
+      </label>
+      <input id="rate-vigencia-desde" type="date" pInputText formControlName="vigencia_desde" class="w-full" />
+      @if (form.controls.vigencia_desde.touched && form.controls.vigencia_desde.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-vigencia-hasta" class="mb-1 block text-sm font-medium text-slate-700">
+        Vigente hasta
+      </label>
+      <input id="rate-vigencia-hasta" type="date" pInputText formControlName="vigencia_hasta" class="w-full" />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="rate-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="rate-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (rate()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>

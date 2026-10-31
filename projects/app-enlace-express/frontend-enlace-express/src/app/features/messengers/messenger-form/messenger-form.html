@@ -1,0 +1,141 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="messenger-nombre" class="mb-1 block text-sm font-medium text-slate-700">
+        Nombre <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="messenger-nombre"
+        pInputText
+        formControlName="nombre"
+        placeholder="Carlos Pérez"
+        class="w-full"
+      />
+      @if (form.controls.nombre.touched && form.controls.nombre.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 120 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-documento-identidad" class="mb-1 block text-sm font-medium text-slate-700">
+        Documento de identidad <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="messenger-documento-identidad"
+        pInputText
+        formControlName="documento_identidad"
+        placeholder="1234567890"
+        class="w-full"
+      />
+      @if (form.controls.documento_identidad.touched && form.controls.documento_identidad.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 30 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-telefono" class="mb-1 block text-sm font-medium text-slate-700">
+        Teléfono
+      </label>
+      <input
+        id="messenger-telefono" type="tel"
+        pInputText
+        formControlName="telefono"
+        placeholder="300 000 0000"
+        class="w-full"
+      />
+      @if (form.controls.telefono.touched && form.controls.telefono.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 30 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-tipo-vehiculo" class="mb-1 block text-sm font-medium text-slate-700">
+        Tipo de vehículo <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="messenger-tipo-vehiculo"
+        formControlName="tipo_vehiculo"
+        [options]="tipoVehiculoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.tipo_vehiculo.touched && form.controls.tipo_vehiculo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-placa-vehiculo" class="mb-1 block text-sm font-medium text-slate-700">
+        Placa del vehículo
+      </label>
+      <input
+        id="messenger-placa-vehiculo"
+        pInputText
+        formControlName="placa_vehiculo"
+        placeholder="ABC123"
+        class="w-full"
+      />
+      @if (form.controls.placa_vehiculo.touched && form.controls.placa_vehiculo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 15 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-zona-asignada" class="mb-1 block text-sm font-medium text-slate-700">
+        Zona asignada
+      </label>
+      <input
+        id="messenger-zona-asignada"
+        pInputText
+        formControlName="zona_asignada"
+        placeholder="Norte"
+        class="w-full"
+      />
+      @if (form.controls.zona_asignada.touched && form.controls.zona_asignada.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 100 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="messenger-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="messenger-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (messenger()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>

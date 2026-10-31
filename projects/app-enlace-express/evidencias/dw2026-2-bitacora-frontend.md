@@ -4867,3 +4867,807 @@ export class ContactList {
 Los dos `.css` (`contact-form.css`, `contact-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
 
 ![alt text](img-express/crud_contactos.png)
+
+## ISS-05 · CRUD de Address
+
+**Particularidades**
+
+- El recurso está en **singular** (`/api/address`) y la lista llega en `addresses` (confirmado en la bitácora).
+- `tipo` (`recogida`, `entrega`, `mixta`) es un select con los tres valores del backend.
+- `latitud` y `longitud` usan `p-inputnumber` con 7 decimales y sin separador de miles; son opcionales y viajan como `number | null`.
+
+**Archivos de esta pantalla**
+
+```bash
+ng generate component features/addresses/address-list --skip-tests --defaults
+ng generate component features/addresses/address-form --skip-tests --defaults
+```
+
+El CLI crea además `address-list.spec.ts` y `address-form.spec.ts` si no usas `--skip-tests`; las pruebas se tratan en 3.17.
+
+`src/app/features/addresses/address-api.ts`
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { Address, AddressPayload } from '../../core/models/address.model';
+
+/** /address — la lista llega en `{ addresses }` y el detalle en `{ address }`. */
+@Injectable({ providedIn: 'root' })
+export class AddressApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/address`;
+
+  list(): Observable<Address[]> {
+    return this.http
+      .get<{ addresses: Address[] }>(this.base)
+      .pipe(map((response) => response.addresses));
+  }
+
+  get(id: number): Observable<Address> {
+    return this.http
+      .get<{ address: Address }>(`${this.base}/${id}`)
+      .pipe(map((response) => response.address));
+  }
+
+  create(payload: AddressPayload): Observable<Address> {
+    return this.http
+      .post<{ address: Address }>(this.base, payload)
+      .pipe(map((response) => response.address));
+  }
+
+  update(id: number, payload: Partial<AddressPayload>): Observable<Address> {
+    return this.http
+      .patch<{ address: Address }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.address));
+  }
+
+  replace(id: number, payload: AddressPayload): Observable<Address> {
+    return this.http
+      .put<{ address: Address }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.address));
+  }
+
+  deactivate(id: number): Observable<unknown> {
+    return this.http.patch(`${this.base}/${id}/deactivate`, {});
+  }
+
+  remove(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/${id}`);
+  }
+}
+```
+
+`src/app/features/addresses/address-form/address-form.ts`
+
+```typescript
+import { Component, effect, inject, input, output } from '@angular/core';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { Address, AddressPayload, AddressType } from '../../../core/models/address.model';
+import { Company } from '../../../core/models/company.model';
+import { toNumberOrNull } from '../../../core/utils/form-values';
+
+/**
+ * Formulario de dirección, reutilizado para crear y editar.
+ *
+ * No llama a la API: recibe `address` (o `null` para crear) y emite el payload con
+ * `saved`. El padre decide entre `POST` y `PATCH` y controla el diálogo.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-address-form',
+  imports: [MessageModule, ReactiveFormsModule, ButtonModule, InputTextModule, InputNumberModule, SelectModule],
+  templateUrl: './address-form.html',
+  styleUrl: './address-form.css',
+})
+export class AddressForm {
+  /** Registro a editar. `null` deja el formulario en modo creación. */
+  readonly address = input<Address | null>(null);
+
+  readonly companies = input<Company[]>([]);
+
+  /** Cambia cada vez que el padre abre el diálogo: reinicia el formulario. */
+  readonly resetKey = input(0);
+
+  /** Petición en curso: deshabilita el botón y muestra su spinner. */
+  readonly saving = input(false);
+
+  readonly saved = output<AddressPayload>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly tipoOptions: { label: string; value: AddressType }[] = [
+    { label: 'Recogida', value: 'recogida' },
+    { label: 'Entrega', value: 'entrega' },
+    { label: 'Mixta', value: 'mixta' },
+  ];
+
+  readonly activeOptions = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+
+  readonly form = this.fb.group({
+    empresa_id: [null as number | null, [Validators.required]],
+    tipo: ['recogida' as AddressType, [Validators.required]],
+    alias: ['', [Validators.required, Validators.maxLength(80)]],
+    linea1: ['', [Validators.required, Validators.maxLength(200)]],
+    linea2: ['', [Validators.maxLength(200)]],
+    ciudad: ['', [Validators.required, Validators.maxLength(100)]],
+    departamento: ['', [Validators.maxLength(100)]],
+    pais: ['', [Validators.maxLength(100)]],
+    codigo_postal: ['', [Validators.maxLength(20)]],
+    latitud: [null as number | null, [Validators.min(-90), Validators.max(90)]],
+    longitud: [null as number | null, [Validators.min(-180), Validators.max(180)]],
+    is_active: [true],
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.address();
+      // `resetKey` se lee a propósito: abrir de nuevo el diálogo debe vaciar el formulario.
+      this.resetKey();
+
+      this.form.reset({
+        empresa_id: current?.empresa_id ?? null,
+        tipo: current?.tipo ?? 'recogida',
+        alias: current?.alias ?? '',
+        linea1: current?.linea1 ?? '',
+        linea2: current?.linea2 ?? '',
+        ciudad: current?.ciudad ?? '',
+        departamento: current?.departamento ?? '',
+        pais: current?.pais ?? '',
+        codigo_postal: current?.codigo_postal ?? '',
+        latitud: toNumberOrNull(current?.latitud),
+        longitud: toNumberOrNull(current?.longitud),
+        is_active: current?.is_active ?? true,
+      });
+
+      // `is_active` solo cambia con PATCH /deactivate: al editar no se ofrece.
+      if (current) {
+        this.form.controls.is_active.disable();
+      } else {
+        this.form.controls.is_active.enable();
+      }
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const payload: AddressPayload = {
+      empresa_id: Number(value.empresa_id),
+      tipo: value.tipo,
+      alias: value.alias.trim(),
+      linea1: value.linea1.trim(),
+      linea2: value.linea2.trim() || null,
+      ciudad: value.ciudad.trim(),
+      departamento: value.departamento.trim() || null,
+      pais: value.pais.trim() || null,
+      codigo_postal: value.codigo_postal.trim() || null,
+      latitud: value.latitud,
+      longitud: value.longitud,
+    };
+
+    // `is_active` solo se envía al crear: en edición lo gobierna /deactivate.
+    this.saved.emit(this.address() ? payload : { ...payload, is_active: value.is_active });
+  }
+}
+```
+
+`src/app/features/addresses/address-form/address-form.html`
+
+```html
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="address-empresa-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Empresa <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="address-empresa-id"
+        formControlName="empresa_id"
+        [options]="companies()"
+        optionLabel="razon_social"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.empresa_id.touched && form.controls.empresa_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-tipo" class="mb-1 block text-sm font-medium text-slate-700">
+        Tipo <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="address-tipo"
+        formControlName="tipo"
+        [options]="tipoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.tipo.touched && form.controls.tipo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="address-alias" class="mb-1 block text-sm font-medium text-slate-700">
+        Alias <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="address-alias"
+        pInputText
+        formControlName="alias"
+        placeholder="Bodega principal"
+        class="w-full"
+      />
+      @if (form.controls.alias.touched && form.controls.alias.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 80 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="address-linea1" class="mb-1 block text-sm font-medium text-slate-700">
+        Línea 1 <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="address-linea1"
+        pInputText
+        formControlName="linea1"
+        placeholder="Calle 72 # 45-10"
+        class="w-full"
+      />
+      @if (form.controls.linea1.touched && form.controls.linea1.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 200 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="address-linea2" class="mb-1 block text-sm font-medium text-slate-700">
+        Línea 2
+      </label>
+      <input
+        id="address-linea2"
+        pInputText
+        formControlName="linea2"
+        placeholder="Bodega 3"
+        class="w-full"
+      />
+      @if (form.controls.linea2.touched && form.controls.linea2.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 200 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-ciudad" class="mb-1 block text-sm font-medium text-slate-700">
+        Ciudad <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="address-ciudad"
+        pInputText
+        formControlName="ciudad"
+        placeholder="Barranquilla"
+        class="w-full"
+      />
+      @if (form.controls.ciudad.touched && form.controls.ciudad.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 100 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-departamento" class="mb-1 block text-sm font-medium text-slate-700">
+        Departamento
+      </label>
+      <input
+        id="address-departamento"
+        pInputText
+        formControlName="departamento"
+        placeholder="Atlántico"
+        class="w-full"
+      />
+      @if (form.controls.departamento.touched && form.controls.departamento.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 100 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-pais" class="mb-1 block text-sm font-medium text-slate-700">
+        País
+      </label>
+      <input
+        id="address-pais"
+        pInputText
+        formControlName="pais"
+        placeholder="Colombia"
+        class="w-full"
+      />
+      @if (form.controls.pais.touched && form.controls.pais.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 100 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-codigo-postal" class="mb-1 block text-sm font-medium text-slate-700">
+        Código postal
+      </label>
+      <input
+        id="address-codigo-postal"
+        pInputText
+        formControlName="codigo_postal"
+        placeholder="080001"
+        class="w-full"
+      />
+      @if (form.controls.codigo_postal.touched && form.controls.codigo_postal.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 20 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-latitud" class="mb-1 block text-sm font-medium text-slate-700">
+        Latitud
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="address-latitud"
+        formControlName="latitud"
+        mode="decimal"
+        [min]="-90"
+        [max]="90"
+        [useGrouping]="false"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="7"
+      />
+      @if (form.controls.latitud.touched && form.controls.latitud.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo -90, máximo 90).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="address-longitud" class="mb-1 block text-sm font-medium text-slate-700">
+        Longitud
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="address-longitud"
+        formControlName="longitud"
+        mode="decimal"
+        [min]="-180"
+        [max]="180"
+        [useGrouping]="false"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="7"
+      />
+      @if (form.controls.longitud.touched && form.controls.longitud.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo -180, máximo 180).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="address-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="address-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (address()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+`src/app/features/addresses/address-list/address-list.ts`
+
+```typescript
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { forkJoin } from 'rxjs';
+import { Address, AddressPayload } from '../../../core/models/address.model';
+import { Company } from '../../../core/models/company.model';
+import { NotificationService } from '../../../core/services/notification';
+import { toApiMessage } from '../../../core/utils/api-error';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { humanize } from '../../../core/utils/labels';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { CompanyApi } from '../../companies/company-api';
+import { AddressApi } from '../address-api';
+import { AddressForm } from '../address-form/address-form';
+
+/**
+ * Lista de direcciones con todas las operaciones del CRUD.
+ *
+ * Todo el estado vive en signals: la tabla y los contadores se repintan solos y
+ * `visibleRows` se recalcula solo cuando cambian `rows()` o `filter()`.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-address-list',
+  imports: [AddressForm, ButtonModule, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  templateUrl: './address-list.html',
+  styleUrl: './address-list.css',
+})
+export class AddressList {
+  private readonly api = inject(AddressApi);
+  private readonly companyApi = inject(CompanyApi);
+  private readonly notify = inject(NotificationService);
+  private readonly confirmation = inject(ConfirmationService);
+
+  /** Datos del backend (`GET /api/address`). */
+  readonly rows = signal<Address[]>([]);
+  readonly companies = signal<Company[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly filter = signal('');
+
+  /** Resultado de aplicar el buscador; `computed` lo memoriza. */
+  readonly visibleRows = computed(() =>
+    filterRows(this.rows(), this.filter(), (row) => [
+      row.alias,
+      row.linea1,
+      row.linea2,
+      row.ciudad,
+      row.departamento,
+      row.tipo,
+      this.companyName()(row.empresa_id),
+    ]),
+  );
+
+  /** `id → razon_social` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly companyName = computed(() => {
+    const names = new Map<number, string>(this.companies().map((item) => [item.id, String(item.razon_social)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<Address | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly title = computed(() => (this.editing() ? 'Editar dirección' : 'Nueva dirección'));
+
+  protected readonly humanize = humanize;
+
+  constructor() {
+    this.load();
+  }
+
+  /** `GET /api/address`: recarga la tabla y limpia el error anterior. */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      rows: this.api.list(),
+      companies: this.companyApi.list(),
+    }).subscribe({
+      next: ({ rows, companies }) => {
+        this.rows.set(rows);
+        this.companies.set(companies);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(row: Address): void {
+    this.editing.set(row);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  /**
+   * El mismo manejador para crear y editar: `editing()` decide el verbo.
+   * Tras el éxito se cierra el diálogo y se recarga (el backend es la verdad).
+   */
+  save(payload: AddressPayload): void {
+    const current = this.editing();
+    this.saving.set(true);
+
+    const request = current ? this.api.update(current.id, payload) : this.api.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(current ? 'Dirección actualizada' : 'Dirección creada');
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notify.error('No se pudo guardar', toApiMessage(error));
+      },
+    });
+  }
+
+  /** Baja lógica: `PATCH /:id/deactivate`. */
+  deactivate(row: Address): void {
+    this.confirmation.confirm({
+      header: 'Baja lógica',
+      message: `¿Desactivar ${row.alias}? Su estado pasará a inactivo.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Desactivar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.api.deactivate(row.id).subscribe({
+          next: () => {
+            this.notify.warn('Dirección desactivada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo desactivar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+
+  /** Baja física: `DELETE /:id`. No se puede deshacer. */
+  remove(row: Address): void {
+    this.confirmation.confirm({
+      header: 'Eliminar definitivamente',
+      message: `Se borrará ${row.alias} de la base de datos. Esta acción no se puede deshacer.`,
+      icon: 'pi pi-trash',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.api.remove(row.id).subscribe({
+          next: () => {
+            this.notify.success('Dirección eliminada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo eliminar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+`src/app/features/addresses/address-list/address-list.html`
+
+```html
+<app-page-header
+  title="Direcciones"
+  subtitle="Direcciones de recogida, entrega o mixtas de cada empresa."
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nueva dirección</span>
+  </button>
+</app-page-header>
+
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-3xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar direcciones"
+          placeholder="Buscar por alias, dirección, ciudad o empresa…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="alias">
+          <div class="flex items-center gap-1">Alias <p-sort-icon field="alias" /></div>
+        </th>
+        <th>Empresa</th>
+        <th>Dirección</th>
+        <th>Tipo</th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.alias }}</p>
+          <p class="text-xs text-slate-400">#{{ row.id }}</p>
+        </td>
+        <td>
+          <span class="text-sm text-slate-700">{{ companyName()(row.empresa_id) }}</span>
+        </td>
+        <td>
+          <p class="text-sm text-slate-700">{{ row.linea1 }}</p>
+          <p class="text-xs text-slate-400">{{ row.ciudad }}{{ row.departamento ? ', ' + row.departamento : '' }}</p>
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.tipo)" severity="secondary" [rounded]="true" />
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              icon="pi pi-pencil"
+              aria-label="Editar dirección"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              icon="pi pi-ban"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              icon="pi pi-trash"
+              aria-label="Eliminar dirección"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="6">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-map-marker"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nueva dirección» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-3xl mx-4"
+>
+  <app-address-form
+    [address]="editing()"
+    [companies]="companies()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>
+```
+
+Los dos `.css` (`address-form.css`, `address-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
+
+![alt text](img-express/crud_direcciones.png)

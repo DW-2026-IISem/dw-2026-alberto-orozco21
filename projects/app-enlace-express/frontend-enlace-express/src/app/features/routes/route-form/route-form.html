@@ -1,0 +1,134 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="route-nombre" class="mb-1 block text-sm font-medium text-slate-700">
+        Nombre <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="route-nombre"
+        pInputText
+        formControlName="nombre"
+        placeholder="Ruta norte mañana"
+        class="w-full"
+      />
+      @if (form.controls.nombre.touched && form.controls.nombre.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 120 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-mensajero-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Mensajero <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="route-mensajero-id"
+        formControlName="mensajero_id"
+        [options]="messengers()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.mensajero_id.touched && form.controls.mensajero_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-zona-cobertura" class="mb-1 block text-sm font-medium text-slate-700">
+        Zona de cobertura
+      </label>
+      <input
+        id="route-zona-cobertura"
+        pInputText
+        formControlName="zona_cobertura"
+        placeholder="Norte"
+        class="w-full"
+      />
+      @if (form.controls.zona_cobertura.touched && form.controls.zona_cobertura.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 100 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado de la ruta <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="route-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-fecha" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha <span class="text-red-500">*</span>
+      </label>
+      <input id="route-fecha" type="date" pInputText formControlName="fecha" class="w-full" />
+      @if (form.controls.fecha.touched && form.controls.fecha.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-hora-inicio" class="mb-1 block text-sm font-medium text-slate-700">
+        Hora de inicio
+      </label>
+      <input id="route-hora-inicio" type="time" pInputText formControlName="hora_inicio" class="w-full" />
+    </div>
+
+    <div>
+      <label for="route-hora-fin" class="mb-1 block text-sm font-medium text-slate-700">
+        Hora de fin
+      </label>
+      <input id="route-hora-fin" type="time" pInputText formControlName="hora_fin" class="w-full" />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="route-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="route-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (route()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>

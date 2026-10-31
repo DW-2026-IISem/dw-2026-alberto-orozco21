@@ -9,12 +9,24 @@ import { Footer } from '../../layout/footer/footer';
 import { Header } from '../../layout/header/header';
 import { CompanyList } from '../companies/company-list/company-list';
 import { ContactList } from '../contacts/contact-list/contact-list';
+import { AddressList } from '../addresses/address-list/address-list';
+import { DeliveryProofList } from '../delivery-proofs/delivery-proof-list/delivery-proof-list';
+import { InvoiceList } from '../invoices/invoice-list/invoice-list';
+import { MessengerList } from '../messengers/messenger-list/messenger-list';
+import { PackageList } from '../packages/package-list/package-list';
+import { RateList } from '../rates/rate-list/rate-list';
+import { RouteList } from '../routes/route-list/route-list';
 import { ShipmentList } from '../shipments/shipment-list/shipment-list';
+import { TrackingEventList } from '../tracking-events/tracking-event-list/tracking-event-list';
 
 @Component({
   host: { class: 'block' },
   selector: 'app-construir',
-  imports: [Aside, ButtonModule, CardModule, CompanyList, ContactList, DrawerModule, Footer, Header, ShipmentList],
+  imports: [
+    AddressList, Aside, ButtonModule, CardModule, CompanyList, ContactList,
+    DeliveryProofList, DrawerModule, Footer, Header, InvoiceList, MessengerList,
+    PackageList, RateList, RouteList, ShipmentList, TrackingEventList,
+  ],
   templateUrl: './construir.html',
   styleUrl: './construir.css',
 })

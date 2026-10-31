@@ -1,0 +1,157 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="sm:col-span-2">
+      <label for="tracking-event-envio-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Envío <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-envio-id"
+        formControlName="envio_id"
+        [options]="shipments()"
+        optionLabel="numero_guia"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.envio_id.touched && form.controls.envio_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="tracking-event-tipo" class="mb-1 block text-sm font-medium text-slate-700">
+        Tipo de evento <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-tipo"
+        formControlName="tipo"
+        [options]="tipoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.tipo.touched && form.controls.tipo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="tracking-event-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Gravedad <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="tracking-event-fecha" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha y hora <span class="text-red-500">*</span>
+      </label>
+      <input id="tracking-event-fecha" type="datetime-local" pInputText formControlName="fecha" class="w-full" />
+      @if (form.controls.fecha.touched && form.controls.fecha.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="tracking-event-ubicacion" class="mb-1 block text-sm font-medium text-slate-700">
+        Ubicación
+      </label>
+      <input
+        id="tracking-event-ubicacion"
+        pInputText
+        formControlName="ubicacion"
+        placeholder="Centro de distribución Barranquilla"
+        class="w-full"
+      />
+      @if (form.controls.ubicacion.touched && form.controls.ubicacion.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 200 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="tracking-event-registrado-por-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Registrado por
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-registrado-por-id"
+        formControlName="registrado_por_id"
+        [options]="messengers()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="tracking-event-observaciones" class="mb-1 block text-sm font-medium text-slate-700">
+        Observaciones
+      </label>
+      <textarea
+        id="tracking-event-observaciones"
+        pTextarea
+        formControlName="observaciones"
+        rows="2"
+        placeholder=""
+        class="w-full"
+      ></textarea>
+      @if (form.controls.observaciones.touched && form.controls.observaciones.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 500 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="tracking-event-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="tracking-event-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (trackingEvent()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
