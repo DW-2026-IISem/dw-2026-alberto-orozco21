@@ -8,18 +8,18 @@ export class RouteRoutes {
   public routes(app: Application): void {
     app
       .route("/api/routes")
-      .get(authenticate, authorize, this.routeController.getAll.bind(this.routeController))
-      .post(authenticate, authorize, this.routeController.create.bind(this.routeController));
+      .get( this.routeController.getAll.bind(this.routeController))
+      .post( this.routeController.create.bind(this.routeController));
 
     app
       .route("/api/routes/:id")
-      .get(authenticate, authorize, this.routeController.getOne.bind(this.routeController))
-      .put(authenticate, authorize, this.routeController.updatePut.bind(this.routeController))
-      .patch(authenticate, authorize, this.routeController.updatePatch.bind(this.routeController))
-      .delete(authenticate, authorize, this.routeController.deletePhysical.bind(this.routeController));
+      .get( this.routeController.getOne.bind(this.routeController))
+      .put( this.routeController.updatePut.bind(this.routeController))
+      .patch( this.routeController.updatePatch.bind(this.routeController))
+      .delete( this.routeController.deletePhysical.bind(this.routeController));
 
     app
       .route("/api/routes/:id/deactivate")
-      .patch(authenticate, authorize, this.routeController.deleteLogical.bind(this.routeController));
+      .patch( this.routeController.deleteLogical.bind(this.routeController));
   }
 }
