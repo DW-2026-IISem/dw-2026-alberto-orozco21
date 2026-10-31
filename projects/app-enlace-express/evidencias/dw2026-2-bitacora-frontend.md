@@ -7038,3 +7038,693 @@ export class RateList {
 Los dos `.css` (`rate-form.css`, `rate-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
 
 ![alt text](img-express/crud_tarifas.png)
+
+## ISS-08 · CRUD de Routes
+
+**Particularidades**
+
+- `mensajero_id` obligatorio (carga `MessengerApi`).
+- `hora_inicio`/`hora_fin` usan `<input type="time">` y se muestran con `.slice(0, 5)` para quitar los segundos.
+- Ojo con el nombre: el modelo `Route` **no es** el `Route` de `@angular/router`. En estos archivos solo se importa el del modelo, así que no hay conflicto; si algún día importas ambos en el mismo archivo, usa un alias (`import { Route as RouteModel }`).
+- En la tabla hay dos columnas de estado distintas: *Ruta* (`estado`: planificada/en curso/finalizada) y *Estado* (`is_active`).
+
+**Archivos de esta pantalla**
+
+```bash
+ng generate component features/routes/route-list --skip-tests --defaults
+ng generate component features/routes/route-form --skip-tests --defaults
+```
+
+El CLI crea además `route-list.spec.ts` y `route-form.spec.ts` si no usas `--skip-tests`; las pruebas se tratan en 3.17.
+
+`src/app/features/routes/route-api.ts`
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { Route, RoutePayload } from '../../core/models/route.model';
+
+/** /routes — la lista llega en `{ routes }` y el detalle en `{ route }`. */
+@Injectable({ providedIn: 'root' })
+export class RouteApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/routes`;
+
+  list(): Observable<Route[]> {
+    return this.http
+      .get<{ routes: Route[] }>(this.base)
+      .pipe(map((response) => response.routes));
+  }
+
+  get(id: number): Observable<Route> {
+    return this.http
+      .get<{ route: Route }>(`${this.base}/${id}`)
+      .pipe(map((response) => response.route));
+  }
+
+  create(payload: RoutePayload): Observable<Route> {
+    return this.http
+      .post<{ route: Route }>(this.base, payload)
+      .pipe(map((response) => response.route));
+  }
+
+  update(id: number, payload: Partial<RoutePayload>): Observable<Route> {
+    return this.http
+      .patch<{ route: Route }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.route));
+  }
+
+  replace(id: number, payload: RoutePayload): Observable<Route> {
+    return this.http
+      .put<{ route: Route }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.route));
+  }
+
+  deactivate(id: number): Observable<unknown> {
+    return this.http.patch(`${this.base}/${id}/deactivate`, {});
+  }
+
+  remove(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/${id}`);
+  }
+}
+```
+
+`src/app/features/routes/route-form/route-form.ts`
+
+```typescript
+import { Component, effect, inject, input, output } from '@angular/core';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { Route, RoutePayload, RouteStatus } from '../../../core/models/route.model';
+import { Messenger } from '../../../core/models/messenger.model';
+import { toDateInput, toTimeInput } from '../../../core/utils/form-values';
+
+/**
+ * Formulario de ruta, reutilizado para crear y editar.
+ *
+ * No llama a la API: recibe `route` (o `null` para crear) y emite el payload con
+ * `saved`. El padre decide entre `POST` y `PATCH` y controla el diálogo.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-route-form',
+  imports: [MessageModule, ReactiveFormsModule, ButtonModule, InputTextModule, SelectModule],
+  templateUrl: './route-form.html',
+  styleUrl: './route-form.css',
+})
+export class RouteForm {
+  /** Registro a editar. `null` deja el formulario en modo creación. */
+  readonly route = input<Route | null>(null);
+
+  readonly messengers = input<Messenger[]>([]);
+
+  /** Cambia cada vez que el padre abre el diálogo: reinicia el formulario. */
+  readonly resetKey = input(0);
+
+  /** Petición en curso: deshabilita el botón y muestra su spinner. */
+  readonly saving = input(false);
+
+  readonly saved = output<RoutePayload>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly estadoOptions: { label: string; value: RouteStatus }[] = [
+    { label: 'Planificada', value: 'planificada' },
+    { label: 'En curso', value: 'en_curso' },
+    { label: 'Finalizada', value: 'finalizada' },
+  ];
+
+  readonly activeOptions = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+
+  readonly form = this.fb.group({
+    nombre: ['', [Validators.required, Validators.maxLength(120)]],
+    mensajero_id: [null as number | null, [Validators.required]],
+    zona_cobertura: ['', [Validators.maxLength(100)]],
+    estado: ['planificada' as RouteStatus, [Validators.required]],
+    fecha: ['', [Validators.required]],
+    hora_inicio: [''],
+    hora_fin: [''],
+    is_active: [true],
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.route();
+      // `resetKey` se lee a propósito: abrir de nuevo el diálogo debe vaciar el formulario.
+      this.resetKey();
+
+      this.form.reset({
+        nombre: current?.nombre ?? '',
+        mensajero_id: current?.mensajero_id ?? null,
+        zona_cobertura: current?.zona_cobertura ?? '',
+        estado: current?.estado ?? 'planificada',
+        fecha: toDateInput(current?.fecha),
+        hora_inicio: toTimeInput(current?.hora_inicio),
+        hora_fin: toTimeInput(current?.hora_fin),
+        is_active: current?.is_active ?? true,
+      });
+
+      // `is_active` solo cambia con PATCH /deactivate: al editar no se ofrece.
+      if (current) {
+        this.form.controls.is_active.disable();
+      } else {
+        this.form.controls.is_active.enable();
+      }
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const payload: RoutePayload = {
+      nombre: value.nombre.trim(),
+      mensajero_id: Number(value.mensajero_id),
+      zona_cobertura: value.zona_cobertura.trim() || null,
+      estado: value.estado,
+      fecha: value.fecha,
+      hora_inicio: value.hora_inicio || null,
+      hora_fin: value.hora_fin || null,
+    };
+
+    // `is_active` solo se envía al crear: en edición lo gobierna /deactivate.
+    this.saved.emit(this.route() ? payload : { ...payload, is_active: value.is_active });
+  }
+}
+```
+
+`src/app/features/routes/route-form/route-form.html`
+
+```html
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="route-nombre" class="mb-1 block text-sm font-medium text-slate-700">
+        Nombre <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="route-nombre"
+        pInputText
+        formControlName="nombre"
+        placeholder="Ruta norte mañana"
+        class="w-full"
+      />
+      @if (form.controls.nombre.touched && form.controls.nombre.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 120 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-mensajero-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Mensajero <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="route-mensajero-id"
+        formControlName="mensajero_id"
+        [options]="messengers()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.mensajero_id.touched && form.controls.mensajero_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-zona-cobertura" class="mb-1 block text-sm font-medium text-slate-700">
+        Zona de cobertura
+      </label>
+      <input
+        id="route-zona-cobertura"
+        pInputText
+        formControlName="zona_cobertura"
+        placeholder="Norte"
+        class="w-full"
+      />
+      @if (form.controls.zona_cobertura.touched && form.controls.zona_cobertura.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 100 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado de la ruta <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="route-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-fecha" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha <span class="text-red-500">*</span>
+      </label>
+      <input id="route-fecha" type="date" pInputText formControlName="fecha" class="w-full" />
+      @if (form.controls.fecha.touched && form.controls.fecha.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="route-hora-inicio" class="mb-1 block text-sm font-medium text-slate-700">
+        Hora de inicio
+      </label>
+      <input id="route-hora-inicio" type="time" pInputText formControlName="hora_inicio" class="w-full" />
+    </div>
+
+    <div>
+      <label for="route-hora-fin" class="mb-1 block text-sm font-medium text-slate-700">
+        Hora de fin
+      </label>
+      <input id="route-hora-fin" type="time" pInputText formControlName="hora_fin" class="w-full" />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="route-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="route-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (route()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+`src/app/features/routes/route-list/route-list.ts`
+
+```typescript
+import { DatePipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { forkJoin } from 'rxjs';
+import { Route, RoutePayload } from '../../../core/models/route.model';
+import { Messenger } from '../../../core/models/messenger.model';
+import { NotificationService } from '../../../core/services/notification';
+import { toApiMessage } from '../../../core/utils/api-error';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { humanize } from '../../../core/utils/labels';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { MessengerApi } from '../../messengers/messenger-api';
+import { RouteApi } from '../route-api';
+import { RouteForm } from '../route-form/route-form';
+
+/**
+ * Lista de rutas con todas las operaciones del CRUD.
+ *
+ * Todo el estado vive en signals: la tabla y los contadores se repintan solos y
+ * `visibleRows` se recalcula solo cuando cambian `rows()` o `filter()`.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-route-list',
+  imports: [ButtonModule, DatePipe, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, RouteForm, StatusTag, TableModule, TagModule, TooltipModule],
+  templateUrl: './route-list.html',
+  styleUrl: './route-list.css',
+})
+export class RouteList {
+  private readonly api = inject(RouteApi);
+  private readonly messengerApi = inject(MessengerApi);
+  private readonly notify = inject(NotificationService);
+  private readonly confirmation = inject(ConfirmationService);
+
+  /** Datos del backend (`GET /api/routes`). */
+  readonly rows = signal<Route[]>([]);
+  readonly messengers = signal<Messenger[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly filter = signal('');
+
+  /** Resultado de aplicar el buscador; `computed` lo memoriza. */
+  readonly visibleRows = computed(() =>
+    filterRows(this.rows(), this.filter(), (row) => [
+      row.nombre,
+      row.zona_cobertura,
+      row.estado,
+      this.messengerName()(row.mensajero_id),
+    ]),
+  );
+
+  /** `id → nombre` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly messengerName = computed(() => {
+    const names = new Map<number, string>(this.messengers().map((item) => [item.id, String(item.nombre)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<Route | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly title = computed(() => (this.editing() ? 'Editar ruta' : 'Nueva ruta'));
+
+  protected readonly humanize = humanize;
+
+  protected readonly estadoSeverity: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+    planificada: 'info',
+    en_curso: 'warn',
+    finalizada: 'success',
+  };
+
+  constructor() {
+    this.load();
+  }
+
+  /** `GET /api/routes`: recarga la tabla y limpia el error anterior. */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      rows: this.api.list(),
+      messengers: this.messengerApi.list(),
+    }).subscribe({
+      next: ({ rows, messengers }) => {
+        this.rows.set(rows);
+        this.messengers.set(messengers);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(row: Route): void {
+    this.editing.set(row);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  /**
+   * El mismo manejador para crear y editar: `editing()` decide el verbo.
+   * Tras el éxito se cierra el diálogo y se recarga (el backend es la verdad).
+   */
+  save(payload: RoutePayload): void {
+    const current = this.editing();
+    this.saving.set(true);
+
+    const request = current ? this.api.update(current.id, payload) : this.api.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(current ? 'Ruta actualizada' : 'Ruta creada');
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notify.error('No se pudo guardar', toApiMessage(error));
+      },
+    });
+  }
+
+  /** Baja lógica: `PATCH /:id/deactivate`. */
+  deactivate(row: Route): void {
+    this.confirmation.confirm({
+      header: 'Baja lógica',
+      message: `¿Desactivar ${row.nombre}? Su estado pasará a inactivo.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Desactivar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.api.deactivate(row.id).subscribe({
+          next: () => {
+            this.notify.warn('Ruta desactivada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo desactivar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+
+  /** Baja física: `DELETE /:id`. No se puede deshacer. */
+  remove(row: Route): void {
+    this.confirmation.confirm({
+      header: 'Eliminar definitivamente',
+      message: `Se borrará ${row.nombre} de la base de datos. Esta acción no se puede deshacer.`,
+      icon: 'pi pi-trash',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.api.remove(row.id).subscribe({
+          next: () => {
+            this.notify.success('Ruta eliminada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo eliminar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+`src/app/features/routes/route-list/route-list.html`
+
+```html
+<app-page-header
+  title="Rutas"
+  subtitle="Recorridos asignados a un mensajero, con fecha, horario y estado."
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nueva ruta</span>
+  </button>
+</app-page-header>
+
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-3xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar rutas"
+          placeholder="Buscar por nombre, zona, mensajero o estado…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="nombre">
+          <div class="flex items-center gap-1">Nombre <p-sort-icon field="nombre" /></div>
+        </th>
+        <th>Mensajero</th>
+        <th pSortableColumn="fecha">
+          <div class="flex items-center gap-1">Fecha <p-sort-icon field="fecha" /></div>
+        </th>
+        <th>Ruta</th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.nombre }}</p>
+          <p class="text-xs text-slate-400">{{ row.zona_cobertura || 'Sin zona' }}</p>
+        </td>
+        <td>
+          <span class="text-sm text-slate-700">{{ messengerName()(row.mensajero_id) }}</span>
+        </td>
+        <td>
+          <p class="text-sm text-slate-700">{{ row.fecha | date: 'dd/MM/yyyy' }}</p>
+          <p class="text-xs text-slate-400">{{ row.hora_inicio?.slice(0, 5) || '--:--' }} – {{ row.hora_fin?.slice(0, 5) || '--:--' }}</p>
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.estado)" [severity]="estadoSeverity[row.estado]" [rounded]="true" />
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              icon="pi pi-pencil"
+              aria-label="Editar ruta"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              icon="pi pi-ban"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              icon="pi pi-trash"
+              aria-label="Eliminar ruta"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="6">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-map"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nueva ruta» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-2xl mx-4"
+>
+  <app-route-form
+    [route]="editing()"
+    [messengers]="messengers()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>
+```
+
+Los dos `.css` (`route-form.css`, `route-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
+
+![alt text](img-express/crud_rutas.png)
