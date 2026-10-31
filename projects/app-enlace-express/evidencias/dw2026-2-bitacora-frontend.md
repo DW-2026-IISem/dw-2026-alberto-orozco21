@@ -11050,3 +11050,913 @@ export class TrackingEventList {
 Los dos `.css` (`tracking-event-form.css`, `tracking-event-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
 
 ![alt text](img-express/crud_evento_seguimiento.png)
+
+## ISS-13 · CRUD de Delivery_proofs
+
+**Particularidades**
+
+- El modelo admite **un comprobante por envío**: si intentas crear un segundo, el backend rechaza la petición y el mensaje llega como toast («No se pudo guardar»). No hace falta validarlo en la UI.
+- `firma_url` y `foto_url` son texto libre. No hay subida de archivos en `api-backend.md`; si el backend la ofrece más adelante, estos dos campos se reemplazan por un componente de carga.
+- La geolocalización son dos `p-inputnumber` con 7 decimales.
+
+**Archivos de esta pantalla**
+
+```bash
+ng generate component features/delivery-proofs/delivery-proof-list --skip-tests --defaults
+ng generate component features/delivery-proofs/delivery-proof-form --skip-tests --defaults
+```
+
+El CLI crea además `delivery-proof-list.spec.ts` y `delivery-proof-form.spec.ts` si no usas `--skip-tests`; las pruebas se tratan en 3.17.
+
+`src/app/features/delivery-proofs/delivery-proof-api.ts`
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { DeliveryProof, DeliveryProofPayload } from '../../core/models/delivery-proof.model';
+
+/** /delivery_proofs — la lista llega en `{ delivery_proofs }` y el detalle en `{ delivery_proof }`. */
+@Injectable({ providedIn: 'root' })
+export class DeliveryProofApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/delivery_proofs`;
+
+  list(): Observable<DeliveryProof[]> {
+    return this.http
+      .get<{ delivery_proofs: DeliveryProof[] }>(this.base)
+      .pipe(map((response) => response.delivery_proofs));
+  }
+
+  get(id: number): Observable<DeliveryProof> {
+    return this.http
+      .get<{ delivery_proof: DeliveryProof }>(`${this.base}/${id}`)
+      .pipe(map((response) => response.delivery_proof));
+  }
+
+  create(payload: DeliveryProofPayload): Observable<DeliveryProof> {
+    return this.http
+      .post<{ delivery_proof: DeliveryProof }>(this.base, payload)
+      .pipe(map((response) => response.delivery_proof));
+  }
+
+  update(id: number, payload: Partial<DeliveryProofPayload>): Observable<DeliveryProof> {
+    return this.http
+      .patch<{ delivery_proof: DeliveryProof }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.delivery_proof));
+  }
+
+  replace(id: number, payload: DeliveryProofPayload): Observable<DeliveryProof> {
+    return this.http
+      .put<{ delivery_proof: DeliveryProof }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.delivery_proof));
+  }
+
+  deactivate(id: number): Observable<unknown> {
+    return this.http.patch(`${this.base}/${id}/deactivate`, {});
+  }
+
+  remove(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/${id}`);
+  }
+}
+```
+
+`src/app/features/delivery-proofs/delivery-proof-form/delivery-proof-form.ts`
+
+```typescript
+import { Component, effect, inject, input, output } from '@angular/core';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { TextareaModule } from 'primeng/textarea';
+import { DeliveryProof, DeliveryProofPayload, DeliveryProofStatus } from '../../../core/models/delivery-proof.model';
+import { Shipment } from '../../../core/models/shipment.model';
+import { toDateTimeInput, toNumberOrNull } from '../../../core/utils/form-values';
+
+/**
+ * Formulario de comprobante de entrega, reutilizado para crear y editar.
+ *
+ * No llama a la API: recibe `deliveryProof` (o `null` para crear) y emite el payload con
+ * `saved`. El padre decide entre `POST` y `PATCH` y controla el diálogo.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-delivery-proof-form',
+  imports: [MessageModule, ReactiveFormsModule, ButtonModule, InputTextModule, TextareaModule, InputNumberModule, SelectModule],
+  templateUrl: './delivery-proof-form.html',
+  styleUrl: './delivery-proof-form.css',
+})
+export class DeliveryProofForm {
+  /** Registro a editar. `null` deja el formulario en modo creación. */
+  readonly deliveryProof = input<DeliveryProof | null>(null);
+
+  readonly shipments = input<Shipment[]>([]);
+
+  /** Cambia cada vez que el padre abre el diálogo: reinicia el formulario. */
+  readonly resetKey = input(0);
+
+  /** Petición en curso: deshabilita el botón y muestra su spinner. */
+  readonly saving = input(false);
+
+  readonly saved = output<DeliveryProofPayload>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly estadoOptions: { label: string; value: DeliveryProofStatus }[] = [
+    { label: 'Válida', value: 'valida' },
+    { label: 'Observada', value: 'observada' },
+    { label: 'Rechazada', value: 'rechazada' },
+  ];
+
+  readonly activeOptions = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+
+  readonly form = this.fb.group({
+    envio_id: [null as number | null, [Validators.required]],
+    fecha_hora: ['', [Validators.required]],
+    receptor_nombre: ['', [Validators.required, Validators.maxLength(120)]],
+    receptor_documento: ['', [Validators.maxLength(30)]],
+    estado: ['valida' as DeliveryProofStatus, [Validators.required]],
+    firma_url: ['', [Validators.maxLength(255)]],
+    foto_url: ['', [Validators.maxLength(255)]],
+    geolocalizacion_lat: [null as number | null, [Validators.min(-90), Validators.max(90)]],
+    geolocalizacion_lng: [null as number | null, [Validators.min(-180), Validators.max(180)]],
+    observaciones: ['', [Validators.maxLength(500)]],
+    is_active: [true],
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.deliveryProof();
+      // `resetKey` se lee a propósito: abrir de nuevo el diálogo debe vaciar el formulario.
+      this.resetKey();
+
+      this.form.reset({
+        envio_id: current?.envio_id ?? null,
+        fecha_hora: toDateTimeInput(current?.fecha_hora),
+        receptor_nombre: current?.receptor_nombre ?? '',
+        receptor_documento: current?.receptor_documento ?? '',
+        estado: current?.estado ?? 'valida',
+        firma_url: current?.firma_url ?? '',
+        foto_url: current?.foto_url ?? '',
+        geolocalizacion_lat: toNumberOrNull(current?.geolocalizacion_lat),
+        geolocalizacion_lng: toNumberOrNull(current?.geolocalizacion_lng),
+        observaciones: current?.observaciones ?? '',
+        is_active: current?.is_active ?? true,
+      });
+
+      // `is_active` solo cambia con PATCH /deactivate: al editar no se ofrece.
+      if (current) {
+        this.form.controls.is_active.disable();
+      } else {
+        this.form.controls.is_active.enable();
+      }
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const payload: DeliveryProofPayload = {
+      envio_id: Number(value.envio_id),
+      fecha_hora: new Date(value.fecha_hora).toISOString(),
+      receptor_nombre: value.receptor_nombre.trim(),
+      receptor_documento: value.receptor_documento.trim() || null,
+      estado: value.estado,
+      firma_url: value.firma_url.trim() || null,
+      foto_url: value.foto_url.trim() || null,
+      geolocalizacion_lat: value.geolocalizacion_lat,
+      geolocalizacion_lng: value.geolocalizacion_lng,
+      observaciones: value.observaciones.trim() || null,
+    };
+
+    // `is_active` solo se envía al crear: en edición lo gobierna /deactivate.
+    this.saved.emit(this.deliveryProof() ? payload : { ...payload, is_active: value.is_active });
+  }
+}
+```
+
+`src/app/features/delivery-proofs/delivery-proof-form/delivery-proof-form.html`
+
+```html
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="delivery-proof-envio-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Envío <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="delivery-proof-envio-id"
+        formControlName="envio_id"
+        [options]="shipments()"
+        optionLabel="numero_guia"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.envio_id.touched && form.controls.envio_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-fecha-hora" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha y hora de entrega <span class="text-red-500">*</span>
+      </label>
+      <input id="delivery-proof-fecha-hora" type="datetime-local" pInputText formControlName="fecha_hora" class="w-full" />
+      @if (form.controls.fecha_hora.touched && form.controls.fecha_hora.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-receptor-nombre" class="mb-1 block text-sm font-medium text-slate-700">
+        Nombre del receptor <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="delivery-proof-receptor-nombre"
+        pInputText
+        formControlName="receptor_nombre"
+        placeholder="Juan Gómez"
+        class="w-full"
+      />
+      @if (form.controls.receptor_nombre.touched && form.controls.receptor_nombre.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 120 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-receptor-documento" class="mb-1 block text-sm font-medium text-slate-700">
+        Documento del receptor
+      </label>
+      <input
+        id="delivery-proof-receptor-documento"
+        pInputText
+        formControlName="receptor_documento"
+        placeholder="1234567890"
+        class="w-full"
+      />
+      @if (form.controls.receptor_documento.touched && form.controls.receptor_documento.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 30 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado del comprobante <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="delivery-proof-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-firma-url" class="mb-1 block text-sm font-medium text-slate-700">
+        URL de la firma
+      </label>
+      <input
+        id="delivery-proof-firma-url"
+        pInputText
+        formControlName="firma_url"
+        placeholder="https://…"
+        class="w-full"
+      />
+      @if (form.controls.firma_url.touched && form.controls.firma_url.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 255 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-foto-url" class="mb-1 block text-sm font-medium text-slate-700">
+        URL de la foto
+      </label>
+      <input
+        id="delivery-proof-foto-url"
+        pInputText
+        formControlName="foto_url"
+        placeholder="https://…"
+        class="w-full"
+      />
+      @if (form.controls.foto_url.touched && form.controls.foto_url.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 255 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-geolocalizacion-lat" class="mb-1 block text-sm font-medium text-slate-700">
+        Latitud
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="delivery-proof-geolocalizacion-lat"
+        formControlName="geolocalizacion_lat"
+        mode="decimal"
+        [min]="-90"
+        [max]="90"
+        [useGrouping]="false"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="7"
+      />
+      @if (form.controls.geolocalizacion_lat.touched && form.controls.geolocalizacion_lat.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo -90, máximo 90).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="delivery-proof-geolocalizacion-lng" class="mb-1 block text-sm font-medium text-slate-700">
+        Longitud
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="delivery-proof-geolocalizacion-lng"
+        formControlName="geolocalizacion_lng"
+        mode="decimal"
+        [min]="-180"
+        [max]="180"
+        [useGrouping]="false"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="7"
+      />
+      @if (form.controls.geolocalizacion_lng.touched && form.controls.geolocalizacion_lng.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo -180, máximo 180).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-observaciones" class="mb-1 block text-sm font-medium text-slate-700">
+        Observaciones
+      </label>
+      <textarea
+        id="delivery-proof-observaciones"
+        pTextarea
+        formControlName="observaciones"
+        rows="2"
+        placeholder=""
+        class="w-full"
+      ></textarea>
+      @if (form.controls.observaciones.touched && form.controls.observaciones.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 500 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="delivery-proof-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="delivery-proof-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (deliveryProof()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+`src/app/features/delivery-proofs/delivery-proof-list/delivery-proof-list.ts`
+
+```typescript
+import { DatePipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { forkJoin } from 'rxjs';
+import { DeliveryProof, DeliveryProofPayload } from '../../../core/models/delivery-proof.model';
+import { Shipment } from '../../../core/models/shipment.model';
+import { NotificationService } from '../../../core/services/notification';
+import { toApiMessage } from '../../../core/utils/api-error';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { humanize } from '../../../core/utils/labels';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { ShipmentApi } from '../../shipments/shipment-api';
+import { DeliveryProofApi } from '../delivery-proof-api';
+import { DeliveryProofForm } from '../delivery-proof-form/delivery-proof-form';
+
+/**
+ * Lista de comprobantes de entrega con todas las operaciones del CRUD.
+ *
+ * Todo el estado vive en signals: la tabla y los contadores se repintan solos y
+ * `visibleRows` se recalcula solo cuando cambian `rows()` o `filter()`.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-delivery-proof-list',
+  imports: [ButtonModule, DatePipe, DeliveryProofForm, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  templateUrl: './delivery-proof-list.html',
+  styleUrl: './delivery-proof-list.css',
+})
+export class DeliveryProofList {
+  private readonly api = inject(DeliveryProofApi);
+  private readonly shipmentApi = inject(ShipmentApi);
+  private readonly notify = inject(NotificationService);
+  private readonly confirmation = inject(ConfirmationService);
+
+  /** Datos del backend (`GET /api/delivery_proofs`). */
+  readonly rows = signal<DeliveryProof[]>([]);
+  readonly shipments = signal<Shipment[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly filter = signal('');
+
+  /** Resultado de aplicar el buscador; `computed` lo memoriza. */
+  readonly visibleRows = computed(() =>
+    filterRows(this.rows(), this.filter(), (row) => [
+      row.receptor_nombre,
+      row.receptor_documento,
+      row.estado,
+      this.shipmentName()(row.envio_id),
+    ]),
+  );
+
+  /** `id → numero_guia` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly shipmentName = computed(() => {
+    const names = new Map<number, string>(this.shipments().map((item) => [item.id, String(item.numero_guia)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<DeliveryProof | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly title = computed(() => (this.editing() ? 'Editar comprobante de entrega' : 'Nuevo comprobante de entrega'));
+
+  protected readonly humanize = humanize;
+
+  protected readonly estadoSeverity: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+    valida: 'success',
+    observada: 'warn',
+    rechazada: 'danger',
+  };
+
+  constructor() {
+    this.load();
+  }
+
+  /** `GET /api/delivery_proofs`: recarga la tabla y limpia el error anterior. */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      rows: this.api.list(),
+      shipments: this.shipmentApi.list(),
+    }).subscribe({
+      next: ({ rows, shipments }) => {
+        this.rows.set(rows);
+        this.shipments.set(shipments);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(row: DeliveryProof): void {
+    this.editing.set(row);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  /**
+   * El mismo manejador para crear y editar: `editing()` decide el verbo.
+   * Tras el éxito se cierra el diálogo y se recarga (el backend es la verdad).
+   */
+  save(payload: DeliveryProofPayload): void {
+    const current = this.editing();
+    this.saving.set(true);
+
+    const request = current ? this.api.update(current.id, payload) : this.api.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(current ? 'Comprobante de entrega actualizado' : 'Comprobante de entrega creado');
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notify.error('No se pudo guardar', toApiMessage(error));
+      },
+    });
+  }
+
+  /** Baja lógica: `PATCH /:id/deactivate`. */
+  deactivate(row: DeliveryProof): void {
+    this.confirmation.confirm({
+      header: 'Baja lógica',
+      message: `¿Desactivar ${'el comprobante #' + row.id}? Su estado pasará a inactivo.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Desactivar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.api.deactivate(row.id).subscribe({
+          next: () => {
+            this.notify.warn('Comprobante de entrega desactivado');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo desactivar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+
+  /** Baja física: `DELETE /:id`. No se puede deshacer. */
+  remove(row: DeliveryProof): void {
+    this.confirmation.confirm({
+      header: 'Eliminar definitivamente',
+      message: `Se borrará ${'el comprobante #' + row.id} de la base de datos. Esta acción no se puede deshacer.`,
+      icon: 'pi pi-trash',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.api.remove(row.id).subscribe({
+          next: () => {
+            this.notify.success('Comprobante de entrega eliminado');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo eliminar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+`src/app/features/delivery-proofs/delivery-proof-list/delivery-proof-list.html`
+
+```html
+<app-page-header
+  title="Comprobantes de entrega"
+  subtitle="Evidencia de entrega de cada envío: receptor, firma, foto y geolocalización."
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nuevo comprobante de entrega</span>
+  </button>
+</app-page-header>
+
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-3xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar comprobantes de entrega"
+          placeholder="Buscar por envío, receptor, documento o estado…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th>Envío</th>
+        <th>Receptor</th>
+        <th pSortableColumn="fecha_hora">
+          <div class="flex items-center gap-1">Fecha <p-sort-icon field="fecha_hora" /></div>
+        </th>
+        <th>Comprobante</th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ shipmentName()(row.envio_id) }}</p>
+          <p class="text-xs text-slate-400">Comprobante #{{ row.id }}</p>
+        </td>
+        <td>
+          <p class="text-sm text-slate-700">{{ row.receptor_nombre }}</p>
+          <p class="text-xs text-slate-400">{{ row.receptor_documento || 'Sin documento' }}</p>
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ row.fecha_hora | date: 'dd/MM/yyyy HH:mm' }}</span>
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.estado)" [severity]="estadoSeverity[row.estado]" [rounded]="true" />
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              icon="pi pi-pencil"
+              aria-label="Editar comprobante de entrega"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              icon="pi pi-ban"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              icon="pi pi-trash"
+              aria-label="Eliminar comprobante de entrega"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="6">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-check-square"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nuevo comprobante de entrega» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-3xl mx-4"
+>
+  <app-delivery-proof-form
+    [deliveryProof]="editing()"
+    [shipments]="shipments()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>
+```
+
+Los dos `.css` (`delivery-proof-form.css`, `delivery-proof-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
+
+### 3.15 Rutas de Angular
+
+Todas son hijas de `Shell`, así que el Header, el Aside y el Footer se montan una sola vez y solo cambia el contenido central. `app.routes.ts` conserva `construir`, la redirección de `''` a `envios` y el comodín, tal como quedó en ISS-02; **solo cambia la lista `children`**:
+
+`src/app/app.routes.ts`
+
+```typescript
+import { Routes } from '@angular/router';
+
+export const routes: Routes = [
+  {
+    path: 'construir',
+    loadComponent: () =>
+      import('./features/construir/construir').then((m) => m.Construir),
+  },
+  {
+    path: '',
+    loadComponent: () => import('./layout/shell/shell').then((m) => m.Shell),
+    children: [
+      // La primera pantalla de negocio es la redirección por defecto.
+      // ISS-07 añadirá aquí un resumen logístico derivado de datos permitidos.
+      { path: '', pathMatch: 'full', redirectTo: 'envios' },
+
+      {
+        path: 'empresas',
+        title: 'Empresas · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/companies/company-list/company-list').then((m) => m.CompanyList),
+      },
+      {
+        path: 'contactos',
+        title: 'Contactos · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/contacts/contact-list/contact-list').then((m) => m.ContactList),
+      },
+      {
+        path: 'direcciones',
+        title: 'Direcciones · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/addresses/address-list/address-list').then((m) => m.AddressList),
+      },
+      {
+        path: 'mensajeros',
+        title: 'Mensajeros · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/messengers/messenger-list/messenger-list').then((m) => m.MessengerList),
+      },
+      {
+        path: 'tarifas',
+        title: 'Tarifas · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/rates/rate-list/rate-list').then((m) => m.RateList),
+      },
+      {
+        path: 'rutas',
+        title: 'Rutas · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/routes/route-list/route-list').then((m) => m.RouteList),
+      },
+      {
+        path: 'envios',
+        title: 'Envíos · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/shipments/shipment-list/shipment-list').then((m) => m.ShipmentList),
+      },
+      {
+        path: 'paquetes',
+        title: 'Paquetes · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/packages/package-list/package-list').then((m) => m.PackageList),
+      },
+      {
+        path: 'eventos-seguimiento',
+        title: 'Eventos de seguimiento · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/tracking-events/tracking-event-list/tracking-event-list').then((m) => m.TrackingEventList),
+      },
+      {
+        path: 'comprobantes-entrega',
+        title: 'Comprobantes de entrega · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/delivery-proofs/delivery-proof-list/delivery-proof-list').then((m) => m.DeliveryProofList),
+      },
+      {
+        path: 'facturas',
+        title: 'Facturas · EnlaceExpress',
+        loadComponent: () =>
+          import('./features/invoices/invoice-list/invoice-list').then((m) => m.InvoiceList),
+      },
+    ],
+  },
+  { path: '**', redirectTo: 'construir' },
+];
+```
+
+`loadComponent` mantiene cada pantalla en su propio chunk diferido: el bundle inicial no crece al añadir las 11.
+
+### 3.16 Menú: solo se conectan las entradas que ya existen
+
+El menú de `Construir` (ISS-01B) ya define la estructura: grupo **Operación** con las 11 entidades y grupo **Administración** con 6. Esa estructura, sus etiquetas y sus iconos **no se cambian**. En `Shell` solo se sustituye el menú provisional de ISS-02 (`Envíos` y `Prototipo`) por el mismo grupo *Operación*, con `routerLink` en lugar de `command`:
+
+`src/app/layout/shell/shell.ts` — únicamente el arreglo `items`:
+
+```typescript
+  /** Mismas entradas, etiquetas e iconos que el menú de `Construir`; aquí navegan de verdad. */
+  readonly items: MenuItem[] = [
+    {
+      label: 'Operación',
+      icon: 'pi pi-truck',
+      items: [
+        { label: 'Empresas', icon: 'pi pi-building', routerLink: '/empresas' },
+        { label: 'Contactos', icon: 'pi pi-id-card', routerLink: '/contactos' },
+        { label: 'Direcciones', icon: 'pi pi-map-marker', routerLink: '/direcciones' },
+        { label: 'Mensajeros', icon: 'pi pi-send', routerLink: '/mensajeros' },
+        { label: 'Tarifas', icon: 'pi pi-dollar', routerLink: '/tarifas' },
+        { label: 'Rutas', icon: 'pi pi-map', routerLink: '/rutas' },
+        { label: 'Envíos', icon: 'pi pi-box', routerLink: '/envios' },
+        { label: 'Paquetes', icon: 'pi pi-inbox', routerLink: '/paquetes' },
+        { label: 'Eventos de seguimiento', icon: 'pi pi-history', routerLink: '/eventos-seguimiento' },
+        { label: 'Comprobantes de entrega', icon: 'pi pi-check-square', routerLink: '/comprobantes-entrega' },
+        { label: 'Facturas', icon: 'pi pi-file', routerLink: '/facturas' },
+      ],
+    },
+    { label: 'Prototipo', icon: 'pi pi-desktop', routerLink: '/construir' },
+  ];
+```
+
+![alt text](img-express/crud_prueba_entrega.png)
