@@ -5,7 +5,8 @@ export function toApiMessage(error: unknown): string {
     const body = error.error as { error?: string; detail?: string } | string | null;
 
     if (error.status === 0) {
-      return 'No se pudo conectar con el backend. Verifica que esté en http://localhost:4000.';
+      const endpoint = error.url ? ` Solicitud: ${error.url}.` : '';
+      return `No se pudo conectar con el backend. Verifica que esté en http://localhost:4000.${endpoint}`;
     }
     if (error.status === 403) {
       return 'No tienes permiso para realizar esta acción.';

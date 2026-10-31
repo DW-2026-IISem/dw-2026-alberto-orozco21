@@ -3315,3 +3315,887 @@ npm test -- --watch=false
 ```
 
 ![alt text](<img-angular/verificar iss-02.png>)
+
+## ISS-03 · CRUD de Companies con Signals
+
+**Fase: I · Bloqueado por: ISS-02 · Habilita: ISS-07 (dashboard) y Fase II (ISS-08 sesión, ISS-09 protección)**
+
+**Dos decisiones propias de EnlaceExpress**, ausentes en la guía de ejemplo y necesarias aquí:
+
+1. **Fechas con inputs nativos** (`type="date"`, `"time"`, `"datetime-local"`) en lugar de `p-datepicker`: entregan un `string` que el backend ya espera y evitan los desfases de zona horaria de `Date`. Las conversiones viven en `core/utils/form-values.ts` (3.2).
+
+2. **Selects dependientes de la empresa.** El backend relaciona contactos y direcciones con una empresa, así que el formulario de Empresa ofrece solo *sus* contactos/direcciones y el de Envío filtra el origen por la empresa elegida.
+
+### 3.1 Verificar el contrato del backend
+
+`api-backend.md` fija rutas y campos, pero no el nombre de la clave con la que Express envuelve cada respuesta (`{ companies }`, `{ shipment }`…). La bitácora (ISS-02) confirma `companies` para empresas, `addresses` en la lista de direcciones y `shipment` en el detalle de envíos; el resto sigue la misma convención y **hay que confirmarlo**. Con el backend corriendo:
+
+```bash
+for r in companies contacts address messengers rates routes shipments packages tracking_events delivery_proofs invoices; do
+  echo -n "/api/$r → "
+  curl -s "http://localhost:4000/api/$r" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(Object.keys(JSON.parse(s)).join(', '))}catch{console.log('respuesta no JSON')}})"
+done
+```
+
+Compara cada línea con esta tabla. Si alguna clave difiere, **solo cambia el nombre en el servicio de esa entidad** (`list()`, `get()`, `create()`…): ningún componente conoce la envoltura, esa es la razón de desenvolver en el `.pipe(map(...))`.
+
+| Recurso | Clave de la lista (`list()`) | Clave de un registro (`get/create/update`) |
+|---|---|---|
+| `/companies` | `companies` ✔ (bitácora) | `companies` ✔ (bitácora) |
+| `/contacts` | `contacts` | `contact` |
+| `/address` | `addresses` ✔ (bitácora) | `address` |
+| `/messengers` | `messengers` | `messenger` |
+| `/rates` | `rates` | `rate` |
+| `/routes` | `routes` | `route` |
+| `/shipments` | `shipments` | `shipment` ✔ (bitácora) |
+| `/packages` | `packages` | `package` |
+| `/tracking_events` | `tracking_events` | `tracking_event` |
+| `/delivery_proofs` | `delivery_proofs` | `delivery_proof` |
+| `/invoices` | `invoices` | `invoice` |
+
+### 3.2 Utilidades compartidas (se crean una sola vez)
+
+Tres archivos en `src/app/core/utils/`, junto a `api-error.ts` y `media-query.ts`. Son funciones puras: se prueban sin montar nada.
+
+`src/app/core/utils/filter-rows.ts` — idéntico al de la guía de ejemplo (PrimeNG 22 eliminó `globalFilter`):
+
+```typescript
+/**
+ * Filtro local reutilizable para tablas PrimeNG 22.
+ *
+ * PrimeNG 22 eliminó el input `globalFilter` de `p-table`, así que filtramos el
+ * arreglo **antes** de entregarlo a `[value]`. Es una función pura: no depende
+ * del DOM, de la tabla ni de Angular, y por eso se prueba sin montar nada.
+ */
+export function filterRows<T>(
+  rows: readonly T[],
+  query: string,
+  pick: (row: T) => Array<string | number | null | undefined>,
+): T[] {
+  const term = query.trim().toLowerCase();
+
+  // Sin término se devuelve una copia: el llamador puede mutar el resultado sin
+  // tocar el arreglo original que vive en el signal.
+  if (!term) {
+    return [...rows];
+  }
+
+  return rows.filter((row) =>
+    pick(row).some((value) => (value ?? '').toString().toLowerCase().includes(term)),
+  );
+}
+```
+
+`src/app/core/utils/form-values.ts` — puente entre el modelo (DECIMAL como `number | string`, fechas como `string`) y los controles del formulario:
+
+```typescript
+import { Money } from '../models/api.model';
+
+/** DECIMAL llega como `number` o `string`; `p-inputnumber` necesita `number | null`. */
+export function toNumberOrNull(value: Money | null | undefined): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** `2026-10-31` o `2026-10-31T00:00:00Z` → `2026-10-31` (valor de `<input type="date">`). */
+export function toDateInput(value: string | null | undefined): string {
+  return value ? value.slice(0, 10) : '';
+}
+
+/** `08:30:00` → `08:30` (valor de `<input type="time">`). */
+export function toTimeInput(value: string | null | undefined): string {
+  return value ? value.slice(0, 5) : '';
+}
+
+/** ISO → `2026-10-31T15:30` en hora local (valor de `<input type="datetime-local">`). */
+export function toDateTimeInput(value: string | null | undefined): string {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}
+
+/** Hora local del input → ISO UTC para el backend. Vacío → `null`. */
+export function fromDateTimeInput(value: string): string | null {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+```
+
+`src/app/core/utils/labels.ts` — los enums del backend llegan como `en_ruta`, `con_novedad`…; la UI los muestra legibles:
+
+```typescript
+/** `con_novedad` → `Con novedad`. */
+export function humanize(value: string | null | undefined): string {
+  const text = (value ?? '').replaceAll('_', ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+```
+
+Pruebas de las dos primeras:
+
+`src/app/core/utils/filter-rows.spec.ts`
+
+```typescript
+import { filterRows } from './filter-rows';
+
+interface Row {
+  name: string;
+  note: string | null;
+}
+const ROWS: Row[] = [
+  { name: 'Alfa', note: 'Primera' },
+  { name: 'Beta', note: null },
+];
+const pick = (row: Row) => [row.name, row.note];
+
+describe('filterRows', () => {
+  it('should return a copy when there is no term', () => {
+    const result = filterRows(ROWS, '   ', pick);
+    expect(result).toEqual(ROWS);
+    expect(result).not.toBe(ROWS);
+  });
+
+  it('should match ignoring case', () => {
+    expect(filterRows(ROWS, 'ALFA', pick)).toEqual([ROWS[0]]);
+  });
+
+  it('should tolerate null values', () => {
+    expect(filterRows(ROWS, 'prim', pick)).toEqual([ROWS[0]]);
+  });
+
+  it('should return an empty array when nothing matches', () => {
+    expect(filterRows(ROWS, 'zzz', pick)).toEqual([]);
+  });
+
+  it('should trim the term', () => {
+    expect(filterRows(ROWS, '  beta ', pick)).toEqual([ROWS[1]]);
+  });
+});
+```
+
+`src/app/core/utils/form-values.spec.ts`
+
+```typescript
+import {
+  fromDateTimeInput,
+  toDateInput,
+  toDateTimeInput,
+  toNumberOrNull,
+  toTimeInput,
+} from './form-values';
+
+describe('form-values', () => {
+  it('should normalize DECIMAL strings and nulls', () => {
+    expect(toNumberOrNull('12.50')).toBe(12.5);
+    expect(toNumberOrNull(7)).toBe(7);
+    expect(toNumberOrNull(null)).toBeNull();
+    expect(toNumberOrNull('')).toBeNull();
+  });
+
+  it('should cut dates and times for native inputs', () => {
+    expect(toDateInput('2026-10-31T00:00:00.000Z')).toBe('2026-10-31');
+    expect(toDateInput(null)).toBe('');
+    expect(toTimeInput('08:30:00')).toBe('08:30');
+  });
+
+  it('should round-trip a date-time through the local input', () => {
+    const iso = '2026-10-31T15:30:00.000Z';
+    expect(fromDateTimeInput(toDateTimeInput(iso))).toBe(iso);
+    expect(fromDateTimeInput('')).toBeNull();
+  });
+});
+```
+
+### 3.3 El patrón, una vez
+
+Cada entidad se compone de **cinco archivos** (más el `.css` vacío de cada componente), con la misma responsabilidad que en la guía de ejemplo:
+
+```
+features/<recurso>/
+├── <recurso>-api.ts          # contrato HTTP: desenvuelve la respuesta
+├── <recurso>-form/
+│   ├── <recurso>-form.ts     # Reactive Forms; NO llama a la API; emite `saved`
+│   ├── <recurso>-form.html
+│   └── <recurso>-form.css    # sin reglas
+└── <recurso>-list/
+    ├── <recurso>-list.ts     # estado en signals + llamadas a la API
+    ├── <recurso>-list.html   # p-table + p-dialog con el formulario
+    └── <recurso>-list.css    # sin reglas
+```
+
+### 3.4 Empresas — `/api/companies`
+
+**Es la entidad de referencia.** Léela completa: el resto repite la misma estructura. Todo lo que se explica aquí vale para las diez siguientes.
+
+**Particularidades**
+
+- `contacto_principal_id` y `direccion_facturacion_id` apuntan a `Contact` y `Address`, que a su vez necesitan una empresa. Por eso esos dos selects **solo se habilitan al editar** (la empresa ya existe) y solo ofrecen contactos/direcciones de *esa* empresa (`contactOptions`, `addressOptions`). Al crear se deshabilitan y no viajan en el payload.
+- El orden natural de trabajo es: crear la empresa → crear su contacto y su dirección → volver a editar la empresa para fijar el principal y la facturación.
+- `is_active` se elige solo al crear. En edición el control queda deshabilitado: el cambio de estado se hace con la baja lógica.
+
+**Archivos de esta pantalla**
+
+```bash
+ng generate component features/companies/company-list --skip-tests --defaults
+ng generate component features/companies/company-form --skip-tests --defaults
+```
+
+El CLI crea además `company-list.spec.ts` y `company-form.spec.ts` si no usas `--skip-tests`; las pruebas se tratan en 3.17.
+
+`src/app/features/companies/company-api.ts`
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { Company, CompanyPayload } from '../../core/models/company.model';
+
+/** /companies — la lista llega en `{ companies }` y el detalle en `{ companies }`. */
+@Injectable({ providedIn: 'root' })
+export class CompanyApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/companies`;
+
+  list(): Observable<Company[]> {
+    return this.http
+      .get<{ companies: Company[] }>(this.base)
+      .pipe(map((response) => response.companies));
+  }
+
+  get(id: number): Observable<Company> {
+    return this.http
+      .get<{ companies: Company }>(`${this.base}/${id}`)
+      .pipe(map((response) => response.companies));
+  }
+
+  create(payload: CompanyPayload): Observable<Company> {
+    return this.http
+      .post<{ companies: Company }>(this.base, payload)
+      .pipe(map((response) => response.companies));
+  }
+
+  update(id: number, payload: Partial<CompanyPayload>): Observable<Company> {
+    return this.http
+      .patch<{ companies: Company }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.companies));
+  }
+
+  replace(id: number, payload: CompanyPayload): Observable<Company> {
+    return this.http
+      .put<{ companies: Company }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.companies));
+  }
+
+  deactivate(id: number): Observable<unknown> {
+    return this.http.patch(`${this.base}/${id}/deactivate`, {});
+  }
+
+  remove(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/${id}`);
+  }
+}
+```
+
+`src/app/features/companies/company-form/company-form.ts`
+
+```typescript
+import { Component, computed, effect, inject, input, output } from '@angular/core';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { Company, CompanyPayload } from '../../../core/models/company.model';
+import { Contact } from '../../../core/models/contact.model';
+import { Address } from '../../../core/models/address.model';
+
+/**
+ * Formulario de empresa, reutilizado para crear y editar.
+ *
+ * No llama a la API: recibe `company` (o `null` para crear) y emite el payload con
+ * `saved`. El padre decide entre `POST` y `PATCH` y controla el diálogo.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-company-form',
+  imports: [MessageModule, ReactiveFormsModule, ButtonModule, InputTextModule, SelectModule],
+  templateUrl: './company-form.html',
+  styleUrl: './company-form.css',
+})
+export class CompanyForm {
+  /** Registro a editar. `null` deja el formulario en modo creación. */
+  readonly company = input<Company | null>(null);
+
+  readonly contacts = input<Contact[]>([]);
+  readonly addresses = input<Address[]>([]);
+
+  /** Cambia cada vez que el padre abre el diálogo: reinicia el formulario. */
+  readonly resetKey = input(0);
+
+  /** Petición en curso: deshabilita el botón y muestra su spinner. */
+  readonly saving = input(false);
+
+  readonly saved = output<CompanyPayload>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly activeOptions = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+
+  readonly form = this.fb.group({
+    nit: ['', [Validators.required, Validators.maxLength(30)]],
+    razon_social: ['', [Validators.required, Validators.maxLength(150)]],
+    contacto_principal_id: [null as number | null],
+    direccion_facturacion_id: [null as number | null],
+    is_active: [true],
+  });
+
+  /** Contactos de ESTA empresa: el backend exige que el principal le pertenezca. */
+  readonly contactOptions = computed(() => {
+    const current = this.company();
+    return current ? this.contacts().filter((contact) => contact.empresa_id === current.id) : [];
+  });
+
+  /** Direcciones de ESTA empresa, para la dirección de facturación. */
+  readonly addressOptions = computed(() => {
+    const current = this.company();
+    return current ? this.addresses().filter((address) => address.empresa_id === current.id) : [];
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.company();
+      // `resetKey` se lee a propósito: abrir de nuevo el diálogo debe vaciar el formulario.
+      this.resetKey();
+
+      this.form.reset({
+        nit: current?.nit ?? '',
+        razon_social: current?.razon_social ?? '',
+        contacto_principal_id: current?.contacto_principal_id ?? null,
+        direccion_facturacion_id: current?.direccion_facturacion_id ?? null,
+        is_active: current?.is_active ?? true,
+      });
+
+      // `is_active` solo cambia con PATCH /deactivate: al editar no se ofrece.
+      if (current) {
+        this.form.controls.is_active.disable();
+        this.form.controls.contacto_principal_id.enable();
+        this.form.controls.direccion_facturacion_id.enable();
+      } else {
+        this.form.controls.is_active.enable();
+        this.form.controls.contacto_principal_id.disable();
+        this.form.controls.direccion_facturacion_id.disable();
+      }
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const payload: CompanyPayload = {
+      nit: value.nit.trim(),
+      razon_social: value.razon_social.trim(),
+    };
+
+    // `is_active` solo se envía al crear: en edición lo gobierna /deactivate.
+    const current = this.company();
+    this.saved.emit(
+      current
+        ? { ...payload, contacto_principal_id: value.contacto_principal_id, direccion_facturacion_id: value.direccion_facturacion_id }
+        : { ...payload, is_active: value.is_active },
+    );
+  }
+}
+```
+
+`src/app/features/companies/company-form/company-form.html`
+
+```html
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="company-nit" class="mb-1 block text-sm font-medium text-slate-700">
+        NIT <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="company-nit"
+        pInputText
+        formControlName="nit"
+        placeholder="900123456-7"
+        class="w-full"
+      />
+      @if (form.controls.nit.touched && form.controls.nit.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 30 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="company-razon-social" class="mb-1 block text-sm font-medium text-slate-700">
+        Razón social <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="company-razon-social"
+        pInputText
+        formControlName="razon_social"
+        placeholder="Distribuidora La Costa S.A.S."
+        class="w-full"
+      />
+      @if (form.controls.razon_social.touched && form.controls.razon_social.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 150 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="company-contacto-principal-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Contacto principal
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="company-contacto-principal-id"
+        formControlName="contacto_principal_id"
+        [options]="contactOptions()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+      <p class="mt-1 text-xs text-slate-500">Solo al editar: el contacto debe pertenecer a esta empresa.</p>
+    </div>
+
+    <div>
+      <label for="company-direccion-facturacion-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Dirección de facturación
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="company-direccion-facturacion-id"
+        formControlName="direccion_facturacion_id"
+        [options]="addressOptions()"
+        optionLabel="alias"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+      <p class="mt-1 text-xs text-slate-500">Solo al editar: la dirección debe pertenecer a esta empresa.</p>
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="company-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="company-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (company()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+`src/app/features/companies/company-list/company-list.ts`
+
+```typescript
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { forkJoin } from 'rxjs';
+import { Company, CompanyPayload } from '../../../core/models/company.model';
+import { Contact } from '../../../core/models/contact.model';
+import { Address } from '../../../core/models/address.model';
+import { NotificationService } from '../../../core/services/notification';
+import { toApiMessage } from '../../../core/utils/api-error';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { ContactApi } from '../../contacts/contact-api';
+import { AddressApi } from '../../addresses/address-api';
+import { CompanyApi } from '../company-api';
+import { CompanyForm } from '../company-form/company-form';
+
+/**
+ * Lista de empresas con todas las operaciones del CRUD.
+ *
+ * Todo el estado vive en signals: la tabla y los contadores se repintan solos y
+ * `visibleRows` se recalcula solo cuando cambian `rows()` o `filter()`.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-company-list',
+  imports: [ButtonModule, CompanyForm, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  templateUrl: './company-list.html',
+  styleUrl: './company-list.css',
+})
+export class CompanyList {
+  private readonly api = inject(CompanyApi);
+  private readonly contactApi = inject(ContactApi);
+  private readonly addressApi = inject(AddressApi);
+  private readonly notify = inject(NotificationService);
+  private readonly confirmation = inject(ConfirmationService);
+
+  /** Datos del backend (`GET /api/companies`). */
+  readonly rows = signal<Company[]>([]);
+  readonly contacts = signal<Contact[]>([]);
+  readonly addresses = signal<Address[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly filter = signal('');
+
+  /** Resultado de aplicar el buscador; `computed` lo memoriza. */
+  readonly visibleRows = computed(() =>
+    filterRows(this.rows(), this.filter(), (row) => [
+      row.nit,
+      row.razon_social,
+      this.contactName()(row.contacto_principal_id),
+      this.addressName()(row.direccion_facturacion_id),
+    ]),
+  );
+
+  /** `id → nombre` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly contactName = computed(() => {
+    const names = new Map<number, string>(this.contacts().map((item) => [item.id, String(item.nombre)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  /** `id → alias` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly addressName = computed(() => {
+    const names = new Map<number, string>(this.addresses().map((item) => [item.id, String(item.alias)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<Company | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly title = computed(() => (this.editing() ? 'Editar empresa' : 'Nueva empresa'));
+
+  constructor() {
+    this.load();
+  }
+
+  /** `GET /api/companies`: recarga la tabla y limpia el error anterior. */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      rows: this.api.list(),
+      contacts: this.contactApi.list(),
+      addresses: this.addressApi.list(),
+    }).subscribe({
+      next: ({ rows, contacts, addresses }) => {
+        this.rows.set(rows);
+        this.contacts.set(contacts);
+        this.addresses.set(addresses);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(row: Company): void {
+    this.editing.set(row);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  /**
+   * El mismo manejador para crear y editar: `editing()` decide el verbo.
+   * Tras el éxito se cierra el diálogo y se recarga (el backend es la verdad).
+   */
+  save(payload: CompanyPayload): void {
+    const current = this.editing();
+    this.saving.set(true);
+
+    const request = current ? this.api.update(current.id, payload) : this.api.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(current ? 'Empresa actualizada' : 'Empresa creada');
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notify.error('No se pudo guardar', toApiMessage(error));
+      },
+    });
+  }
+
+  /** Baja lógica: `PATCH /:id/deactivate`. */
+  deactivate(row: Company): void {
+    this.confirmation.confirm({
+      header: 'Baja lógica',
+      message: `¿Desactivar ${row.razon_social}? Su estado pasará a inactivo.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Desactivar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.api.deactivate(row.id).subscribe({
+          next: () => {
+            this.notify.warn('Empresa desactivada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo desactivar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+
+  /** Baja física: `DELETE /:id`. No se puede deshacer. */
+  remove(row: Company): void {
+    this.confirmation.confirm({
+      header: 'Eliminar definitivamente',
+      message: `Se borrará ${row.razon_social} de la base de datos. Esta acción no se puede deshacer.`,
+      icon: 'pi pi-trash',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.api.remove(row.id).subscribe({
+          next: () => {
+            this.notify.success('Empresa eliminada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo eliminar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+`src/app/features/companies/company-list/company-list.html`
+
+```html
+<app-page-header
+  title="Empresas"
+  subtitle="Clientes de la operación logística: NIT, razón social, contacto principal y dirección de facturación."
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nueva empresa</span>
+  </button>
+</app-page-header>
+
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-3xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar empresas"
+          placeholder="Buscar por razón social, NIT o contacto…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="razon_social">
+          <div class="flex items-center gap-1">Razón social <p-sort-icon field="razon_social" /></div>
+        </th>
+        <th>Contacto principal</th>
+        <th>Dirección de facturación</th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.razon_social }}</p>
+          <p class="text-xs text-slate-400">#{{ row.id }} · NIT {{ row.nit }}</p>
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ contactName()(row.contacto_principal_id) }}</span>
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ addressName()(row.direccion_facturacion_id) }}</span>
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              icon="pi pi-pencil"
+              aria-label="Editar empresa"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              icon="pi pi-ban"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              icon="pi pi-trash"
+              aria-label="Eliminar empresa"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="5">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-building"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nueva empresa» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-2xl mx-4"
+>
+  <app-company-form
+    [company]="editing()"
+    [contacts]="contacts()"
+    [addresses]="addresses()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>
+```
+
+Los dos `.css` (`company-form.css`, `company-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
+
+![alt text](img-express/crud_companies.png)

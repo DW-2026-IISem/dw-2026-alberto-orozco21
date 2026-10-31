@@ -1,0 +1,37 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="company-nit" class="mb-1 block text-sm font-medium text-slate-700">NIT <span class="text-red-500">*</span></label>
+      <input id="company-nit" pInputText formControlName="nit" placeholder="900123456-7" class="w-full" />
+      @if (form.controls.nit.touched && form.controls.nit.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">Este campo es obligatorio (máximo 30 caracteres).</p-message>
+      }
+    </div>
+    <div>
+      <label for="company-razon-social" class="mb-1 block text-sm font-medium text-slate-700">Razón social <span class="text-red-500">*</span></label>
+      <input id="company-razon-social" pInputText formControlName="razon_social" placeholder="Distribuidora La Costa S.A.S." class="w-full" />
+      @if (form.controls.razon_social.touched && form.controls.razon_social.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">Este campo es obligatorio (máximo 150 caracteres).</p-message>
+      }
+    </div>
+    <div>
+      <label for="company-contacto-principal-id" class="mb-1 block text-sm font-medium text-slate-700">Contacto principal</label>
+      <p-select [fluid]="true" inputId="company-contacto-principal-id" formControlName="contacto_principal_id" [options]="contactOptions()" optionLabel="nombre" optionValue="id" placeholder="Sin asignar" [filter]="true" [showClear]="true" />
+      <p class="mt-1 text-xs text-slate-500">Solo al editar: el contacto debe pertenecer a esta empresa.</p>
+    </div>
+    <div>
+      <label for="company-direccion-facturacion-id" class="mb-1 block text-sm font-medium text-slate-700">Dirección de facturación</label>
+      <p-select [fluid]="true" inputId="company-direccion-facturacion-id" formControlName="direccion_facturacion_id" [options]="addressOptions()" optionLabel="alias" optionValue="id" placeholder="Sin asignar" [filter]="true" [showClear]="true" />
+      <p class="mt-1 text-xs text-slate-500">Solo al editar: la dirección debe pertenecer a esta empresa.</p>
+    </div>
+    <div class="sm:col-span-2">
+      <label for="company-is-active" class="mb-1 block text-sm font-medium text-slate-700">Estado</label>
+      <p-select [fluid]="true" inputId="company-is-active" formControlName="is_active" [options]="activeOptions" optionLabel="label" optionValue="value" />
+      @if (company()) { <p class="mt-1 text-xs text-slate-500">El estado de un registro existente solo cambia con la baja lógica.</p> }
+    </div>
+  </div>
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()"><span pButtonLabel>Cancelar</span></button>
+    <button pButton type="submit" [loading]="saving()"><i pButtonIcon class="pi pi-check"></i><span pButtonLabel>Guardar</span></button>
+  </div>
+</form>
