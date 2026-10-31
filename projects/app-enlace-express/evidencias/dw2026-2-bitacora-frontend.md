@@ -8490,3 +8490,1091 @@ export class InvoiceList {
 Los dos `.css` (`invoice-form.css`, `invoice-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
 
 ![alt text](<img-express/crud envios.png>)
+
+## ISS-10 · CRUD de Shipments
+
+**Es la pantalla más grande: 18 campos y 7 listas de referencia.** Sigue siendo el mismo patrón; solo hay más selects.
+
+**Particularidades**
+
+- La ruta `envios` ya existe en `app.routes.ts` desde ISS-02 y apunta a `features/shipments/shipment-list/shipment-list`: esta pantalla es la que ese `loadComponent` estaba esperando, así que **no hay que tocar esa ruta**.
+- **Origen filtrado por empresa.** `contacto_origen_id` y `direccion_origen_id` solo ofrecen registros de la empresa elegida (`originContacts`, `originAddresses`, calculados con `toSignal` sobre `empresa_id.valueChanges`). Mientras no haya empresa elegida, esos selects están vacíos. El destino **no** se filtra: el receptor puede pertenecer a otra empresa.
+- `mensajero_id`, `ruta_id` y `factura_id` son opcionales: el select trae `[showClear]` para volver a «Sin asignar».
+- `numero_guia` es `string` obligatorio. Si el backend lo genera solo, quita ese campo del formulario y de `ShipmentPayload`.
+- `costo_calculado` queda editable porque el backend no documenta un endpoint de cotización; si lo calcula él, déjalo solo lectura.
+- Fechas `datetime-local`; se convierten a ISO al enviar (`new Date(...).toISOString()`).
+
+**Archivos de esta pantalla**
+
+```bash
+ng generate component features/shipments/shipment-list --skip-tests --defaults
+ng generate component features/shipments/shipment-form --skip-tests --defaults
+```
+
+El CLI crea además `shipment-list.spec.ts` y `shipment-form.spec.ts` si no usas `--skip-tests`; las pruebas se tratan en 3.17.
+
+`src/app/features/shipments/shipment-api.ts`
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { Shipment, ShipmentPayload } from '../../core/models/shipment.model';
+
+/** /shipments — la lista llega en `{ shipments }` y el detalle en `{ shipment }`. */
+@Injectable({ providedIn: 'root' })
+export class ShipmentApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/shipments`;
+
+  list(): Observable<Shipment[]> {
+    return this.http
+      .get<{ shipments: Shipment[] }>(this.base)
+      .pipe(map((response) => response.shipments));
+  }
+
+  get(id: number): Observable<Shipment> {
+    return this.http
+      .get<{ shipment: Shipment }>(`${this.base}/${id}`)
+      .pipe(map((response) => response.shipment));
+  }
+
+  create(payload: ShipmentPayload): Observable<Shipment> {
+    return this.http
+      .post<{ shipment: Shipment }>(this.base, payload)
+      .pipe(map((response) => response.shipment));
+  }
+
+  update(id: number, payload: Partial<ShipmentPayload>): Observable<Shipment> {
+    return this.http
+      .patch<{ shipment: Shipment }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.shipment));
+  }
+
+  replace(id: number, payload: ShipmentPayload): Observable<Shipment> {
+    return this.http
+      .put<{ shipment: Shipment }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.shipment));
+  }
+
+  deactivate(id: number): Observable<unknown> {
+    return this.http.patch(`${this.base}/${id}/deactivate`, {});
+  }
+
+  remove(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/${id}`);
+  }
+}
+```
+
+`src/app/features/shipments/shipment-form/shipment-form.ts`
+
+```typescript
+import { Component, computed, effect, inject, input, output } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { Shipment, ShipmentPayload, ShipmentPriority, ShipmentStatus } from '../../../core/models/shipment.model';
+import { Company } from '../../../core/models/company.model';
+import { Contact } from '../../../core/models/contact.model';
+import { Address } from '../../../core/models/address.model';
+import { Messenger } from '../../../core/models/messenger.model';
+import { Route } from '../../../core/models/route.model';
+import { Rate } from '../../../core/models/rate.model';
+import { Invoice } from '../../../core/models/invoice.model';
+import { fromDateTimeInput, toDateTimeInput, toNumberOrNull } from '../../../core/utils/form-values';
+
+/**
+ * Formulario de envío, reutilizado para crear y editar.
+ *
+ * No llama a la API: recibe `shipment` (o `null` para crear) y emite el payload con
+ * `saved`. El padre decide entre `POST` y `PATCH` y controla el diálogo.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-shipment-form',
+  imports: [MessageModule, ReactiveFormsModule, ButtonModule, InputTextModule, InputNumberModule, SelectModule],
+  templateUrl: './shipment-form.html',
+  styleUrl: './shipment-form.css',
+})
+export class ShipmentForm {
+  /** Registro a editar. `null` deja el formulario en modo creación. */
+  readonly shipment = input<Shipment | null>(null);
+
+  readonly companies = input<Company[]>([]);
+  readonly contacts = input<Contact[]>([]);
+  readonly addresses = input<Address[]>([]);
+  readonly messengers = input<Messenger[]>([]);
+  readonly routes = input<Route[]>([]);
+  readonly rates = input<Rate[]>([]);
+  readonly invoices = input<Invoice[]>([]);
+
+  /** Cambia cada vez que el padre abre el diálogo: reinicia el formulario. */
+  readonly resetKey = input(0);
+
+  /** Petición en curso: deshabilita el botón y muestra su spinner. */
+  readonly saving = input(false);
+
+  readonly saved = output<ShipmentPayload>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly prioridadOptions: { label: string; value: ShipmentPriority }[] = [
+    { label: 'Normal', value: 'normal' },
+    { label: 'Urgente', value: 'urgente' },
+    { label: 'Express', value: 'express' },
+  ];
+
+  readonly estadoOptions: { label: string; value: ShipmentStatus }[] = [
+    { label: 'Creado', value: 'creado' },
+    { label: 'Cotizado', value: 'cotizado' },
+    { label: 'Asignado', value: 'asignado' },
+    { label: 'En ruta', value: 'en_ruta' },
+    { label: 'Entregado', value: 'entregado' },
+    { label: 'Con novedad', value: 'con_novedad' },
+    { label: 'Cancelado', value: 'cancelado' },
+  ];
+
+  readonly activeOptions = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+
+  readonly form = this.fb.group({
+    numero_guia: ['', [Validators.required, Validators.maxLength(40)]],
+    empresa_id: [null as number | null, [Validators.required]],
+    prioridad: ['normal' as ShipmentPriority, [Validators.required]],
+    estado: ['creado' as ShipmentStatus, [Validators.required]],
+    contacto_origen_id: [null as number | null, [Validators.required]],
+    direccion_origen_id: [null as number | null, [Validators.required]],
+    contacto_destino_id: [null as number | null, [Validators.required]],
+    direccion_destino_id: [null as number | null, [Validators.required]],
+    tarifa_id: [null as number | null, [Validators.required]],
+    mensajero_id: [null as number | null],
+    ruta_id: [null as number | null],
+    factura_id: [null as number | null],
+    peso_total_kg: [null as number | null, [Validators.required, Validators.min(0)]],
+    valor_declarado: [null as number | null, [Validators.min(0)]],
+    costo_calculado: [null as number | null, [Validators.min(0)]],
+    fecha_solicitud: ['', [Validators.required]],
+    fecha_entrega_estimada: [''],
+    fecha_entrega_real: [''],
+    is_active: [true],
+  });
+
+  /** Empresa elegida en el formulario: filtra los contactos y direcciones de origen. */
+  private readonly empresaId = toSignal(this.form.controls.empresa_id.valueChanges, {
+    initialValue: null as number | null,
+  });
+
+  readonly originContacts = computed(() => {
+    const id = this.empresaId();
+    return id === null ? [] : this.contacts().filter((contact) => contact.empresa_id === id);
+  });
+
+  readonly originAddresses = computed(() => {
+    const id = this.empresaId();
+    return id === null ? [] : this.addresses().filter((address) => address.empresa_id === id);
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.shipment();
+      // `resetKey` se lee a propósito: abrir de nuevo el diálogo debe vaciar el formulario.
+      this.resetKey();
+
+      this.form.reset({
+        numero_guia: current?.numero_guia ?? '',
+        empresa_id: current?.empresa_id ?? null,
+        prioridad: current?.prioridad ?? 'normal',
+        estado: current?.estado ?? 'creado',
+        contacto_origen_id: current?.contacto_origen_id ?? null,
+        direccion_origen_id: current?.direccion_origen_id ?? null,
+        contacto_destino_id: current?.contacto_destino_id ?? null,
+        direccion_destino_id: current?.direccion_destino_id ?? null,
+        tarifa_id: current?.tarifa_id ?? null,
+        mensajero_id: current?.mensajero_id ?? null,
+        ruta_id: current?.ruta_id ?? null,
+        factura_id: current?.factura_id ?? null,
+        peso_total_kg: toNumberOrNull(current?.peso_total_kg),
+        valor_declarado: toNumberOrNull(current?.valor_declarado),
+        costo_calculado: toNumberOrNull(current?.costo_calculado),
+        fecha_solicitud: toDateTimeInput(current?.fecha_solicitud),
+        fecha_entrega_estimada: toDateTimeInput(current?.fecha_entrega_estimada),
+        fecha_entrega_real: toDateTimeInput(current?.fecha_entrega_real),
+        is_active: current?.is_active ?? true,
+      });
+
+      // `is_active` solo cambia con PATCH /deactivate: al editar no se ofrece.
+      if (current) {
+        this.form.controls.is_active.disable();
+      } else {
+        this.form.controls.is_active.enable();
+      }
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const payload: ShipmentPayload = {
+      numero_guia: value.numero_guia.trim(),
+      empresa_id: Number(value.empresa_id),
+      prioridad: value.prioridad,
+      estado: value.estado,
+      contacto_origen_id: Number(value.contacto_origen_id),
+      direccion_origen_id: Number(value.direccion_origen_id),
+      contacto_destino_id: Number(value.contacto_destino_id),
+      direccion_destino_id: Number(value.direccion_destino_id),
+      tarifa_id: Number(value.tarifa_id),
+      mensajero_id: value.mensajero_id,
+      ruta_id: value.ruta_id,
+      factura_id: value.factura_id,
+      peso_total_kg: Number(value.peso_total_kg),
+      valor_declarado: value.valor_declarado,
+      costo_calculado: value.costo_calculado,
+      fecha_solicitud: new Date(value.fecha_solicitud).toISOString(),
+      fecha_entrega_estimada: fromDateTimeInput(value.fecha_entrega_estimada),
+      fecha_entrega_real: fromDateTimeInput(value.fecha_entrega_real),
+    };
+
+    // `is_active` solo se envía al crear: en edición lo gobierna /deactivate.
+    this.saved.emit(this.shipment() ? payload : { ...payload, is_active: value.is_active });
+  }
+}
+```
+
+`src/app/features/shipments/shipment-form/shipment-form.html`
+
+```html
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="shipment-numero-guia" class="mb-1 block text-sm font-medium text-slate-700">
+        Número de guía <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="shipment-numero-guia"
+        pInputText
+        formControlName="numero_guia"
+        placeholder="EE-2026-000001"
+        class="w-full"
+      />
+      @if (form.controls.numero_guia.touched && form.controls.numero_guia.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 40 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-empresa-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Empresa <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-empresa-id"
+        formControlName="empresa_id"
+        [options]="companies()"
+        optionLabel="razon_social"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.empresa_id.touched && form.controls.empresa_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-prioridad" class="mb-1 block text-sm font-medium text-slate-700">
+        Prioridad <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-prioridad"
+        formControlName="prioridad"
+        [options]="prioridadOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.prioridad.touched && form.controls.prioridad.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado del envío <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-contacto-origen-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Contacto de origen <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-contacto-origen-id"
+        formControlName="contacto_origen_id"
+        [options]="originContacts()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.contacto_origen_id.touched && form.controls.contacto_origen_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+      <p class="mt-1 text-xs text-slate-500">Se listan los contactos de la empresa elegida.</p>
+    </div>
+
+    <div>
+      <label for="shipment-direccion-origen-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Dirección de origen <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-direccion-origen-id"
+        formControlName="direccion_origen_id"
+        [options]="originAddresses()"
+        optionLabel="alias"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.direccion_origen_id.touched && form.controls.direccion_origen_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+      <p class="mt-1 text-xs text-slate-500">Se listan las direcciones de la empresa elegida.</p>
+    </div>
+
+    <div>
+      <label for="shipment-contacto-destino-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Contacto de destino <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-contacto-destino-id"
+        formControlName="contacto_destino_id"
+        [options]="contacts()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.contacto_destino_id.touched && form.controls.contacto_destino_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-direccion-destino-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Dirección de destino <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-direccion-destino-id"
+        formControlName="direccion_destino_id"
+        [options]="addresses()"
+        optionLabel="alias"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.direccion_destino_id.touched && form.controls.direccion_destino_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-tarifa-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Tarifa <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-tarifa-id"
+        formControlName="tarifa_id"
+        [options]="rates()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.tarifa_id.touched && form.controls.tarifa_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-mensajero-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Mensajero
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-mensajero-id"
+        formControlName="mensajero_id"
+        [options]="messengers()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+    </div>
+
+    <div>
+      <label for="shipment-ruta-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Ruta
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-ruta-id"
+        formControlName="ruta_id"
+        [options]="routes()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+    </div>
+
+    <div>
+      <label for="shipment-factura-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Factura
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-factura-id"
+        formControlName="factura_id"
+        [options]="invoices()"
+        optionLabel="numero"
+        optionValue="id"
+        placeholder="Sin asignar"
+        [filter]="true"
+        [showClear]="true"
+      />
+    </div>
+
+    <div>
+      <label for="shipment-peso-total-kg" class="mb-1 block text-sm font-medium text-slate-700">
+        Peso total <span class="text-red-500">*</span>
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="shipment-peso-total-kg"
+        formControlName="peso_total_kg"
+        mode="decimal"
+        [min]="0"
+        suffix=" kg"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.peso_total_kg.touched && form.controls.peso_total_kg.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Obligatorio (valor mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-valor-declarado" class="mb-1 block text-sm font-medium text-slate-700">
+        Valor declarado
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="shipment-valor-declarado"
+        formControlName="valor_declarado"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.valor_declarado.touched && form.controls.valor_declarado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-costo-calculado" class="mb-1 block text-sm font-medium text-slate-700">
+        Costo calculado
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="shipment-costo-calculado"
+        formControlName="costo_calculado"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.costo_calculado.touched && form.controls.costo_calculado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-fecha-solicitud" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha de solicitud <span class="text-red-500">*</span>
+      </label>
+      <input id="shipment-fecha-solicitud" type="datetime-local" pInputText formControlName="fecha_solicitud" class="w-full" />
+      @if (form.controls.fecha_solicitud.touched && form.controls.fecha_solicitud.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="shipment-fecha-entrega-estimada" class="mb-1 block text-sm font-medium text-slate-700">
+        Entrega estimada
+      </label>
+      <input id="shipment-fecha-entrega-estimada" type="datetime-local" pInputText formControlName="fecha_entrega_estimada" class="w-full" />
+    </div>
+
+    <div>
+      <label for="shipment-fecha-entrega-real" class="mb-1 block text-sm font-medium text-slate-700">
+        Entrega real
+      </label>
+      <input id="shipment-fecha-entrega-real" type="datetime-local" pInputText formControlName="fecha_entrega_real" class="w-full" />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="shipment-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="shipment-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (shipment()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+`src/app/features/shipments/shipment-list/shipment-list.ts`
+
+```typescript
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { forkJoin } from 'rxjs';
+import { Shipment, ShipmentPayload } from '../../../core/models/shipment.model';
+import { Company } from '../../../core/models/company.model';
+import { Contact } from '../../../core/models/contact.model';
+import { Address } from '../../../core/models/address.model';
+import { Messenger } from '../../../core/models/messenger.model';
+import { Route } from '../../../core/models/route.model';
+import { Rate } from '../../../core/models/rate.model';
+import { Invoice } from '../../../core/models/invoice.model';
+import { NotificationService } from '../../../core/services/notification';
+import { toApiMessage } from '../../../core/utils/api-error';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { humanize } from '../../../core/utils/labels';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { CompanyApi } from '../../companies/company-api';
+import { ContactApi } from '../../contacts/contact-api';
+import { AddressApi } from '../../addresses/address-api';
+import { MessengerApi } from '../../messengers/messenger-api';
+import { RouteApi } from '../../routes/route-api';
+import { RateApi } from '../../rates/rate-api';
+import { InvoiceApi } from '../../invoices/invoice-api';
+import { ShipmentApi } from '../shipment-api';
+import { ShipmentForm } from '../shipment-form/shipment-form';
+
+/**
+ * Lista de envíos con todas las operaciones del CRUD.
+ *
+ * Todo el estado vive en signals: la tabla y los contadores se repintan solos y
+ * `visibleRows` se recalcula solo cuando cambian `rows()` o `filter()`.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-shipment-list',
+  imports: [ButtonModule, CurrencyPipe, DatePipe, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, ShipmentForm, StatusTag, TableModule, TagModule, TooltipModule],
+  templateUrl: './shipment-list.html',
+  styleUrl: './shipment-list.css',
+})
+export class ShipmentList {
+  private readonly api = inject(ShipmentApi);
+  private readonly companyApi = inject(CompanyApi);
+  private readonly contactApi = inject(ContactApi);
+  private readonly addressApi = inject(AddressApi);
+  private readonly messengerApi = inject(MessengerApi);
+  private readonly routeApi = inject(RouteApi);
+  private readonly rateApi = inject(RateApi);
+  private readonly invoiceApi = inject(InvoiceApi);
+  private readonly notify = inject(NotificationService);
+  private readonly confirmation = inject(ConfirmationService);
+
+  /** Datos del backend (`GET /api/shipments`). */
+  readonly rows = signal<Shipment[]>([]);
+  readonly companies = signal<Company[]>([]);
+  readonly contacts = signal<Contact[]>([]);
+  readonly addresses = signal<Address[]>([]);
+  readonly messengers = signal<Messenger[]>([]);
+  readonly routes = signal<Route[]>([]);
+  readonly rates = signal<Rate[]>([]);
+  readonly invoices = signal<Invoice[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly filter = signal('');
+
+  /** Resultado de aplicar el buscador; `computed` lo memoriza. */
+  readonly visibleRows = computed(() =>
+    filterRows(this.rows(), this.filter(), (row) => [
+      row.numero_guia,
+      row.prioridad,
+      row.estado,
+      this.companyName()(row.empresa_id),
+      this.messengerName()(row.mensajero_id),
+    ]),
+  );
+
+  /** `id → razon_social` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly companyName = computed(() => {
+    const names = new Map<number, string>(this.companies().map((item) => [item.id, String(item.razon_social)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  /** `id → nombre` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly contactName = computed(() => {
+    const names = new Map<number, string>(this.contacts().map((item) => [item.id, String(item.nombre)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  /** `id → alias` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly addressName = computed(() => {
+    const names = new Map<number, string>(this.addresses().map((item) => [item.id, String(item.alias)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  /** `id → nombre` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly messengerName = computed(() => {
+    const names = new Map<number, string>(this.messengers().map((item) => [item.id, String(item.nombre)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  /** `id → nombre` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly routeName = computed(() => {
+    const names = new Map<number, string>(this.routes().map((item) => [item.id, String(item.nombre)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  /** `id → nombre` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly rateName = computed(() => {
+    const names = new Map<number, string>(this.rates().map((item) => [item.id, String(item.nombre)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  /** `id → numero` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly invoiceName = computed(() => {
+    const names = new Map<number, string>(this.invoices().map((item) => [item.id, String(item.numero)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<Shipment | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly title = computed(() => (this.editing() ? 'Editar envío' : 'Nuevo envío'));
+
+  protected readonly humanize = humanize;
+
+  protected readonly estadoSeverity: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+    creado: 'secondary',
+    cotizado: 'info',
+    asignado: 'info',
+    en_ruta: 'warn',
+    entregado: 'success',
+    con_novedad: 'danger',
+    cancelado: 'danger',
+  };
+
+  protected readonly prioridadSeverity: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+    normal: 'secondary',
+    urgente: 'warn',
+    express: 'danger',
+  };
+
+  constructor() {
+    this.load();
+  }
+
+  /** `GET /api/shipments`: recarga la tabla y limpia el error anterior. */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      rows: this.api.list(),
+      companies: this.companyApi.list(),
+      contacts: this.contactApi.list(),
+      addresses: this.addressApi.list(),
+      messengers: this.messengerApi.list(),
+      routes: this.routeApi.list(),
+      rates: this.rateApi.list(),
+      invoices: this.invoiceApi.list(),
+    }).subscribe({
+      next: ({ rows, companies, contacts, addresses, messengers, routes, rates, invoices }) => {
+        this.rows.set(rows);
+        this.companies.set(companies);
+        this.contacts.set(contacts);
+        this.addresses.set(addresses);
+        this.messengers.set(messengers);
+        this.routes.set(routes);
+        this.rates.set(rates);
+        this.invoices.set(invoices);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(row: Shipment): void {
+    this.editing.set(row);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  /**
+   * El mismo manejador para crear y editar: `editing()` decide el verbo.
+   * Tras el éxito se cierra el diálogo y se recarga (el backend es la verdad).
+   */
+  save(payload: ShipmentPayload): void {
+    const current = this.editing();
+    this.saving.set(true);
+
+    const request = current ? this.api.update(current.id, payload) : this.api.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(current ? 'Envío actualizado' : 'Envío creado');
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notify.error('No se pudo guardar', toApiMessage(error));
+      },
+    });
+  }
+
+  /** Baja lógica: `PATCH /:id/deactivate`. */
+  deactivate(row: Shipment): void {
+    this.confirmation.confirm({
+      header: 'Baja lógica',
+      message: `¿Desactivar ${'el envío ' + row.numero_guia}? Su estado pasará a inactivo.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Desactivar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.api.deactivate(row.id).subscribe({
+          next: () => {
+            this.notify.warn('Envío desactivado');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo desactivar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+
+  /** Baja física: `DELETE /:id`. No se puede deshacer. */
+  remove(row: Shipment): void {
+    this.confirmation.confirm({
+      header: 'Eliminar definitivamente',
+      message: `Se borrará ${'el envío ' + row.numero_guia} de la base de datos. Esta acción no se puede deshacer.`,
+      icon: 'pi pi-trash',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.api.remove(row.id).subscribe({
+          next: () => {
+            this.notify.success('Envío eliminado');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo eliminar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+`src/app/features/shipments/shipment-list/shipment-list.html`
+
+```html
+<app-page-header
+  title="Envíos"
+  subtitle="Creación, seguimiento y gestión logística de los envíos."
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nuevo envío</span>
+  </button>
+</app-page-header>
+
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-5xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar envíos"
+          placeholder="Buscar por guía, empresa, mensajero, prioridad o estado…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="numero_guia">
+          <div class="flex items-center gap-1">Guía <p-sort-icon field="numero_guia" /></div>
+        </th>
+        <th>Empresa</th>
+        <th>Mensajero</th>
+        <th>Prioridad</th>
+        <th>Envío</th>
+        <th pSortableColumn="costo_calculado">
+          <div class="flex items-center gap-1">Costo <p-sort-icon field="costo_calculado" /></div>
+        </th>
+        <th pSortableColumn="fecha_solicitud">
+          <div class="flex items-center gap-1">Solicitud <p-sort-icon field="fecha_solicitud" /></div>
+        </th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.numero_guia }}</p>
+          <p class="text-xs text-slate-400">#{{ row.id }}</p>
+        </td>
+        <td>
+          <span class="text-sm text-slate-700">{{ companyName()(row.empresa_id) }}</span>
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ messengerName()(row.mensajero_id) }}</span>
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.prioridad)" [severity]="prioridadSeverity[row.prioridad]" [rounded]="true" />
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.estado)" [severity]="estadoSeverity[row.estado]" [rounded]="true" />
+        </td>
+        <td>
+          {{ row.costo_calculado == null ? '—' : (row.costo_calculado | currency: 'COP' : 'symbol' : '1.0-0') }}
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ row.fecha_solicitud | date: 'dd/MM/yyyy' }}</span>
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              icon="pi pi-pencil"
+              aria-label="Editar envío"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              icon="pi pi-ban"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              icon="pi pi-trash"
+              aria-label="Eliminar envío"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="9">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-box"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nuevo envío» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-4xl mx-4"
+>
+  <app-shipment-form
+    [shipment]="editing()"
+    [companies]="companies()"
+    [contacts]="contacts()"
+    [addresses]="addresses()"
+    [messengers]="messengers()"
+    [routes]="routes()"
+    [rates]="rates()"
+    [invoices]="invoices()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>
+```
+
+Los dos `.css` (`shipment-form.css`, `shipment-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
+
+![alt text](img-express/crud_paquetes.png)
