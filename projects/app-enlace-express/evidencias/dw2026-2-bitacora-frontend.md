@@ -7728,3 +7728,765 @@ export class RouteList {
 Los dos `.css` (`route-form.css`, `route-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
 
 ![alt text](img-express/crud_rutas.png)
+
+## ISS-09 · CRUD de Invoices
+
+**Particularidades**
+
+- Se construye **antes** que Envíos porque `Shipment.factura_id` apunta a ella.
+- `subtotal`, `impuestos` y `total` son DECIMAL. La guía no calcula el total automáticamente: el backend es quien manda y no se documenta una regla; el formulario deja los tres campos editables.
+- Cuatro fechas `DATEONLY`: periodo desde/hasta, emisión y pago (opcional).
+
+**Archivos de esta pantalla**
+
+```bash
+ng generate component features/invoices/invoice-list --skip-tests --defaults
+ng generate component features/invoices/invoice-form --skip-tests --defaults
+```
+
+El CLI crea además `invoice-list.spec.ts` y `invoice-form.spec.ts` si no usas `--skip-tests`; las pruebas se tratan en 3.17.
+
+`src/app/features/invoices/invoice-api.ts`
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { Invoice, InvoicePayload } from '../../core/models/invoice.model';
+
+/** /invoices — la lista llega en `{ invoices }` y el detalle en `{ invoice }`. */
+@Injectable({ providedIn: 'root' })
+export class InvoiceApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/invoices`;
+
+  list(): Observable<Invoice[]> {
+    return this.http
+      .get<{ invoices: Invoice[] }>(this.base)
+      .pipe(map((response) => response.invoices));
+  }
+
+  get(id: number): Observable<Invoice> {
+    return this.http
+      .get<{ invoice: Invoice }>(`${this.base}/${id}`)
+      .pipe(map((response) => response.invoice));
+  }
+
+  create(payload: InvoicePayload): Observable<Invoice> {
+    return this.http
+      .post<{ invoice: Invoice }>(this.base, payload)
+      .pipe(map((response) => response.invoice));
+  }
+
+  update(id: number, payload: Partial<InvoicePayload>): Observable<Invoice> {
+    return this.http
+      .patch<{ invoice: Invoice }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.invoice));
+  }
+
+  replace(id: number, payload: InvoicePayload): Observable<Invoice> {
+    return this.http
+      .put<{ invoice: Invoice }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.invoice));
+  }
+
+  deactivate(id: number): Observable<unknown> {
+    return this.http.patch(`${this.base}/${id}/deactivate`, {});
+  }
+
+  remove(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/${id}`);
+  }
+}
+```
+
+`src/app/features/invoices/invoice-form/invoice-form.ts`
+
+```typescript
+import { Component, effect, inject, input, output } from '@angular/core';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { Invoice, InvoicePayload, InvoiceStatus } from '../../../core/models/invoice.model';
+import { Company } from '../../../core/models/company.model';
+import { toDateInput, toNumberOrNull } from '../../../core/utils/form-values';
+
+/**
+ * Formulario de factura, reutilizado para crear y editar.
+ *
+ * No llama a la API: recibe `invoice` (o `null` para crear) y emite el payload con
+ * `saved`. El padre decide entre `POST` y `PATCH` y controla el diálogo.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-invoice-form',
+  imports: [MessageModule, ReactiveFormsModule, ButtonModule, InputTextModule, InputNumberModule, SelectModule],
+  templateUrl: './invoice-form.html',
+  styleUrl: './invoice-form.css',
+})
+export class InvoiceForm {
+  /** Registro a editar. `null` deja el formulario en modo creación. */
+  readonly invoice = input<Invoice | null>(null);
+
+  readonly companies = input<Company[]>([]);
+
+  /** Cambia cada vez que el padre abre el diálogo: reinicia el formulario. */
+  readonly resetKey = input(0);
+
+  /** Petición en curso: deshabilita el botón y muestra su spinner. */
+  readonly saving = input(false);
+
+  readonly saved = output<InvoicePayload>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly estadoOptions: { label: string; value: InvoiceStatus }[] = [
+    { label: 'Pendiente', value: 'pendiente' },
+    { label: 'Pagada', value: 'pagada' },
+    { label: 'Vencida', value: 'vencida' },
+    { label: 'Anulada', value: 'anulada' },
+  ];
+
+  readonly activeOptions = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+
+  readonly form = this.fb.group({
+    numero: ['', [Validators.required, Validators.maxLength(40)]],
+    empresa_id: [null as number | null, [Validators.required]],
+    periodo_desde: ['', [Validators.required]],
+    periodo_hasta: ['', [Validators.required]],
+    fecha: ['', [Validators.required]],
+    estado: ['pendiente' as InvoiceStatus, [Validators.required]],
+    subtotal: [null as number | null, [Validators.required, Validators.min(0)]],
+    impuestos: [null as number | null, [Validators.min(0)]],
+    total: [null as number | null, [Validators.required, Validators.min(0)]],
+    fecha_pago: [''],
+    is_active: [true],
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.invoice();
+      // `resetKey` se lee a propósito: abrir de nuevo el diálogo debe vaciar el formulario.
+      this.resetKey();
+
+      this.form.reset({
+        numero: current?.numero ?? '',
+        empresa_id: current?.empresa_id ?? null,
+        periodo_desde: toDateInput(current?.periodo_desde),
+        periodo_hasta: toDateInput(current?.periodo_hasta),
+        fecha: toDateInput(current?.fecha),
+        estado: current?.estado ?? 'pendiente',
+        subtotal: toNumberOrNull(current?.subtotal),
+        impuestos: toNumberOrNull(current?.impuestos),
+        total: toNumberOrNull(current?.total),
+        fecha_pago: toDateInput(current?.fecha_pago),
+        is_active: current?.is_active ?? true,
+      });
+
+      // `is_active` solo cambia con PATCH /deactivate: al editar no se ofrece.
+      if (current) {
+        this.form.controls.is_active.disable();
+      } else {
+        this.form.controls.is_active.enable();
+      }
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const payload: InvoicePayload = {
+      numero: value.numero.trim(),
+      empresa_id: Number(value.empresa_id),
+      periodo_desde: value.periodo_desde,
+      periodo_hasta: value.periodo_hasta,
+      fecha: value.fecha,
+      estado: value.estado,
+      subtotal: Number(value.subtotal),
+      impuestos: value.impuestos,
+      total: Number(value.total),
+      fecha_pago: value.fecha_pago || null,
+    };
+
+    // `is_active` solo se envía al crear: en edición lo gobierna /deactivate.
+    this.saved.emit(this.invoice() ? payload : { ...payload, is_active: value.is_active });
+  }
+}
+```
+
+`src/app/features/invoices/invoice-form/invoice-form.html`
+
+```html
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="invoice-numero" class="mb-1 block text-sm font-medium text-slate-700">
+        Número <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="invoice-numero"
+        pInputText
+        formControlName="numero"
+        placeholder="FAC-2026-0001"
+        class="w-full"
+      />
+      @if (form.controls.numero.touched && form.controls.numero.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 40 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-empresa-id" class="mb-1 block text-sm font-medium text-slate-700">
+        Empresa <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="invoice-empresa-id"
+        formControlName="empresa_id"
+        [options]="companies()"
+        optionLabel="razon_social"
+        optionValue="id"
+        placeholder="Selecciona…"
+        [filter]="true"
+      />
+      @if (form.controls.empresa_id.touched && form.controls.empresa_id.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-periodo-desde" class="mb-1 block text-sm font-medium text-slate-700">
+        Periodo desde <span class="text-red-500">*</span>
+      </label>
+      <input id="invoice-periodo-desde" type="date" pInputText formControlName="periodo_desde" class="w-full" />
+      @if (form.controls.periodo_desde.touched && form.controls.periodo_desde.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-periodo-hasta" class="mb-1 block text-sm font-medium text-slate-700">
+        Periodo hasta <span class="text-red-500">*</span>
+      </label>
+      <input id="invoice-periodo-hasta" type="date" pInputText formControlName="periodo_hasta" class="w-full" />
+      @if (form.controls.periodo_hasta.touched && form.controls.periodo_hasta.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-fecha" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha de emisión <span class="text-red-500">*</span>
+      </label>
+      <input id="invoice-fecha" type="date" pInputText formControlName="fecha" class="w-full" />
+      @if (form.controls.fecha.touched && form.controls.fecha.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-estado" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado de la factura <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="invoice-estado"
+        formControlName="estado"
+        [options]="estadoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.estado.touched && form.controls.estado.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-subtotal" class="mb-1 block text-sm font-medium text-slate-700">
+        Subtotal <span class="text-red-500">*</span>
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="invoice-subtotal"
+        formControlName="subtotal"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.subtotal.touched && form.controls.subtotal.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Obligatorio (valor mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-impuestos" class="mb-1 block text-sm font-medium text-slate-700">
+        Impuestos
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="invoice-impuestos"
+        formControlName="impuestos"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.impuestos.touched && form.controls.impuestos.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-total" class="mb-1 block text-sm font-medium text-slate-700">
+        Total <span class="text-red-500">*</span>
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="invoice-total"
+        formControlName="total"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.total.touched && form.controls.total.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Obligatorio (valor mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="invoice-fecha-pago" class="mb-1 block text-sm font-medium text-slate-700">
+        Fecha de pago
+      </label>
+      <input id="invoice-fecha-pago" type="date" pInputText formControlName="fecha_pago" class="w-full" />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="invoice-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="invoice-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (invoice()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+`src/app/features/invoices/invoice-list/invoice-list.ts`
+
+```typescript
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { forkJoin } from 'rxjs';
+import { Invoice, InvoicePayload } from '../../../core/models/invoice.model';
+import { Company } from '../../../core/models/company.model';
+import { NotificationService } from '../../../core/services/notification';
+import { toApiMessage } from '../../../core/utils/api-error';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { humanize } from '../../../core/utils/labels';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { CompanyApi } from '../../companies/company-api';
+import { InvoiceApi } from '../invoice-api';
+import { InvoiceForm } from '../invoice-form/invoice-form';
+
+/**
+ * Lista de facturas con todas las operaciones del CRUD.
+ *
+ * Todo el estado vive en signals: la tabla y los contadores se repintan solos y
+ * `visibleRows` se recalcula solo cuando cambian `rows()` o `filter()`.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-invoice-list',
+  imports: [ButtonModule, CurrencyPipe, DatePipe, DialogModule, EmptyState, InputTextModule, InvoiceForm, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  templateUrl: './invoice-list.html',
+  styleUrl: './invoice-list.css',
+})
+export class InvoiceList {
+  private readonly api = inject(InvoiceApi);
+  private readonly companyApi = inject(CompanyApi);
+  private readonly notify = inject(NotificationService);
+  private readonly confirmation = inject(ConfirmationService);
+
+  /** Datos del backend (`GET /api/invoices`). */
+  readonly rows = signal<Invoice[]>([]);
+  readonly companies = signal<Company[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly filter = signal('');
+
+  /** Resultado de aplicar el buscador; `computed` lo memoriza. */
+  readonly visibleRows = computed(() =>
+    filterRows(this.rows(), this.filter(), (row) => [
+      row.numero,
+      row.estado,
+      this.companyName()(row.empresa_id),
+    ]),
+  );
+
+  /** `id → razon_social` para mostrar el nombre en la tabla sin buscar en el arreglo por cada fila. */
+  readonly companyName = computed(() => {
+    const names = new Map<number, string>(this.companies().map((item) => [item.id, String(item.razon_social)]));
+    return (id: number | null | undefined) => (id == null ? '—' : (names.get(id) ?? `#${id}`));
+  });
+
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<Invoice | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly title = computed(() => (this.editing() ? 'Editar factura' : 'Nueva factura'));
+
+  protected readonly humanize = humanize;
+
+  protected readonly estadoSeverity: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+    pendiente: 'warn',
+    pagada: 'success',
+    vencida: 'danger',
+    anulada: 'secondary',
+  };
+
+  constructor() {
+    this.load();
+  }
+
+  /** `GET /api/invoices`: recarga la tabla y limpia el error anterior. */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      rows: this.api.list(),
+      companies: this.companyApi.list(),
+    }).subscribe({
+      next: ({ rows, companies }) => {
+        this.rows.set(rows);
+        this.companies.set(companies);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(row: Invoice): void {
+    this.editing.set(row);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  /**
+   * El mismo manejador para crear y editar: `editing()` decide el verbo.
+   * Tras el éxito se cierra el diálogo y se recarga (el backend es la verdad).
+   */
+  save(payload: InvoicePayload): void {
+    const current = this.editing();
+    this.saving.set(true);
+
+    const request = current ? this.api.update(current.id, payload) : this.api.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(current ? 'Factura actualizada' : 'Factura creada');
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notify.error('No se pudo guardar', toApiMessage(error));
+      },
+    });
+  }
+
+  /** Baja lógica: `PATCH /:id/deactivate`. */
+  deactivate(row: Invoice): void {
+    this.confirmation.confirm({
+      header: 'Baja lógica',
+      message: `¿Desactivar ${'la factura ' + row.numero}? Su estado pasará a inactivo.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Desactivar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.api.deactivate(row.id).subscribe({
+          next: () => {
+            this.notify.warn('Factura desactivada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo desactivar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+
+  /** Baja física: `DELETE /:id`. No se puede deshacer. */
+  remove(row: Invoice): void {
+    this.confirmation.confirm({
+      header: 'Eliminar definitivamente',
+      message: `Se borrará ${'la factura ' + row.numero} de la base de datos. Esta acción no se puede deshacer.`,
+      icon: 'pi pi-trash',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.api.remove(row.id).subscribe({
+          next: () => {
+            this.notify.success('Factura eliminada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo eliminar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+`src/app/features/invoices/invoice-list/invoice-list.html`
+
+```html
+<app-page-header
+  title="Facturas"
+  subtitle="Facturas emitidas a una empresa por un periodo."
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nueva factura</span>
+  </button>
+</app-page-header>
+
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-3xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar facturas"
+          placeholder="Buscar por número, empresa o estado…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="numero">
+          <div class="flex items-center gap-1">Número <p-sort-icon field="numero" /></div>
+        </th>
+        <th>Empresa</th>
+        <th>Periodo</th>
+        <th pSortableColumn="total">
+          <div class="flex items-center gap-1">Total <p-sort-icon field="total" /></div>
+        </th>
+        <th>Factura</th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.numero }}</p>
+          <p class="text-xs text-slate-400">{{ row.fecha | date: 'dd/MM/yyyy' }}</p>
+        </td>
+        <td>
+          <span class="text-sm text-slate-700">{{ companyName()(row.empresa_id) }}</span>
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ row.periodo_desde | date: 'dd/MM/yyyy' }} → {{ row.periodo_hasta | date: 'dd/MM/yyyy' }}</span>
+        </td>
+        <td>
+          {{ row.total | currency: 'COP' : 'symbol' : '1.0-0' }}
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.estado)" [severity]="estadoSeverity[row.estado]" [rounded]="true" />
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              icon="pi pi-pencil"
+              aria-label="Editar factura"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              icon="pi pi-ban"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              icon="pi pi-trash"
+              aria-label="Eliminar factura"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="7">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-file"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nueva factura» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-3xl mx-4"
+>
+  <app-invoice-form
+    [invoice]="editing()"
+    [companies]="companies()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>
+```
+
+Los dos `.css` (`invoice-form.css`, `invoice-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
+
+![alt text](<img-express/crud envios.png>)
