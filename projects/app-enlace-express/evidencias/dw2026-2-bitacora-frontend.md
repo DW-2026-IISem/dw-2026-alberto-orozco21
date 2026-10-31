@@ -5671,3 +5671,669 @@ export class AddressList {
 Los dos `.css` (`address-form.css`, `address-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
 
 ![alt text](img-express/crud_direcciones.png)
+
+## ISS-06 · CRUD de Messenger
+
+**Particularidades**
+
+- Sin claves foráneas: es la pantalla más simple después de Tarifas, buena para comprobar el patrón.
+- `tipo_vehiculo` es el enum `moto | carro | bicicleta | a_pie`. La placa es opcional (un mensajero `a_pie` o en `bicicleta` no la tiene).
+
+**Archivos de esta pantalla**
+
+```bash
+ng generate component features/messengers/messenger-list --skip-tests --defaults
+ng generate component features/messengers/messenger-form --skip-tests --defaults
+```
+
+El CLI crea además `messenger-list.spec.ts` y `messenger-form.spec.ts` si no usas `--skip-tests`; las pruebas se tratan en 3.17.
+
+`src/app/features/messengers/messenger-api.ts`
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { Messenger, MessengerPayload } from '../../core/models/messenger.model';
+
+/** /messengers — la lista llega en `{ messengers }` y el detalle en `{ messenger }`. */
+@Injectable({ providedIn: 'root' })
+export class MessengerApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/messengers`;
+
+  list(): Observable<Messenger[]> {
+    return this.http
+      .get<{ messengers: Messenger[] }>(this.base)
+      .pipe(map((response) => response.messengers));
+  }
+
+  get(id: number): Observable<Messenger> {
+    return this.http
+      .get<{ messenger: Messenger }>(`${this.base}/${id}`)
+      .pipe(map((response) => response.messenger));
+  }
+
+  create(payload: MessengerPayload): Observable<Messenger> {
+    return this.http
+      .post<{ messenger: Messenger }>(this.base, payload)
+      .pipe(map((response) => response.messenger));
+  }
+
+  update(id: number, payload: Partial<MessengerPayload>): Observable<Messenger> {
+    return this.http
+      .patch<{ messenger: Messenger }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.messenger));
+  }
+
+  replace(id: number, payload: MessengerPayload): Observable<Messenger> {
+    return this.http
+      .put<{ messenger: Messenger }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.messenger));
+  }
+
+  deactivate(id: number): Observable<unknown> {
+    return this.http.patch(`${this.base}/${id}/deactivate`, {});
+  }
+
+  remove(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/${id}`);
+  }
+}
+```
+
+`src/app/features/messengers/messenger-form/messenger-form.ts`
+
+```typescript
+import { Component, effect, inject, input, output } from '@angular/core';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { Messenger, MessengerPayload, VehicleType } from '../../../core/models/messenger.model';
+
+/**
+ * Formulario de mensajero, reutilizado para crear y editar.
+ *
+ * No llama a la API: recibe `messenger` (o `null` para crear) y emite el payload con
+ * `saved`. El padre decide entre `POST` y `PATCH` y controla el diálogo.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-messenger-form',
+  imports: [MessageModule, ReactiveFormsModule, ButtonModule, InputTextModule, SelectModule],
+  templateUrl: './messenger-form.html',
+  styleUrl: './messenger-form.css',
+})
+export class MessengerForm {
+  /** Registro a editar. `null` deja el formulario en modo creación. */
+  readonly messenger = input<Messenger | null>(null);
+
+  /** Cambia cada vez que el padre abre el diálogo: reinicia el formulario. */
+  readonly resetKey = input(0);
+
+  /** Petición en curso: deshabilita el botón y muestra su spinner. */
+  readonly saving = input(false);
+
+  readonly saved = output<MessengerPayload>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly tipoVehiculoOptions: { label: string; value: VehicleType }[] = [
+    { label: 'Moto', value: 'moto' },
+    { label: 'Carro', value: 'carro' },
+    { label: 'Bicicleta', value: 'bicicleta' },
+    { label: 'A pie', value: 'a_pie' },
+  ];
+
+  readonly activeOptions = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+
+  readonly form = this.fb.group({
+    nombre: ['', [Validators.required, Validators.maxLength(120)]],
+    documento_identidad: ['', [Validators.required, Validators.maxLength(30)]],
+    telefono: ['', [Validators.maxLength(30)]],
+    tipo_vehiculo: ['moto' as VehicleType, [Validators.required]],
+    placa_vehiculo: ['', [Validators.maxLength(15)]],
+    zona_asignada: ['', [Validators.maxLength(100)]],
+    is_active: [true],
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.messenger();
+      // `resetKey` se lee a propósito: abrir de nuevo el diálogo debe vaciar el formulario.
+      this.resetKey();
+
+      this.form.reset({
+        nombre: current?.nombre ?? '',
+        documento_identidad: current?.documento_identidad ?? '',
+        telefono: current?.telefono ?? '',
+        tipo_vehiculo: current?.tipo_vehiculo ?? 'moto',
+        placa_vehiculo: current?.placa_vehiculo ?? '',
+        zona_asignada: current?.zona_asignada ?? '',
+        is_active: current?.is_active ?? true,
+      });
+
+      // `is_active` solo cambia con PATCH /deactivate: al editar no se ofrece.
+      if (current) {
+        this.form.controls.is_active.disable();
+      } else {
+        this.form.controls.is_active.enable();
+      }
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const payload: MessengerPayload = {
+      nombre: value.nombre.trim(),
+      documento_identidad: value.documento_identidad.trim(),
+      telefono: value.telefono.trim() || null,
+      tipo_vehiculo: value.tipo_vehiculo,
+      placa_vehiculo: value.placa_vehiculo.trim() || null,
+      zona_asignada: value.zona_asignada.trim() || null,
+    };
+
+    // `is_active` solo se envía al crear: en edición lo gobierna /deactivate.
+    this.saved.emit(this.messenger() ? payload : { ...payload, is_active: value.is_active });
+  }
+}
+```
+
+`src/app/features/messengers/messenger-form/messenger-form.html`
+
+```html
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="messenger-nombre" class="mb-1 block text-sm font-medium text-slate-700">
+        Nombre <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="messenger-nombre"
+        pInputText
+        formControlName="nombre"
+        placeholder="Carlos Pérez"
+        class="w-full"
+      />
+      @if (form.controls.nombre.touched && form.controls.nombre.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 120 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-documento-identidad" class="mb-1 block text-sm font-medium text-slate-700">
+        Documento de identidad <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="messenger-documento-identidad"
+        pInputText
+        formControlName="documento_identidad"
+        placeholder="1234567890"
+        class="w-full"
+      />
+      @if (form.controls.documento_identidad.touched && form.controls.documento_identidad.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 30 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-telefono" class="mb-1 block text-sm font-medium text-slate-700">
+        Teléfono
+      </label>
+      <input
+        id="messenger-telefono" type="tel"
+        pInputText
+        formControlName="telefono"
+        placeholder="300 000 0000"
+        class="w-full"
+      />
+      @if (form.controls.telefono.touched && form.controls.telefono.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 30 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-tipo-vehiculo" class="mb-1 block text-sm font-medium text-slate-700">
+        Tipo de vehículo <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="messenger-tipo-vehiculo"
+        formControlName="tipo_vehiculo"
+        [options]="tipoVehiculoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.tipo_vehiculo.touched && form.controls.tipo_vehiculo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-placa-vehiculo" class="mb-1 block text-sm font-medium text-slate-700">
+        Placa del vehículo
+      </label>
+      <input
+        id="messenger-placa-vehiculo"
+        pInputText
+        formControlName="placa_vehiculo"
+        placeholder="ABC123"
+        class="w-full"
+      />
+      @if (form.controls.placa_vehiculo.touched && form.controls.placa_vehiculo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 15 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="messenger-zona-asignada" class="mb-1 block text-sm font-medium text-slate-700">
+        Zona asignada
+      </label>
+      <input
+        id="messenger-zona-asignada"
+        pInputText
+        formControlName="zona_asignada"
+        placeholder="Norte"
+        class="w-full"
+      />
+      @if (form.controls.zona_asignada.touched && form.controls.zona_asignada.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Máximo 100 caracteres.
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="messenger-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="messenger-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (messenger()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+`src/app/features/messengers/messenger-list/messenger-list.ts`
+
+```typescript
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { Messenger, MessengerPayload } from '../../../core/models/messenger.model';
+import { NotificationService } from '../../../core/services/notification';
+import { toApiMessage } from '../../../core/utils/api-error';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { humanize } from '../../../core/utils/labels';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { MessengerApi } from '../messenger-api';
+import { MessengerForm } from '../messenger-form/messenger-form';
+
+/**
+ * Lista de mensajeros con todas las operaciones del CRUD.
+ *
+ * Todo el estado vive en signals: la tabla y los contadores se repintan solos y
+ * `visibleRows` se recalcula solo cuando cambian `rows()` o `filter()`.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-messenger-list',
+  imports: [ButtonModule, DialogModule, EmptyState, InputTextModule, MessageModule, MessengerForm, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  templateUrl: './messenger-list.html',
+  styleUrl: './messenger-list.css',
+})
+export class MessengerList {
+  private readonly api = inject(MessengerApi);
+  private readonly notify = inject(NotificationService);
+  private readonly confirmation = inject(ConfirmationService);
+
+  /** Datos del backend (`GET /api/messengers`). */
+  readonly rows = signal<Messenger[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly filter = signal('');
+
+  /** Resultado de aplicar el buscador; `computed` lo memoriza. */
+  readonly visibleRows = computed(() =>
+    filterRows(this.rows(), this.filter(), (row) => [
+      row.nombre,
+      row.documento_identidad,
+      row.telefono,
+      row.placa_vehiculo,
+      row.zona_asignada,
+      row.tipo_vehiculo,
+    ]),
+  );
+
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<Messenger | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly title = computed(() => (this.editing() ? 'Editar mensajero' : 'Nuevo mensajero'));
+
+  protected readonly humanize = humanize;
+
+  constructor() {
+    this.load();
+  }
+
+  /** `GET /api/messengers`: recarga la tabla y limpia el error anterior. */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.api.list().subscribe({
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(row: Messenger): void {
+    this.editing.set(row);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  /**
+   * El mismo manejador para crear y editar: `editing()` decide el verbo.
+   * Tras el éxito se cierra el diálogo y se recarga (el backend es la verdad).
+   */
+  save(payload: MessengerPayload): void {
+    const current = this.editing();
+    this.saving.set(true);
+
+    const request = current ? this.api.update(current.id, payload) : this.api.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(current ? 'Mensajero actualizado' : 'Mensajero creado');
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notify.error('No se pudo guardar', toApiMessage(error));
+      },
+    });
+  }
+
+  /** Baja lógica: `PATCH /:id/deactivate`. */
+  deactivate(row: Messenger): void {
+    this.confirmation.confirm({
+      header: 'Baja lógica',
+      message: `¿Desactivar ${row.nombre}? Su estado pasará a inactivo.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Desactivar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.api.deactivate(row.id).subscribe({
+          next: () => {
+            this.notify.warn('Mensajero desactivado');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo desactivar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+
+  /** Baja física: `DELETE /:id`. No se puede deshacer. */
+  remove(row: Messenger): void {
+    this.confirmation.confirm({
+      header: 'Eliminar definitivamente',
+      message: `Se borrará ${row.nombre} de la base de datos. Esta acción no se puede deshacer.`,
+      icon: 'pi pi-trash',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.api.remove(row.id).subscribe({
+          next: () => {
+            this.notify.success('Mensajero eliminado');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo eliminar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+`src/app/features/messengers/messenger-list/messenger-list.html`
+
+```html
+<app-page-header
+  title="Mensajeros"
+  subtitle="Personas encargadas de las entregas, con su vehículo y zona asignada."
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nuevo mensajero</span>
+  </button>
+</app-page-header>
+
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-3xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar mensajeros"
+          placeholder="Buscar por nombre, documento, placa o zona…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="nombre">
+          <div class="flex items-center gap-1">Nombre <p-sort-icon field="nombre" /></div>
+        </th>
+        <th>Contacto</th>
+        <th>Vehículo</th>
+        <th>Zona</th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.nombre }}</p>
+          <p class="text-xs text-slate-400">Doc. {{ row.documento_identidad }}</p>
+        </td>
+        <td>
+          <span class="text-sm text-slate-700">{{ row.telefono || '—' }}</span>
+        </td>
+        <td>
+          <p class="text-sm text-slate-700">{{ humanize(row.tipo_vehiculo) }}</p>
+          <p class="text-xs text-slate-400">{{ row.placa_vehiculo || 'Sin placa' }}</p>
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ row.zona_asignada || '—' }}</span>
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              icon="pi pi-pencil"
+              aria-label="Editar mensajero"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              icon="pi pi-ban"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              icon="pi pi-trash"
+              aria-label="Eliminar mensajero"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="6">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-send"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nuevo mensajero» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-2xl mx-4"
+>
+  <app-messenger-form
+    [messenger]="editing()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>
+```
+
+Los dos `.css` (`messenger-form.css`, `messenger-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
+
+![alt text](img-express/crud_mensajeros.png)
