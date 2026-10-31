@@ -6337,3 +6337,704 @@ export class MessengerList {
 Los dos `.css` (`messenger-form.css`, `messenger-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
 
 ![alt text](img-express/crud_mensajeros.png)
+
+## ISS-07 · CRUD de Rates
+
+**Particularidades**
+
+- `valor_base`, `valor_por_kg_adicional` y `recargo_urgente_pct` son DECIMAL: la lista los lee como `number | string` y el formulario los normaliza con `toNumberOrNull`. En la tabla, `currency` formatea valores numéricos o cadenas numéricas.
+- `vigencia_desde` y `vigencia_hasta` usan `<input type="date">`: `vigencia_hasta` vacío significa «indefinida» y viaja como `null`.
+
+**Archivos de esta pantalla**
+
+```bash
+ng generate component features/rates/rate-list --skip-tests --defaults
+ng generate component features/rates/rate-form --skip-tests --defaults
+```
+
+El CLI crea además `rate-list.spec.ts` y `rate-form.spec.ts` si no usas `--skip-tests`; las pruebas se tratan en 3.17.
+
+`src/app/features/rates/rate-api.ts`
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { Rate, RatePayload } from '../../core/models/rate.model';
+
+/** /rates — la lista llega en `{ rates }` y el detalle en `{ rate }`. */
+@Injectable({ providedIn: 'root' })
+export class RateApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/rates`;
+
+  list(): Observable<Rate[]> {
+    return this.http
+      .get<{ rates: Rate[] }>(this.base)
+      .pipe(map((response) => response.rates));
+  }
+
+  get(id: number): Observable<Rate> {
+    return this.http
+      .get<{ rate: Rate }>(`${this.base}/${id}`)
+      .pipe(map((response) => response.rate));
+  }
+
+  create(payload: RatePayload): Observable<Rate> {
+    return this.http
+      .post<{ rate: Rate }>(this.base, payload)
+      .pipe(map((response) => response.rate));
+  }
+
+  update(id: number, payload: Partial<RatePayload>): Observable<Rate> {
+    return this.http
+      .patch<{ rate: Rate }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.rate));
+  }
+
+  replace(id: number, payload: RatePayload): Observable<Rate> {
+    return this.http
+      .put<{ rate: Rate }>(`${this.base}/${id}`, payload)
+      .pipe(map((response) => response.rate));
+  }
+
+  deactivate(id: number): Observable<unknown> {
+    return this.http.patch(`${this.base}/${id}/deactivate`, {});
+  }
+
+  remove(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/${id}`);
+  }
+}
+```
+
+`src/app/features/rates/rate-form/rate-form.ts`
+
+```typescript
+import { Component, effect, inject, input, output } from '@angular/core';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { Rate, RatePayload, CalculationRule } from '../../../core/models/rate.model';
+
+import { toDateInput, toNumberOrNull } from '../../../core/utils/form-values';
+
+/**
+ * Formulario de tarifa, reutilizado para crear y editar.
+ *
+ * No llama a la API: recibe `rate` (o `null` para crear) y emite el payload con
+ * `saved`. El padre decide entre `POST` y `PATCH` y controla el diálogo.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-rate-form',
+  imports: [MessageModule, ReactiveFormsModule, ButtonModule, InputTextModule, InputNumberModule, SelectModule],
+  templateUrl: './rate-form.html',
+  styleUrl: './rate-form.css',
+})
+export class RateForm {
+  /** Registro a editar. `null` deja el formulario en modo creación. */
+  readonly rate = input<Rate | null>(null);
+
+  /** Cambia cada vez que el padre abre el diálogo: reinicia el formulario. */
+  readonly resetKey = input(0);
+
+  /** Petición en curso: deshabilita el botón y muestra su spinner. */
+  readonly saving = input(false);
+
+  readonly saved = output<RatePayload>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly reglaCalculoOptions: { label: string; value: CalculationRule }[] = [
+    { label: 'Por peso', value: 'por_peso' },
+    { label: 'Por zona', value: 'por_zona' },
+    { label: 'Plana', value: 'plana' },
+  ];
+
+  readonly activeOptions = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+
+  readonly form = this.fb.group({
+    nombre: ['', [Validators.required, Validators.maxLength(120)]],
+    zona: ['', [Validators.required, Validators.maxLength(100)]],
+    regla_calculo: ['por_peso' as CalculationRule, [Validators.required]],
+    valor_base: [null as number | null, [Validators.required, Validators.min(0)]],
+    valor_por_kg_adicional: [null as number | null, [Validators.min(0)]],
+    recargo_urgente_pct: [null as number | null, [Validators.min(0), Validators.max(100)]],
+    vigencia_desde: ['', [Validators.required]],
+    vigencia_hasta: [''],
+    is_active: [true],
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.rate();
+      // `resetKey` se lee a propósito: abrir de nuevo el diálogo debe vaciar el formulario.
+      this.resetKey();
+
+      this.form.reset({
+        nombre: current?.nombre ?? '',
+        zona: current?.zona ?? '',
+        regla_calculo: current?.regla_calculo ?? 'por_peso',
+        valor_base: toNumberOrNull(current?.valor_base),
+        valor_por_kg_adicional: toNumberOrNull(current?.valor_por_kg_adicional),
+        recargo_urgente_pct: toNumberOrNull(current?.recargo_urgente_pct),
+        vigencia_desde: toDateInput(current?.vigencia_desde),
+        vigencia_hasta: toDateInput(current?.vigencia_hasta),
+        is_active: current?.is_active ?? true,
+      });
+
+      // `is_active` solo cambia con PATCH /deactivate: al editar no se ofrece.
+      if (current) {
+        this.form.controls.is_active.disable();
+      } else {
+        this.form.controls.is_active.enable();
+      }
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const payload: RatePayload = {
+      nombre: value.nombre.trim(),
+      zona: value.zona.trim(),
+      regla_calculo: value.regla_calculo,
+      valor_base: Number(value.valor_base),
+      valor_por_kg_adicional: value.valor_por_kg_adicional,
+      recargo_urgente_pct: value.recargo_urgente_pct,
+      vigencia_desde: value.vigencia_desde,
+      vigencia_hasta: value.vigencia_hasta || null,
+    };
+
+    // `is_active` solo se envía al crear: en edición lo gobierna /deactivate.
+    this.saved.emit(this.rate() ? payload : { ...payload, is_active: value.is_active });
+  }
+}
+```
+
+`src/app/features/rates/rate-form/rate-form.html`
+
+```html
+<form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="rate-nombre" class="mb-1 block text-sm font-medium text-slate-700">
+        Nombre <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="rate-nombre"
+        pInputText
+        formControlName="nombre"
+        placeholder="Urbana estándar"
+        class="w-full"
+      />
+      @if (form.controls.nombre.touched && form.controls.nombre.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 120 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-zona" class="mb-1 block text-sm font-medium text-slate-700">
+        Zona <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="rate-zona"
+        pInputText
+        formControlName="zona"
+        placeholder="Barranquilla"
+        class="w-full"
+      />
+      @if (form.controls.zona.touched && form.controls.zona.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio (máximo 100 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="rate-regla-calculo" class="mb-1 block text-sm font-medium text-slate-700">
+        Regla de cálculo <span class="text-red-500">*</span>
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="rate-regla-calculo"
+        formControlName="regla_calculo"
+        [options]="reglaCalculoOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (form.controls.regla_calculo.touched && form.controls.regla_calculo.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-valor-base" class="mb-1 block text-sm font-medium text-slate-700">
+        Valor base <span class="text-red-500">*</span>
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="rate-valor-base"
+        formControlName="valor_base"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.valor_base.touched && form.controls.valor_base.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Obligatorio (valor mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-valor-por-kg-adicional" class="mb-1 block text-sm font-medium text-slate-700">
+        Valor por kg adicional
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="rate-valor-por-kg-adicional"
+        formControlName="valor_por_kg_adicional"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.valor_por_kg_adicional.touched && form.controls.valor_por_kg_adicional.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-recargo-urgente-pct" class="mb-1 block text-sm font-medium text-slate-700">
+        Recargo urgente
+      </label>
+      <p-inputnumber
+        [fluid]="true"
+        inputId="rate-recargo-urgente-pct"
+        formControlName="recargo_urgente_pct"
+        mode="decimal"
+        [min]="0"
+        [max]="100"
+        suffix=" %"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+      />
+      @if (form.controls.recargo_urgente_pct.touched && form.controls.recargo_urgente_pct.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Valor fuera de rango (mínimo 0, máximo 100).
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-vigencia-desde" class="mb-1 block text-sm font-medium text-slate-700">
+        Vigente desde <span class="text-red-500">*</span>
+      </label>
+      <input id="rate-vigencia-desde" type="date" pInputText formControlName="vigencia_desde" class="w-full" />
+      @if (form.controls.vigencia_desde.touched && form.controls.vigencia_desde.invalid) {
+        <p-message severity="error" size="small" variant="simple" styleClass="mt-1">
+          Este campo es obligatorio.
+        </p-message>
+      }
+    </div>
+
+    <div>
+      <label for="rate-vigencia-hasta" class="mb-1 block text-sm font-medium text-slate-700">
+        Vigente hasta
+      </label>
+      <input id="rate-vigencia-hasta" type="date" pInputText formControlName="vigencia_hasta" class="w-full" />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label for="rate-is-active" class="mb-1 block text-sm font-medium text-slate-700">
+        Estado
+      </label>
+      <p-select
+        [fluid]="true"
+        inputId="rate-is-active"
+        formControlName="is_active"
+        [options]="activeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+      @if (rate()) {
+        <p class="mt-1 text-xs text-slate-500">
+          El estado de un registro existente solo cambia con la baja lógica.
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+    <button pButton type="submit" [loading]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+`src/app/features/rates/rate-list/rate-list.ts`
+
+```typescript
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { Rate, RatePayload } from '../../../core/models/rate.model';
+import { NotificationService } from '../../../core/services/notification';
+import { toApiMessage } from '../../../core/utils/api-error';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { humanize } from '../../../core/utils/labels';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { RateApi } from '../rate-api';
+import { RateForm } from '../rate-form/rate-form';
+
+/**
+ * Lista de tarifas con todas las operaciones del CRUD.
+ *
+ * Todo el estado vive en signals: la tabla y los contadores se repintan solos y
+ * `visibleRows` se recalcula solo cuando cambian `rows()` o `filter()`.
+ */
+@Component({
+  host: { class: 'block' },
+  selector: 'app-rate-list',
+  imports: [ButtonModule, CurrencyPipe, DatePipe, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, RateForm, StatusTag, TableModule, TagModule, TooltipModule],
+  templateUrl: './rate-list.html',
+  styleUrl: './rate-list.css',
+})
+export class RateList {
+  private readonly api = inject(RateApi);
+  private readonly notify = inject(NotificationService);
+  private readonly confirmation = inject(ConfirmationService);
+
+  /** Datos del backend (`GET /api/rates`). */
+  readonly rows = signal<Rate[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly filter = signal('');
+
+  /** Resultado de aplicar el buscador; `computed` lo memoriza. */
+  readonly visibleRows = computed(() =>
+    filterRows(this.rows(), this.filter(), (row) => [
+      row.nombre,
+      row.zona,
+      row.regla_calculo,
+    ]),
+  );
+
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<Rate | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly title = computed(() => (this.editing() ? 'Editar tarifa' : 'Nueva tarifa'));
+
+  protected readonly humanize = humanize;
+
+  constructor() {
+    this.load();
+  }
+
+  /** `GET /api/rates`: recarga la tabla y limpia el error anterior. */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.api.list().subscribe({
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(row: Rate): void {
+    this.editing.set(row);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  /**
+   * El mismo manejador para crear y editar: `editing()` decide el verbo.
+   * Tras el éxito se cierra el diálogo y se recarga (el backend es la verdad).
+   */
+  save(payload: RatePayload): void {
+    const current = this.editing();
+    this.saving.set(true);
+
+    const request = current ? this.api.update(current.id, payload) : this.api.create(payload);
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(current ? 'Tarifa actualizada' : 'Tarifa creada');
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notify.error('No se pudo guardar', toApiMessage(error));
+      },
+    });
+  }
+
+  /** Baja lógica: `PATCH /:id/deactivate`. */
+  deactivate(row: Rate): void {
+    this.confirmation.confirm({
+      header: 'Baja lógica',
+      message: `¿Desactivar ${row.nombre}? Su estado pasará a inactivo.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Desactivar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.api.deactivate(row.id).subscribe({
+          next: () => {
+            this.notify.warn('Tarifa desactivada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo desactivar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+
+  /** Baja física: `DELETE /:id`. No se puede deshacer. */
+  remove(row: Rate): void {
+    this.confirmation.confirm({
+      header: 'Eliminar definitivamente',
+      message: `Se borrará ${row.nombre} de la base de datos. Esta acción no se puede deshacer.`,
+      icon: 'pi pi-trash',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.api.remove(row.id).subscribe({
+          next: () => {
+            this.notify.success('Tarifa eliminada');
+            this.load();
+          },
+          error: (error: unknown) => {
+            this.notify.error('No se pudo eliminar', toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+`src/app/features/rates/rate-list/rate-list.html`
+
+```html
+<app-page-header
+  title="Tarifas"
+  subtitle="Reglas de cálculo de costos por zona y vigencia."
+>
+  <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <button pButton type="button" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Nueva tarifa</span>
+  </button>
+</app-page-header>
+
+@if (error()) {
+  <p-message severity="error" styleClass="mb-4 w-full">
+    {{ error() }}
+  </p-message>
+}
+
+<div class="rounded-xl border border-slate-200 bg-white">
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    dataKey="id"
+    tableStyleClass="min-w-3xl"
+  >
+    <ng-template #caption>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-search text-slate-400"></i>
+        <input
+          pInputText
+          type="search"
+          aria-label="Buscar tarifas"
+          placeholder="Buscar por nombre, zona o regla…"
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+          class="w-full"
+        />
+      </div>
+      @if (filter()) {
+        <p class="mt-2 text-xs text-slate-500">
+          {{ visibleRows().length }} de {{ rows().length }} coinciden con «{{ filter() }}».
+        </p>
+      }
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="nombre">
+          <div class="flex items-center gap-1">Nombre <p-sort-icon field="nombre" /></div>
+        </th>
+        <th>Regla</th>
+        <th pSortableColumn="valor_base">
+          <div class="flex items-center gap-1">Valor base <p-sort-icon field="valor_base" /></div>
+        </th>
+        <th>Vigencia</th>
+        <th>Estado</th>
+        <th class="w-40 text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.nombre }}</p>
+          <p class="text-xs text-slate-400">{{ row.zona }}</p>
+        </td>
+        <td>
+          <p-tag [value]="humanize(row.regla_calculo)" severity="secondary" [rounded]="true" />
+        </td>
+        <td>
+          {{ row.valor_base | currency: 'COP' : 'symbol' : '1.0-0' }}
+        </td>
+        <td>
+          <span class="text-sm text-slate-600">{{ row.vigencia_desde | date: 'dd/MM/yyyy' }} →
+            {{ row.vigencia_hasta ? (row.vigencia_hasta | date: 'dd/MM/yyyy') : 'Indefinida' }}</span>
+        </td>
+        <td>
+          <app-status-tag [isActive]="row.is_active" />
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              icon="pi pi-pencil"
+              aria-label="Editar tarifa"
+              pTooltip="Editar"
+              (click)="openEdit(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="warn"
+              icon="pi pi-ban"
+              aria-label="Dar de baja"
+              pTooltip="Baja lógica"
+              (click)="deactivate(row)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              icon="pi pi-trash"
+              aria-label="Eliminar tarifa"
+              pTooltip="Eliminar"
+              (click)="remove(row)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="6">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún registro coincide con la búsqueda. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-dollar"
+              title="Sin registros"
+              message="Crea el primero con el botón «Nueva tarifa» o ejecuta el seeder del backend."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [header]="title()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-2xl mx-4"
+>
+  <app-rate-form
+    [rate]="editing()"
+    [saving]="saving()"
+    [resetKey]="resetKey()"
+    (saved)="save($event)"
+    (cancelled)="dialogVisible.set(false)"
+  />
+</p-dialog>
+```
+
+Los dos `.css` (`rate-form.css`, `rate-list.css`) quedan sin reglas, como los de `layout/` y `shared/ui/`.
+
+![alt text](img-express/crud_tarifas.png)
