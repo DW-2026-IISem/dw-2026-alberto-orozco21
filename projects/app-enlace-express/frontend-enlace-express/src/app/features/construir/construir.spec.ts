@@ -1,4 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideRouter } from '@angular/router';
+import { MessageService } from 'primeng/api';
 import { Construir } from './construir';
 
 function stubDesktopMedia(matches: boolean): () => void {
@@ -27,7 +30,10 @@ function stubDesktopMedia(matches: boolean): () => void {
 
 describe('Construir', () => {
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [Construir] }).compileComponents();
+    await TestBed.configureTestingModule({
+      imports: [Construir],
+      providers: [provideHttpClient(), provideRouter([]), MessageService],
+    }).compileComponents();
   });
 
   async function createScreen() {

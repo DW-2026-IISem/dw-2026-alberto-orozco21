@@ -1,10 +1,26 @@
 <div class="flex min-h-screen flex-col bg-slate-100">
-  <app-header (menuRequested)="onMenuToggle()" />
+  <app-header
+    (menuRequested)="onMenuToggle()"
+    [username]="session.user()?.username ?? ''"
+    [initials]="session.user()?.username?.slice(0, 2)?.toUpperCase() ?? 'IN'"
+    [roleLabel]="session.roleNames().join(', ') || 'Sin rol'"
+    [authEnabled]="session.authEnabled"
+    [showSession]="session.user() !== null"
+    [userItems]="userItems"
+  />
 
   <div class="flex flex-1">
     @if (!sidebarCollapsed()) {
       <aside class="hidden w-72 shrink-0 lg:block">
-        <app-aside [items]="items" (navigated)="mobileOpen.set(false)" />
+        <app-aside
+          [items]="items"
+          [showSession]="session.user() !== null"
+          [username]="session.user()?.username ?? ''"
+          [roleLabel]="session.roleNames().join(', ') || 'Sin rol'"
+          [permissionCount]="session.permissionCount()"
+          (navigated)="mobileOpen.set(false)"
+          (logoutRequested)="logout()"
+        />
       </aside>
     }
 
@@ -49,5 +65,13 @@
 </div>
 
 <p-drawer [(visible)]="mobileOpen" header="Menú" position="left" styleClass="w-72">
-  <app-aside [items]="items" (navigated)="mobileOpen.set(false)" />
+  <app-aside
+    [items]="items"
+    [showSession]="session.user() !== null"
+    [username]="session.user()?.username ?? ''"
+    [roleLabel]="session.roleNames().join(', ') || 'Sin rol'"
+    [permissionCount]="session.permissionCount()"
+    (navigated)="mobileOpen.set(false)"
+    (logoutRequested)="logout()"
+  />
 </p-drawer>

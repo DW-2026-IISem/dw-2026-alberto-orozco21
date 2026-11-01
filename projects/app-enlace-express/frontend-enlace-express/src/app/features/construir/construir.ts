@@ -1,4 +1,5 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { MenuItem } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -18,6 +19,9 @@ import { RateList } from '../rates/rate-list/rate-list';
 import { RouteList } from '../routes/route-list/route-list';
 import { ShipmentList } from '../shipments/shipment-list/shipment-list';
 import { TrackingEventList } from '../tracking-events/tracking-event-list/tracking-event-list';
+import { AuthService } from '../../core/services/auth-service';
+import { NotificationService } from '../../core/services/notification';
+import { SessionStore } from '../../core/services/session-store';
 
 @Component({
   host: { class: 'block' },
@@ -32,10 +36,20 @@ import { TrackingEventList } from '../tracking-events/tracking-event-list/tracki
 })
 export class Construir {
   private readonly isDesktop = watchMediaQuery('(min-width: 1024px)');
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly notifications = inject(NotificationService);
+  readonly session = inject(SessionStore);
 
   readonly sidebarCollapsed = signal(false);
   readonly mobileOpen = signal(false);
   readonly title = signal('Inicio');
+  readonly userItems: MenuItem[] = [
+    { label: 'Mi perfil', icon: 'pi pi-user', command: () => void this.router.navigate(['/perfil']) },
+    { label: 'Actualizar permisos', icon: 'pi pi-sync', command: () => this.refreshSession() },
+    { separator: true },
+    { label: 'Cerrar sesión', icon: 'pi pi-sign-out', command: () => this.logout() },
+  ];
 
   readonly items: MenuItem[] = [
     { label: 'Inicio', icon: 'pi pi-home', command: () => this.seleccionar('Inicio') },
@@ -97,5 +111,18 @@ export class Construir {
   protected seleccionar(titulo: string): void {
     this.title.set(titulo);
     this.mobileOpen.set(false);
+  }
+
+  private refreshSession(): void {
+    this.auth.me().subscribe({
+      next: () => this.notifications.success('Sesión sincronizada', 'Perfil y permisos recargados.'),
+    });
+  }
+
+  protected logout(): void {
+    this.auth.logout().subscribe(() => {
+      this.notifications.info('Sesión cerrada');
+      void this.router.navigate(['/login']);
+    });
   }
 }

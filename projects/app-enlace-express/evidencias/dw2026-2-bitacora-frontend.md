@@ -11960,3 +11960,825 @@ El menú de `Construir` (ISS-01B) ya define la estructura: grupo **Operación** 
 ```
 
 ![alt text](img-express/crud_prueba_entrega.png)
+
+## Pruebas
+
+Las peticiones se simulan con `HttpTestingController`: se verifica el verbo, la URL y el cuerpo, sin backend ni base de datos. Se escribe el juego completo para **Empresas** (la entidad de referencia); en las otras diez se copian los mismos casos cambiando clase, URL y payload.
+
+| Archivo | Qué comprueba | Casos |
+|---|---|---|
+| `core/utils/filter-rows.spec.ts` | Copia sin término, mayúsculas, null, sin coincidencias, recorte | 5 |
+| `core/utils/form-values.spec.ts` | Normalización de DECIMAL y de fechas | 3 |
+| `features/companies/company-form/company-form.spec.ts` | Validación, payload de alta, modo edición, `resetKey` | 4 |
+| `features/companies/company-list/company-list.spec.ts` | Carga, error, filtro, crear, editar, baja lógica, baja física | 7 |
+| `features/<recurso>/<recurso>-form` y `-list` (resto) | Réplica de los dos anteriores | 4 + 7 por entidad |
+
+`src/app/features/companies/company-form/company-form.spec.ts`
+
+```typescript
+import { TestBed } from '@angular/core/testing';
+import { Company, CompanyPayload } from '../../../core/models/company.model';
+import { CompanyForm } from './company-form';
+
+const EMPRESA: Company = {
+  id: 1,
+  nit: '900123456',
+  razon_social: 'Tienda La Esquina',
+  contacto_principal_id: null,
+  direccion_facturacion_id: null,
+  is_active: true,
+};
+
+describe('CompanyForm', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [CompanyForm] }).compileComponents();
+  });
+
+  async function crearFormulario(empresa: Company | null = null) {
+    const fixture = TestBed.createComponent(CompanyForm);
+    fixture.componentRef.setInput('company', empresa);
+    await fixture.whenStable();
+
+    const emitidos: CompanyPayload[] = [];
+    fixture.componentInstance.saved.subscribe((payload) => emitidos.push(payload));
+    return { fixture, formulario: fixture.componentInstance, emitidos };
+  }
+
+  it('should not emit while NIT and razón social are empty', async () => {
+    const { formulario, emitidos } = await crearFormulario();
+
+    formulario.submit();
+
+    expect(formulario.form.invalid).toBe(true);
+    expect(emitidos).toEqual([]);
+  });
+
+  it('should emit a trimmed payload with is_active when creating', async () => {
+    const { formulario, emitidos } = await crearFormulario();
+
+    formulario.form.patchValue({ nit: ' 900111222 ', razon_social: 'Nueva SAS' });
+    formulario.submit();
+
+    expect(emitidos).toEqual([{ nit: '900111222', razon_social: 'Nueva SAS', is_active: true }]);
+  });
+
+  it('should load the company, disable is_active and omit it when editing', async () => {
+    const { formulario, emitidos } = await crearFormulario(EMPRESA);
+
+    expect(formulario.form.controls.razon_social.value).toBe('Tienda La Esquina');
+    expect(formulario.form.controls.is_active.disabled).toBe(true);
+
+    formulario.form.patchValue({ razon_social: 'La Esquina SAS' });
+    formulario.submit();
+
+    expect(emitidos).toEqual([
+      {
+        nit: '900123456',
+        razon_social: 'La Esquina SAS',
+        contacto_principal_id: null,
+        direccion_facturacion_id: null,
+      },
+    ]);
+  });
+
+  it('should clear the form when resetKey changes', async () => {
+    const { fixture, formulario } = await crearFormulario();
+
+    formulario.form.patchValue({ razon_social: 'Borrador' });
+    fixture.componentRef.setInput('resetKey', 1);
+    await fixture.whenStable();
+
+    expect(formulario.form.controls.razon_social.value).toBe('');
+  });
+});
+```
+
+`src/app/features/companies/company-list/company-list.spec.ts`
+
+```typescript
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { vi } from 'vitest';
+import { environment } from '../../../../environments/environment';
+import { Company } from '../../../core/models/company.model';
+import { CompanyList } from './company-list';
+
+const API = environment.apiUrl;
+const EMPRESAS: Company[] = [
+  { id: 1, nit: '900123456', razon_social: 'Tienda La Esquina', contacto_principal_id: null, direccion_facturacion_id: null, is_active: true },
+  { id: 2, nit: '900987654', razon_social: 'Distribuidora La Costa', contacto_principal_id: null, direccion_facturacion_id: null, is_active: true },
+];
+
+describe('CompanyList', () => {
+  let http: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CompanyList],
+      providers: [provideHttpClient(), provideHttpClientTesting(), MessageService, ConfirmationService],
+    }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  /** `load()` pide las tres tablas en paralelo (forkJoin): hay que responder las tres. */
+  function responderCarga(empresas: Company[] = EMPRESAS): void {
+    http.expectOne(`${API}/companies`).flush({ companies: empresas });
+    http.expectOne(`${API}/contacts`).flush({ contacts: [] });
+    http.expectOne(`${API}/address`).flush({ addresses: [] });
+  }
+
+  async function crearLista() {
+    const fixture = TestBed.createComponent(CompanyList);
+    responderCarga(); // el constructor ya lanzó load()
+    await fixture.whenStable();
+    return { fixture, lista: fixture.componentInstance };
+  }
+
+  function aceptarConfirmacion(): void {
+    const confirmation = TestBed.inject(ConfirmationService);
+    // `confirm` devuelve el servicio (es encadenable): el espía debe devolverlo.
+    vi.spyOn(confirmation, 'confirm').mockImplementation((datos) => {
+      datos.accept?.();
+      return confirmation;
+    });
+  }
+
+  it('should load the companies on creation', async () => {
+    const { lista } = await crearLista();
+
+    expect(lista.rows()).toEqual(EMPRESAS);
+    expect(lista.loading()).toBe(false);
+    expect(lista.error()).toBeNull();
+  });
+
+  it('should show the backend error and clear the rows when the load fails', async () => {
+    const fixture = TestBed.createComponent(CompanyList);
+    http
+      .expectOne(`${API}/companies`)
+      .flush({ error: 'Missing Bearer token' }, { status: 401, statusText: 'Unauthorized' });
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.rows()).toEqual([]);
+    expect(fixture.componentInstance.error()).toBe('Missing Bearer token');
+  });
+
+  it('should filter locally without calling the API', async () => {
+    const { lista } = await crearLista();
+
+    lista.filter.set('costa');
+
+    expect(lista.visibleRows()).toEqual([EMPRESAS[1]]);
+  });
+
+  it('should POST a new company and reload', async () => {
+    const { lista } = await crearLista();
+
+    lista.openCreate();
+    lista.save({ nit: '900555666', razon_social: 'Nueva SAS', is_active: true });
+
+    const alta = http.expectOne(`${API}/companies`);
+    expect(alta.request.method).toBe('POST');
+    expect(alta.request.body).toEqual({ nit: '900555666', razon_social: 'Nueva SAS', is_active: true });
+    alta.flush({ companies: EMPRESAS[0] });
+
+    responderCarga();
+  });
+
+  it('should PATCH the edited company and send no is_active', async () => {
+    const { lista } = await crearLista();
+
+    lista.openEdit(EMPRESAS[0]);
+    lista.save({ nit: '900123456', razon_social: 'La Esquina SAS' });
+
+    const cambio = http.expectOne(`${API}/companies/1`);
+    expect(cambio.request.method).toBe('PATCH');
+    expect(cambio.request.body).toEqual({ nit: '900123456', razon_social: 'La Esquina SAS' });
+    cambio.flush({ companies: EMPRESAS[0] });
+
+    responderCarga();
+  });
+
+  it('should call deactivate after the confirmation is accepted', async () => {
+    const { lista } = await crearLista();
+    aceptarConfirmacion();
+
+    lista.deactivate(EMPRESAS[0]);
+
+    const baja = http.expectOne(`${API}/companies/1/deactivate`);
+    expect(baja.request.method).toBe('PATCH');
+    baja.flush({ message: 'Company deactivated' });
+
+    responderCarga(EMPRESAS.slice(1));
+  });
+
+  it('should DELETE after the confirmation is accepted', async () => {
+    const { lista } = await crearLista();
+    aceptarConfirmacion();
+
+    lista.remove(EMPRESAS[0]);
+
+    const borrado = http.expectOne(`${API}/companies/1`);
+    expect(borrado.request.method).toBe('DELETE');
+    borrado.flush(null, { status: 204, statusText: 'No Content' });
+
+    responderCarga(EMPRESAS.slice(1));
+  });
+});
+```
+
+## Fase II: Auth con RBAC — ISS-14 — Autenticación JWT, perfil y permisos efectivos
+
+### 4.2 Activar Fase II
+
+En ambos archivos de entorno:
+
+```typescript
+export const environment = {
+  production: false, // true en environment.ts
+  appName: 'EnlaceExpress',
+  apiUrl: 'http://localhost:4000/api',
+  requireAuth: true,
+};
+```
+
+### 14.3 Modelos de sesión
+
+```bash
+cat > src/app/core/models/auth.model.ts <<'EOF'
+import { HttpMethod } from './resource.model';
+import { User } from './user.model';
+
+/** POST /api/sesion/login — `identifier` acepta username o email. */
+export interface LoginRequest {
+  identifier: string;
+  password: string;
+}
+
+/** Respuesta de login y refresh: SOLO el par de tokens. */
+export interface SessionTokens {
+  access_token: string;
+  token_type: 'Bearer';
+  expires_in: number;
+  refresh_token: string;
+  refresh_expires_in: number;
+}
+
+/** GET /api/sesion/perfil */
+export interface ProfilePayload {
+  user: User;
+}
+
+/** Una fila de role_users → roles → resource_roles → resources (todo activo). */
+export interface EffectivePermission {
+  resource_id: number;
+  method: HttpMethod;
+  path: string;
+  description: string | null;
+  role_id: number;
+  role_name: string;
+}
+
+/** GET /api/permisos · GET /api/usuarios/:id/permisos */
+export interface PermissionsPayload {
+  permissions: EffectivePermission[];
+}
+
+/** Estado compuesto que mantiene SessionStore. */
+export interface AccessPayload {
+  user: User;
+  permissions: EffectivePermission[];
+}
+EOF
+```
+
+### 14.3A Generar interceptores funcionales
+
+```bash
+ng generate interceptor core/interceptors/auth --functional --skip-tests --defaults
+ng generate interceptor core/interceptors/error --functional --skip-tests --defaults
+```
+
+Generan `auth-interceptor.ts` y `error-interceptor.ts`. Reemplaza el passthrough del CLI por la implementación de esta ISS antes de registrarlos. No se usa ng generate service para interceptores. 
+
+### 14.4 En app.config.ts, añade imports encima de export const appConfig:
+
+```typescript
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { authInterceptor } from './core/interceptors/auth-interceptor';
+import { errorInterceptor } from './core/interceptors/error-interceptor';
+```
+
+Dentro de `providers`, debajo de `provideBrowserGlobalErrorListeners():`
+
+```typescript
+// El orden importa: auth añade el Bearer y reintenta; error traduce fallos.
+provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
+```
+
+```
+Componente → authInterceptor (añade token, reintenta 401)
+           → errorInterceptor (toast de 403/500/offline)
+           → HttpBackend → Express
+```
+
+### 14.5 SessionStore
+
+```bash
+cat > src/app/core/services/session-store.ts <<'EOF'
+import { Injectable, computed, signal } from '@angular/core';
+import { environment } from '../../../environments/environment';
+import { AccessPayload, EffectivePermission, SessionTokens } from '../models/auth.model';
+import { HttpMethod, Resource } from '../models/resource.model';
+import { Role } from '../models/role.model';
+import { User } from '../models/user.model';
+
+const STORAGE_KEY = 'storelab.session.v1';
+
+interface PersistedSession {
+  accessToken: string;
+  refreshToken: string;
+  user: User | null;
+  permissions: EffectivePermission[];
+}
+
+/**
+ * Única fuente de verdad de la sesión en el cliente.
+ * Todo se expone como signals de solo lectura y se deriva con computed().
+ *
+ * Contrato del backend `app-storelab-express-ii`:
+ *  - `POST /api/sesion/login`  → solo tokens.
+ *  - `GET  /api/sesion/perfil` → `{ user }`.
+ *  - `GET  /api/permisos`      → `{ permissions: EffectivePermission[] }`.
+ *
+ * Seguridad: el backend sigue siendo la autoridad. `can()` solo decide qué
+ * pintar en la UI; aunque se fuerce el menú, Express responde 401/403.
+ */
+@Injectable({ providedIn: 'root' })
+export class SessionStore {
+  /**
+   * Mitad frontal del interruptor de fases.
+   * - `false`: guards permisivos, directiva siempre visible, sin `Bearer`.
+   * - `true`: Fase II. Debe emparejarse con `AUTH_ENABLED=true` en el backend.
+   * La autoridad real sigue siendo Express; esto solo decide qué pintar.
+   */
+  readonly authEnabled = environment.requireAuth;
+
+  private readonly _accessToken = signal<string | null>(null);
+  private readonly _refreshToken = signal<string | null>(null);
+  private readonly _user = signal<User | null>(null);
+  private readonly _permissions = signal<EffectivePermission[]>([]);
+
+  readonly accessToken = this._accessToken.asReadonly();
+  readonly refreshToken = this._refreshToken.asReadonly();
+  readonly user = this._user.asReadonly();
+  readonly permissions = this._permissions.asReadonly();
+
+  readonly isAuthenticated = computed(() => this._accessToken() !== null);
+
+  /** Roles derivados de los permisos efectivos (role_name único). */
+  readonly roleNames = computed(() =>
+    [...new Set(this._permissions().map((permission) => permission.role_name))].sort(),
+  );
+
+  /**
+   * `Role[]` derivado para las plantillas que ya consumían `session.roles()`.
+   * No hay endpoint de roles propio del usuario: el rol llega en cada permiso.
+   */
+  readonly roles = computed<Role[]>(() => {
+    const byId = new Map<number, Role>();
+    for (const permission of this._permissions()) {
+      if (!byId.has(permission.role_id)) {
+        byId.set(permission.role_id, {
+          id: permission.role_id,
+          name: permission.role_name,
+          description: null,
+          status: 'active',
+        });
+      }
+    }
+    return [...byId.values()];
+  });
+
+  /**
+   * `Resource[]` derivado de los permisos efectivos.
+   * Se conserva la forma de `Resource` para reutilizar tablas y `can()`.
+   */
+  readonly resources = computed<Resource[]>(() =>
+    this._permissions().map((permission) => ({
+      id: permission.resource_id,
+      method: permission.method,
+      path: permission.path,
+      description: permission.description,
+      status: 'active' as const,
+    })),
+  );
+
+  /** Set de strings "MÉTODO /api/ruta" para consultas O(1) en la UI. */
+  readonly permissionsIndex = computed(
+    () => new Set(this._permissions().map((item) => `${item.method} ${item.path}`)),
+  );
+
+  readonly permissionCount = computed(() => this._permissions().length);
+
+  constructor() {
+    this.restore();
+  }
+
+  /** Login y refresh comparten la misma forma: solo tokens. */
+  setTokens(tokens: SessionTokens): void {
+    this._accessToken.set(tokens.access_token);
+    this._refreshToken.set(tokens.refresh_token);
+    this.persist();
+  }
+
+  /** Perfil + permisos efectivos (login y "Actualizar permisos"). */
+  setAccess(access: AccessPayload): void {
+    this._user.set(access.user);
+    this._permissions.set(access.permissions ?? []);
+    this.persist();
+  }
+
+  clear(): void {
+    this._accessToken.set(null);
+    this._refreshToken.set(null);
+    this._user.set(null);
+    this._permissions.set([]);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* almacenamiento no disponible */
+    }
+  }
+
+  /**
+   * ¿La sesión tiene un permiso concreto?
+   * - Sin auth (fase I) siempre permite.
+   * - Compara `MÉTODO` y `path`; soporta `:id` del catálogo Resource.
+   */
+  can(method: HttpMethod | string, path: string): boolean {
+    if (!this.authEnabled) {
+      return true;
+    }
+    const verb = method.toUpperCase();
+    const requestPath = path.split('?')[0];
+    return this._permissions().some(
+      (permission) =>
+        permission.method === verb && pathMatches(permission.path, requestPath),
+    );
+  }
+
+  canPermission(permission: string): boolean {
+    if (!this.authEnabled) {
+      return true;
+    }
+    const separator = permission.indexOf(' ');
+    if (separator < 0) {
+      return false;
+    }
+    return this.can(permission.slice(0, separator), permission.slice(separator + 1));
+  }
+
+  hasRole(name: string): boolean {
+    return this.roleNames().includes(name.toUpperCase());
+  }
+
+  private restore(): void {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const data = JSON.parse(raw) as PersistedSession;
+      // Sesiones guardadas por una versión anterior (roles/resources) no sirven.
+      if (!Array.isArray(data.permissions)) {
+        this.clear();
+        return;
+      }
+      this._accessToken.set(data.accessToken ?? null);
+      this._refreshToken.set(data.refreshToken ?? null);
+      this._user.set(data.user ?? null);
+      this._permissions.set(data.permissions ?? []);
+    } catch {
+      this.clear();
+    }
+  }
+
+  private persist(): void {
+    const data: PersistedSession = {
+      accessToken: this._accessToken() ?? '',
+      refreshToken: this._refreshToken() ?? '',
+      user: this._user(),
+      permissions: this._permissions(),
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      /* modo privado o cuota llena: la sesión sigue en memoria */
+    }
+  }
+}
+
+/** `/api/usuarios/:id` debe reconocer `/api/usuarios/7`. */
+function pathMatches(pattern: string, path: string): boolean {
+  const escaped = pattern
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\/:[^/]+/g, '/[^/]+');
+  return new RegExp(`^${escaped}$`).test(path);
+}
+EOF
+```
+
+El archivo real incluye `restore()` y `persist()` completos. Lo esencial: persistimos permissions, no roles ni resources, porque los últimos se derivan con computed.
+
+### 14.6 AuthService
+
+```bash
+cat > src/app/core/services/auth.ts <<'EOF'
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, catchError, finalize, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import {
+  AccessPayload,
+  LoginRequest,
+  PermissionsPayload,
+  ProfilePayload,
+  SessionTokens,
+} from '../models/auth.model';
+import { SessionStore } from './session-store';
+
+/**
+ * Cliente del feature Session del backend `app-storelab-express-ii`.
+ *
+ * | Endpoint | Modalidad | Devuelve |
+ * |---|---|---|
+ * | `POST /api/sesion/login`   | OPEN | `SessionTokens` (solo tokens) |
+ * | `GET  /api/sesion/perfil`  | JWT  | `{ user }` |
+ * | `GET  /api/permisos`       | JWT  | `{ permissions }` (permisos efectivos) |
+ * | `POST /api/sesion/refresh` | OPEN (refresh token) | `SessionTokens` |
+ * | `POST /api/sesion/logout`  | OPEN (refresh token) | `{ message }` |
+ *
+ * El login NO devuelve usuario ni permisos: tras guardar los tokens se consulta
+ * el perfil y la matriz efectiva en dos peticiones JWT (`forkJoin`).
+ */
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private readonly http = inject(HttpClient);
+  private readonly session = inject(SessionStore);
+  private readonly base = `${environment.apiUrl}/sesion`;
+  private readonly permissionsUrl = `${environment.apiUrl}/permisos`;
+
+  /** Login + carga de identidad/permisos. */
+  login(credentials: LoginRequest): Observable<AccessPayload> {
+    return this.http.post<SessionTokens>(`${this.base}/login`, credentials).pipe(
+      tap((tokens) => this.session.setTokens(tokens)),
+      switchMap(() =>
+        this.me().pipe(
+          // Si perfil o permisos fallan, no dejes una sesión a medias.
+          catchError((error: unknown) => {
+            this.session.clear();
+            return throwError(() => error);
+          }),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * `GET /api/sesion/perfil` + `GET /api/permisos`.
+   * Se usa tras el login y en "Actualizar permisos" del menú.
+   */
+  me(): Observable<AccessPayload> {
+    return forkJoin({
+      profile: this.http.get<ProfilePayload>(`${this.base}/perfil`),
+      permissions: this.http.get<PermissionsPayload>(this.permissionsUrl),
+    }).pipe(
+      map(({ profile, permissions }) => ({
+        user: profile.user,
+        permissions: permissions.permissions,
+      })),
+      tap((access) => this.session.setAccess(access)),
+    );
+  }
+
+  /** Renueva el par de tokens; el refresh token anterior queda rotado. */
+  refresh(): Observable<SessionTokens> {
+    const refresh_token = this.session.refreshToken();
+    if (!refresh_token) {
+      return throwError(() => new Error('No hay refresh token en la sesión'));
+    }
+    return this.http
+      .post<SessionTokens>(`${this.base}/refresh`, { refresh_token })
+      .pipe(tap((tokens) => this.session.setTokens(tokens)));
+  }
+
+  /**
+   * Cierra la sesión del refresh token presentado. Siempre limpia el estado
+   * local, aunque el backend no responda (por ejemplo, si ya expiró).
+   */
+  logout(): Observable<unknown> {
+    const refresh_token = this.session.refreshToken();
+    return this.http.post(`${this.base}/logout`, { refresh_token }).pipe(
+      catchError(() => of(null)),
+      finalize(() => this.session.clear()),
+    );
+  }
+}
+EOF
+```
+
+`switchMap` tras el login
+
+tap guarda los tokens, pero `switchMap(() => this.me())` encadena la carga del perfil y los permisos. `login()` no emite hasta que `me()` responde: el componente navega al dashboard con la sesión completa, sin parpadeos ni menús vacíos.
+
+### 14.7 Interceptor con refresh single-flight
+
+```bash
+cat > src/app/core/interceptors/auth-interceptor.ts <<'EOF'
+import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { Observable, catchError, finalize, shareReplay, switchMap, throwError } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { SessionTokens } from '../models/auth.model';
+import { AuthService } from '../services/auth';
+import { SessionStore } from '../services/session-store';
+
+/**
+ * Una sola renovación en vuelo para todas las peticiones concurrentes.
+ * Si 3 peticiones reciben 401 a la vez, solo se llama una vez a /sesion/refresh.
+ */
+let refreshInFlight: Observable<SessionTokens> | null = null;
+
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  const session = inject(SessionStore);
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  // OPEN: login, refresh y logout llevan credencial en el cuerpo, no Bearer.
+  const isPublicAuthCall =
+    req.url.includes('/sesion/login') ||
+    req.url.includes('/sesion/refresh') ||
+    req.url.includes('/sesion/logout');
+
+  const accessToken = session.accessToken();
+
+  const request =
+    accessToken && !isPublicAuthCall
+      ? req.clone({ setHeaders: { Authorization: `Bearer ${accessToken}` } })
+      : req;
+
+  return next(request).pipe(
+    catchError((error: unknown) => {
+      if (!(error instanceof HttpErrorResponse) || error.status !== 401 || isPublicAuthCall) {
+        return throwError(() => error);
+      }
+
+      // Fase I: no hay refresh ni login; se propaga el error tal cual.
+      if (!environment.requireAuth) {
+        return throwError(() => error);
+      }
+
+      if (!session.refreshToken()) {
+        redirectToLogin(session, router);
+        return throwError(() => error);
+      }
+
+      refreshInFlight ??= auth.refresh().pipe(
+        catchError((refreshError: unknown) => {
+          redirectToLogin(session, router);
+          return throwError(() => refreshError);
+        }),
+        finalize(() => {
+          refreshInFlight = null;
+        }),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+
+      // Reintenta la petición original con el access renovado.
+      return refreshInFlight.pipe(
+        switchMap(() => {
+          const renewed = session.accessToken();
+          const retried = req.clone({
+            setHeaders: renewed ? { Authorization: `Bearer ${renewed}` } : {},
+          });
+          return next(retried);
+        }),
+      );
+    }),
+  );
+};
+
+function redirectToLogin(session: SessionStore, router: Router): void {
+  session.clear();
+  const returnUrl = router.url.startsWith('/login') ? '/dashboard' : router.url;
+  void router.navigate(['/login'], { queryParams: { returnUrl } });
+}
+EOF
+```
+
+### 14.8 Login
+
+```bash
+ng generate component features/auth/login --skip-tests --defaults
+```
+
+```typescript
+readonly form = this.fb.group({
+  identifier: ['', [Validators.required]],
+  password: ['', [Validators.required]],
+});
+
+submit(): void {
+  if (this.form.invalid) {
+    this.form.markAllAsTouched();
+    return;
+  }
+  this.loading.set(true);
+  this.error.set(null);
+
+  const { identifier, password } = this.form.getRawValue();
+  // `identifier` acepta username o email; el backend deduce device_info del User-Agent.
+  this.auth.login({ identifier, password }).subscribe({
+    next: () => {
+      const requested = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/dashboard';
+      const returnUrl =
+        requested.startsWith('/') && !requested.startsWith('/login') ? requested : '/dashboard';
+      void this.router.navigateByUrl(returnUrl);
+    },
+    error: (error: unknown) => {
+      this.loading.set(false);
+      this.error.set(toApiMessage(error));
+    },
+  });
+}
+```
+
+returnUrl: abrir la URL pedida después del login
+Si el usuario entra a /ventas sin sesión, authGuard lo manda a /login?returnUrl=/ventas. El login lee ese parámetro y navega ahí. La validación startsWith('/') evita open redirects a dominios externos.
+
+### 14.9 Perfil y logout
+
+```bash
+ng generate component features/auth/profile --skip-tests --defaults
+ng generate component features/auth/forbidden --skip-tests --defaults
+```
+
+Profile muestra usuario, roles y permisos efectivos, y permite:
+
+- Refrescar desde el backend → AuthService.me() (/perfil + /permisos).
+- Salir → POST /api/sesion/logout y limpieza local.
+
+```typescript
+refresh(): void {
+  this.refreshing.set(true);
+  this.auth.me().subscribe({
+    next: () => {
+      this.refreshing.set(false);
+      this.notify.success('Sesión sincronizada', 'Perfil y permisos recargados.');
+    },
+    error: () => this.refreshing.set(false),
+  });
+}
+
+logout(): void {
+  this.auth.logout().subscribe({
+    next: () => {
+      this.notify.info('Sesión cerrada');
+      void this.router.navigate(['/login']);
+    },
+  });
+}
+```
+
+auth.logout() limpia la sesión incluso si el backend falla (finalize). Es deliberado: el usuario debe poder salir aunque el servidor esté caído.
+
+### 14.10 Rutas de Fase II
+
+Debajo de los imports en `app.routes.ts`:
+
+```typescript
+import { authGuard } from './core/guards/auth-guard';
+import { guestGuard } from './core/guards/guest-guard';
+
+{
+  path: 'login',
+  title: 'Iniciar sesión · StoreLab',
+  canActivate: [guestGuard],
+  loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
+},
+{
+  path: '',
+  canActivate: [authGuard],
+  loadComponent: () => import('./layout/shell/shell').then((m) => m.Shell),
+  children: [ /* … */ ],
+},
+```
+
+![alt text](img-express/login_ui.png)
+
+![alt text](img-express/admin_perfil.png)

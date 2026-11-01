@@ -1,0 +1,59 @@
+<main class="profile-page">
+  <header class="profile-heading">
+    <div>
+      <p class="eyebrow">Cuenta</p>
+      <h1>Perfil y permisos</h1>
+    </div>
+    <div class="actions">
+      <button pButton type="button" severity="secondary" outlined [disabled]="refreshing()" (click)="refresh()">
+        <i class="pi pi-sync" pButtonIcon></i>
+        <span pButtonLabel>{{ refreshing() ? 'Sincronizando' : 'Actualizar permisos' }}</span>
+      </button>
+      <button pButton type="button" severity="danger" text (click)="logout()">
+        <i class="pi pi-sign-out" pButtonIcon></i>
+        <span pButtonLabel>Salir</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="identity" aria-labelledby="identity-title">
+    <h2 id="identity-title">Identidad</h2>
+    @if (session.user(); as user) {
+      <dl>
+        <div><dt>Usuario</dt><dd>{{ user.username }}</dd></div>
+        <div><dt>Correo</dt><dd>{{ user.email }}</dd></div>
+        <div><dt>Roles</dt><dd>{{ session.roleNames().join(', ') || 'Sin roles asignados' }}</dd></div>
+      </dl>
+    } @else {
+      <p class="muted">No hay datos de perfil disponibles.</p>
+    }
+  </section>
+
+  <section class="permissions" aria-labelledby="permissions-title">
+    <div class="section-heading">
+      <h2 id="permissions-title">Permisos efectivos</h2>
+      <span>{{ session.permissionCount() }}</span>
+    </div>
+    @if (session.permissions().length) {
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Método</th><th>Ruta</th><th>Descripción</th><th>Rol</th></tr>
+          </thead>
+          <tbody>
+            @for (permission of session.permissions(); track permission.resource_id + '-' + permission.role_id) {
+              <tr>
+                <td><code>{{ permission.method }}</code></td>
+                <td><code>{{ permission.path }}</code></td>
+                <td>{{ permission.description || '—' }}</td>
+                <td>{{ permission.role_name }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="muted">No hay permisos efectivos para mostrar.</p>
+    }
+  </section>
+</main>
