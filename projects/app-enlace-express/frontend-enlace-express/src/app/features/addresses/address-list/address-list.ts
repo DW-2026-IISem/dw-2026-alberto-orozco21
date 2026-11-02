@@ -13,6 +13,7 @@ import { NotificationService } from '../../../core/services/notification';
 import { toApiMessage } from '../../../core/utils/api-error';
 import { filterRows } from '../../../core/utils/filter-rows';
 import { humanize } from '../../../core/utils/labels';
+import { HasPermission } from '../../../shared/directives/has-permission';
 import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { PageHeader } from '../../../shared/ui/page-header/page-header';
 import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
@@ -29,7 +30,7 @@ import { AddressForm } from '../address-form/address-form';
 @Component({
   host: { class: 'block' },
   selector: 'app-address-list',
-  imports: [AddressForm, ButtonModule, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  imports: [AddressForm, ButtonModule, DialogModule, EmptyState, HasPermission, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
   templateUrl: './address-list.html',
   styleUrl: './address-list.css',
 })

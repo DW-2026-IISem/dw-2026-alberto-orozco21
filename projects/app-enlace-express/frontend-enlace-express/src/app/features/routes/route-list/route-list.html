@@ -3,7 +3,7 @@
   subtitle="Recorridos asignados a un mensajero, con fecha, horario y estado."
 >
   <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
-  <button pButton type="button" (click)="openCreate()">
+  <button pButton type="button" *appHasPermission="'POST /api/routes'" (click)="openCreate()">
     <i pButtonIcon class="pi pi-plus"></i>
     <span pButtonLabel>Nueva ruta</span>
   </button>
@@ -88,6 +88,7 @@
               severity="secondary"
               aria-label="Editar ruta"
               pTooltip="Editar"
+              *appHasPermission="'PATCH /api/routes/:id'"
               (click)="openEdit(row)"
             ><i pButtonIcon class="pi pi-pencil"></i></button>
             <button
@@ -98,6 +99,7 @@
               severity="warn"
               aria-label="Dar de baja"
               pTooltip="Baja lógica"
+              *appHasPermission="'PATCH /api/routes/:id/deactivate'"
               (click)="deactivate(row)"
             ><i pButtonIcon class="pi pi-ban"></i></button>
             <button
@@ -108,6 +110,7 @@
               severity="danger"
               aria-label="Eliminar ruta"
               pTooltip="Eliminar"
+              *appHasPermission="'DELETE /api/routes/:id'"
               (click)="remove(row)"
             ><i pButtonIcon class="pi pi-trash"></i></button>
           </div>

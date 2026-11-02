@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { EffectivePermission } from '../../core/models/auth.model';
+import { SessionStore } from '../../core/services/session-store';
 import { Construir } from './construir';
 
 function stubDesktopMedia(matches: boolean): () => void {
@@ -32,7 +34,7 @@ describe('Construir', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [Construir],
-      providers: [provideHttpClient(), provideRouter([]), MessageService],
+      providers: [provideHttpClient(), provideRouter([]), MessageService, ConfirmationService],
     }).compileComponents();
   });
 
@@ -40,6 +42,26 @@ describe('Construir', () => {
     const fixture = TestBed.createComponent(Construir);
     await fixture.whenStable();
     return { fixture, compiled: fixture.nativeElement as HTMLElement };
+  }
+
+  function grantReadPermissions(...paths: string[]): void {
+    TestBed.inject(SessionStore).setAccess({
+      user: {
+        id: 1,
+        username: 'operator',
+        email: 'operator@example.test',
+        avatar: null,
+        status: 'active',
+      },
+      permissions: paths.map<EffectivePermission>((path, index) => ({
+        resource_id: index + 1,
+        method: 'GET',
+        path,
+        description: 'Read access',
+        role_id: 1,
+        role_name: 'OPERADOR',
+      })),
+    });
   }
 
   function menuButton(compiled: HTMLElement): HTMLButtonElement {
@@ -58,54 +80,34 @@ describe('Construir', () => {
     return option as HTMLElement;
   }
 
-  it('should compose the layout and start on Inicio', async () => {
+  it('should compose the layout and start on the dashboard', async () => {
     const { compiled } = await createScreen();
 
     expect(compiled.querySelector('app-header')).toBeTruthy();
     expect(compiled.querySelector('aside app-aside')).toBeTruthy();
     expect(compiled.querySelector('app-footer')).toBeTruthy();
-    expect(compiled.querySelector('main h1')?.textContent).toContain('Inicio');
+    expect(compiled.querySelector('main h1')?.textContent).toContain('Resumen operativo');
   });
 
-  it('should render all backend entity options in their menu groups', async () => {
+  it('should show only permitted business sections and omit placeholder administration links', async () => {
+    grantReadPermissions('/api/companies', '/api/shipments');
     const { fixture, compiled } = await createScreen();
 
-    for (const label of ['Inicio', 'Operación', 'Administración']) {
+    for (const label of ['Inicio', 'Operación']) {
       expect(compiled.textContent).toContain(label);
     }
+    expect(compiled.textContent).not.toContain('Administración');
 
     menuOption(compiled, 'Operación').click();
     fixture.detectChanges();
     await fixture.whenStable();
     for (const label of [
-      'Empresas',
-      'Contactos',
-      'Direcciones',
-      'Mensajeros',
-      'Tarifas',
-      'Rutas',
       'Envíos',
-      'Paquetes',
-      'Eventos de seguimiento',
-      'Comprobantes de entrega',
-      'Facturas',
+      'Empresas',
     ]) {
       expect(compiled.textContent).toContain(label);
     }
-
-    menuOption(compiled, 'Administración').click();
-    fixture.detectChanges();
-    await fixture.whenStable();
-    for (const label of [
-      'Usuarios',
-      'Roles',
-      'Recursos',
-      'Asignaciones de rol',
-      'Concesiones de recursos',
-      'Sesiones',
-    ]) {
-      expect(compiled.textContent).toContain(label);
-    }
+    expect(compiled.textContent).not.toContain('Contactos');
   });
 
   it('should always show the menu button', async () => {
@@ -114,6 +116,7 @@ describe('Construir', () => {
   });
 
   it('should change the title without navigating when an option is chosen', async () => {
+    grantReadPermissions('/api/companies');
     const { fixture, compiled } = await createScreen();
     const pathname = window.location.pathname;
 
@@ -160,6 +163,7 @@ describe('Construir', () => {
   });
 
   it('should close the drawer after choosing an option', async () => {
+    grantReadPermissions('/api/shipments');
     const { fixture, compiled } = await createScreen();
     const component = fixture.componentInstance;
 

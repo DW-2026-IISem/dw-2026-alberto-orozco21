@@ -3,7 +3,7 @@
   subtitle="Hitos, ubicaciones y observaciones registrados sobre cada envío."
 >
   <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
-  <button pButton type="button" (click)="openCreate()">
+  <button pButton type="button" *appHasPermission="'POST /api/tracking_events'" (click)="openCreate()">
     <i pButtonIcon class="pi pi-plus"></i>
     <span pButtonLabel>Nuevo evento de seguimiento</span>
   </button>
@@ -93,6 +93,7 @@
               severity="secondary"
               aria-label="Editar evento de seguimiento"
               pTooltip="Editar"
+              *appHasPermission="'PATCH /api/tracking_events/:id'"
               (click)="openEdit(row)"
             ><i pButtonIcon class="pi pi-pencil"></i></button>
             <button
@@ -103,6 +104,7 @@
               severity="warn"
               aria-label="Dar de baja"
               pTooltip="Baja lógica"
+              *appHasPermission="'PATCH /api/tracking_events/:id/deactivate'"
               (click)="deactivate(row)"
             ><i pButtonIcon class="pi pi-ban"></i></button>
             <button
@@ -113,6 +115,7 @@
               severity="danger"
               aria-label="Eliminar evento de seguimiento"
               pTooltip="Eliminar"
+              *appHasPermission="'DELETE /api/tracking_events/:id'"
               (click)="remove(row)"
             ><i pButtonIcon class="pi pi-trash"></i></button>
           </div>

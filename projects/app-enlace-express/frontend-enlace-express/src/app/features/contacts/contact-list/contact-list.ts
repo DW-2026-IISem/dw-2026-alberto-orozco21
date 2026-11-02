@@ -12,6 +12,7 @@ import { Contact, ContactPayload } from '../../../core/models/contact.model';
 import { NotificationService } from '../../../core/services/notification';
 import { toApiMessage } from '../../../core/utils/api-error';
 import { filterRows } from '../../../core/utils/filter-rows';
+import { HasPermission } from '../../../shared/directives/has-permission';
 import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { PageHeader } from '../../../shared/ui/page-header/page-header';
 import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
@@ -22,7 +23,7 @@ import { ContactForm } from '../contact-form/contact-form';
 @Component({
   host: { class: 'block' },
   selector: 'app-contact-list',
-  imports: [ButtonModule, ContactForm, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  imports: [ButtonModule, ContactForm, DialogModule, EmptyState, HasPermission, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
   templateUrl: './contact-list.html',
   styleUrl: './contact-list.css',
 })

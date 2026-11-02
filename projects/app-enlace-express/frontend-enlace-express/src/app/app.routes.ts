@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth-guard';
+import { authOnlyGuard } from './core/guards/auth-only-guard';
 import { guestGuard } from './core/guards/guest-guard';
 
 /**
@@ -16,16 +17,18 @@ export const routes: Routes = [
 		path: '',
 		canActivate: [authGuard],
 		children: [
-			{ path: '', pathMatch: 'full', redirectTo: 'construir' },
+			{ path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 			{
-				path: 'construir',
-				title: 'Operaciones · EnlaceExpress',
+				path: 'dashboard',
+				title: 'Panel · EnlaceExpress',
 				loadComponent: () =>
 					import('./features/construir/construir').then((module) => module.Construir),
 			},
+			{ path: 'construir', pathMatch: 'full', redirectTo: 'dashboard' },
 			{
 				path: 'perfil',
 				title: 'Perfil · EnlaceExpress',
+				canActivate: [authOnlyGuard],
 				loadComponent: () =>
 					import('./features/auth/profile/profile').then((module) => module.Profile),
 			},

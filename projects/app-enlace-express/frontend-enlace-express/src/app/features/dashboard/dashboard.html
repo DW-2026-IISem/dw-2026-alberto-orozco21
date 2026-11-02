@@ -1,0 +1,132 @@
+<main class="dashboard">
+  <header class="dashboard-heading">
+    <div>
+      <p class="eyebrow">EnlaceExpress / Operaciones</p>
+      <h1>Resumen operativo</h1>
+      <p class="welcome">
+        @if (session.user(); as user) {
+          Hola, {{ user.username }}. Este es el estado actual de tu operación.
+        } @else {
+          Estado actual de la operación logística.
+        }
+      </p>
+    </div>
+    <button pButton type="button" severity="secondary" outlined (click)="loadDashboard()" [disabled]="loading()">
+      <i class="pi pi-refresh" pButtonIcon></i>
+      <span pButtonLabel>Actualizar</span>
+    </button>
+  </header>
+
+  @if (error()) {
+    <section class="load-error" role="alert">
+      <div>
+        <strong>No se pudo cargar el resumen</strong>
+        <p>{{ error() }}</p>
+      </div>
+      <button pButton type="button" severity="secondary" outlined (click)="loadDashboard()">
+        <i class="pi pi-refresh" pButtonIcon></i>
+        <span pButtonLabel>Reintentar</span>
+      </button>
+    </section>
+  }
+
+  <section class="metrics" aria-label="Indicadores operativos">
+    @if (loading()) {
+      @for (metric of [1, 2, 3, 4]; track metric) {
+        <div class="metric metric-skeleton">
+          <p-skeleton width="7rem" height="0.75rem" />
+          <p-skeleton width="5rem" height="2rem" />
+          <p-skeleton width="9rem" height="0.75rem" />
+        </div>
+      }
+    } @else {
+      <article class="metric metric--shipments">
+        <div class="metric-top"><span>Envíos activos</span><i class="pi pi-send" aria-hidden="true"></i></div>
+        <strong>{{ canViewShipments() ? activeShipmentCount() : '—' }}</strong>
+        <button type="button" class="metric-link" [disabled]="!canViewShipments()" (click)="requestSection('Envíos')">
+          {{ canViewShipments() ? 'Ver operación' : 'Sin permiso de lectura' }}
+          @if (canViewShipments()) { <i class="pi pi-arrow-up-right" aria-hidden="true"></i> }
+        </button>
+      </article>
+      <article class="metric metric--route">
+        <div class="metric-top"><span>En ruta</span><i class="pi pi-map-marker" aria-hidden="true"></i></div>
+        <strong>{{ canViewShipments() ? inTransitCount() : '—' }}</strong>
+        <span class="metric-note">
+          @if (canViewShipments()) {
+            {{ incidentCount() }} {{ incidentCount() === 1 ? 'envío con novedad' : 'envíos con novedad' }}
+          } @else {
+            Sin permiso de lectura
+          }
+        </span>
+      </article>
+      <article class="metric metric--companies">
+        <div class="metric-top"><span>Empresas activas</span><i class="pi pi-building" aria-hidden="true"></i></div>
+        <strong>{{ canViewCompanies() ? activeCompanyCount() : '—' }}</strong>
+        <button type="button" class="metric-link" [disabled]="!canViewCompanies()" (click)="requestSection('Empresas')">
+          {{ canViewCompanies() ? 'Consultar empresas' : 'Sin permiso de lectura' }}
+          @if (canViewCompanies()) { <i class="pi pi-arrow-up-right" aria-hidden="true"></i> }
+        </button>
+      </article>
+      <article class="metric metric--billing">
+        <div class="metric-top"><span>Cartera pendiente</span><i class="pi pi-file-edit" aria-hidden="true"></i></div>
+        <strong class="metric-money">{{ canViewInvoices() ? formatMoney(pendingInvoiceTotal()) : '—' }}</strong>
+        <button type="button" class="metric-link" [disabled]="!canViewInvoices()" (click)="requestSection('Facturas')">
+          {{ canViewInvoices() ? pendingInvoices().length + ' facturas pendientes' : 'Sin permiso de lectura' }}
+          @if (canViewInvoices()) { <i class="pi pi-arrow-up-right" aria-hidden="true"></i> }
+        </button>
+      </article>
+    }
+  </section>
+
+  <section class="activity" aria-labelledby="activity-title">
+    <header class="activity-heading">
+      <div>
+        <p class="eyebrow">Seguimiento</p>
+        <h2 id="activity-title">Envíos recientes</h2>
+      </div>
+      @if (canViewShipments()) {
+        <button pButton type="button" text (click)="requestSection('Envíos')">
+          <span pButtonLabel>Ver todos</span>
+          <i class="pi pi-arrow-right" pButtonIcon></i>
+        </button>
+      }
+    </header>
+
+    @if (loading()) {
+      <div class="loading-rows">
+        @for (row of [1, 2, 3, 4]; track row) {
+          <p-skeleton height="2.75rem" />
+        }
+      </div>
+    } @else if (!canViewShipments()) {
+      <p class="empty-state">Tu rol no tiene permiso para consultar envíos.</p>
+    } @else if (latestShipments().length === 0) {
+      <p class="empty-state">Aún no hay envíos activos para mostrar.</p>
+    } @else {
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Guía</th>
+              <th scope="col">Empresa</th>
+              <th scope="col">Solicitud</th>
+              <th scope="col">Estado</th>
+              <th scope="col" class="amount-column">Costo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (shipment of latestShipments(); track shipment.id) {
+              <tr>
+                <td><span class="tracking-number">{{ shipment.numero_guia }}</span></td>
+                <td>{{ companyName(shipment.empresa_id) }}</td>
+                <td>{{ formatDate(shipment.fecha_solicitud) }}</td>
+                <td><span [class]="statusClass(shipment.estado)">{{ statusLabel(shipment.estado) }}</span></td>
+                <td class="amount-column">{{ shipmentCost(shipment.costo_calculado) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</main>

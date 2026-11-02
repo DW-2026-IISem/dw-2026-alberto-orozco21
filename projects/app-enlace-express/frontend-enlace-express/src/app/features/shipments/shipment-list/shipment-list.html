@@ -3,7 +3,7 @@
   subtitle="Creación, seguimiento y gestión logística de los envíos."
 >
   <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
-  <button pButton type="button" (click)="openCreate()">
+  <button pButton type="button" *appHasPermission="'POST /api/shipments'" (click)="openCreate()">
     <i pButtonIcon class="pi pi-plus"></i>
     <span pButtonLabel>Nuevo envío</span>
   </button>
@@ -101,6 +101,7 @@
               severity="secondary"
               aria-label="Editar envío"
               pTooltip="Editar"
+              *appHasPermission="'PATCH /api/shipments/:id'"
               (click)="openEdit(row)"
             ><i pButtonIcon class="pi pi-pencil"></i></button>
             <button
@@ -111,6 +112,7 @@
               severity="warn"
               aria-label="Dar de baja"
               pTooltip="Baja lógica"
+              *appHasPermission="'PATCH /api/shipments/:id/deactivate'"
               (click)="deactivate(row)"
             ><i pButtonIcon class="pi pi-ban"></i></button>
             <button
@@ -121,6 +123,7 @@
               severity="danger"
               aria-label="Eliminar envío"
               pTooltip="Eliminar"
+              *appHasPermission="'DELETE /api/shipments/:id'"
               (click)="remove(row)"
             ><i pButtonIcon class="pi pi-trash"></i></button>
           </div>

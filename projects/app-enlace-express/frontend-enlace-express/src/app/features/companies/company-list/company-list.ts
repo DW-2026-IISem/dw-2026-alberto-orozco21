@@ -13,6 +13,7 @@ import { Contact } from '../../../core/models/contact.model';
 import { NotificationService } from '../../../core/services/notification';
 import { toApiMessage } from '../../../core/utils/api-error';
 import { filterRows } from '../../../core/utils/filter-rows';
+import { HasPermission } from '../../../shared/directives/has-permission';
 import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { PageHeader } from '../../../shared/ui/page-header/page-header';
 import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
@@ -24,7 +25,7 @@ import { CompanyForm } from '../company-form/company-form';
 @Component({
   host: { class: 'block' },
   selector: 'app-company-list',
-  imports: [ButtonModule, CompanyForm, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  imports: [ButtonModule, CompanyForm, DialogModule, EmptyState, HasPermission, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
   templateUrl: './company-list.html',
   styleUrl: './company-list.css',
 })

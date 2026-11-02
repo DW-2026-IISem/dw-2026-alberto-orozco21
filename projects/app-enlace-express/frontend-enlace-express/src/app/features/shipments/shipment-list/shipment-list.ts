@@ -20,6 +20,7 @@ import { NotificationService } from '../../../core/services/notification';
 import { toApiMessage } from '../../../core/utils/api-error';
 import { filterRows } from '../../../core/utils/filter-rows';
 import { humanize } from '../../../core/utils/labels';
+import { HasPermission } from '../../../shared/directives/has-permission';
 import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { PageHeader } from '../../../shared/ui/page-header/page-header';
 import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
@@ -42,7 +43,7 @@ import { ShipmentForm } from '../shipment-form/shipment-form';
 @Component({
   host: { class: 'block' },
   selector: 'app-shipment-list',
-  imports: [ButtonModule, CurrencyPipe, DatePipe, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, ShipmentForm, StatusTag, TableModule, TagModule, TooltipModule],
+  imports: [ButtonModule, CurrencyPipe, DatePipe, DialogModule, EmptyState, HasPermission, InputTextModule, MessageModule, PageHeader, ShipmentForm, StatusTag, TableModule, TagModule, TooltipModule],
   templateUrl: './shipment-list.html',
   styleUrl: './shipment-list.css',
 })

@@ -3,7 +3,7 @@
   subtitle="Reglas de cálculo de costos por zona y vigencia."
 >
   <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
-  <button pButton type="button" (click)="openCreate()">
+  <button pButton type="button" *appHasPermission="'POST /api/rates'" (click)="openCreate()">
     <i pButtonIcon class="pi pi-plus"></i>
     <span pButtonLabel>Nueva tarifa</span>
   </button>
@@ -88,6 +88,7 @@
               severity="secondary"
               aria-label="Editar tarifa"
               pTooltip="Editar"
+              *appHasPermission="'PATCH /api/rates/:id'"
               (click)="openEdit(row)"
             ><i pButtonIcon class="pi pi-pencil"></i></button>
             <button
@@ -98,6 +99,7 @@
               severity="warn"
               aria-label="Dar de baja"
               pTooltip="Baja lógica"
+              *appHasPermission="'PATCH /api/rates/:id/deactivate'"
               (click)="deactivate(row)"
             ><i pButtonIcon class="pi pi-ban"></i></button>
             <button
@@ -108,6 +110,7 @@
               severity="danger"
               aria-label="Eliminar tarifa"
               pTooltip="Eliminar"
+              *appHasPermission="'DELETE /api/rates/:id'"
               (click)="remove(row)"
             ><i pButtonIcon class="pi pi-trash"></i></button>
           </div>

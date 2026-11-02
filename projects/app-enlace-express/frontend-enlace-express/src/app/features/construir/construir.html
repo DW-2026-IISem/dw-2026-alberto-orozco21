@@ -13,7 +13,7 @@
     @if (!sidebarCollapsed()) {
       <aside class="hidden w-72 shrink-0 lg:block">
         <app-aside
-          [items]="items"
+          [items]="items()"
           [showSession]="session.user() !== null"
           [username]="session.user()?.username ?? ''"
           [roleLabel]="session.roleNames().join(', ') || 'Sin rol'"
@@ -25,7 +25,9 @@
     }
 
     <main id="contenido" class="min-w-0 flex-1 p-4 sm:p-6">
-      @if (title() === 'Empresas') {
+      @if (title() === 'Inicio') {
+        <app-dashboard (sectionRequested)="onDashboardSectionRequested($event)" />
+      } @else if (title() === 'Empresas') {
         <app-company-list />
       } @else if (title() === 'Contactos') {
         <app-contact-list />
@@ -66,7 +68,7 @@
 
 <p-drawer [(visible)]="mobileOpen" header="Menú" position="left" styleClass="w-72">
   <app-aside
-    [items]="items"
+    [items]="items()"
     [showSession]="session.user() !== null"
     [username]="session.user()?.username ?? ''"
     [roleLabel]="session.roleNames().join(', ') || 'Sin rol'"

@@ -3,7 +3,7 @@
   subtitle="Direcciones de recogida, entrega o mixtas de cada empresa."
 >
   <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
-  <button pButton type="button" (click)="openCreate()">
+  <button pButton type="button" *appHasPermission="'POST /api/address'" (click)="openCreate()">
     <i pButtonIcon class="pi pi-plus"></i>
     <span pButtonLabel>Nueva dirección</span>
   </button>
@@ -86,6 +86,7 @@
               severity="secondary"
               aria-label="Editar dirección"
               pTooltip="Editar"
+              *appHasPermission="'PATCH /api/address/:id'"
               (click)="openEdit(row)"
             ><i pButtonIcon class="pi pi-pencil"></i></button>
             <button
@@ -96,6 +97,7 @@
               severity="warn"
               aria-label="Dar de baja"
               pTooltip="Baja lógica"
+              *appHasPermission="'PATCH /api/address/:id/deactivate'"
               (click)="deactivate(row)"
             ><i pButtonIcon class="pi pi-ban"></i></button>
             <button
@@ -106,6 +108,7 @@
               severity="danger"
               aria-label="Eliminar dirección"
               pTooltip="Eliminar"
+              *appHasPermission="'DELETE /api/address/:id'"
               (click)="remove(row)"
             ><i pButtonIcon class="pi pi-trash"></i></button>
           </div>

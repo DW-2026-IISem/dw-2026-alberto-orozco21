@@ -12,6 +12,7 @@ import { Shipment } from '../../../core/models/shipment.model';
 import { NotificationService } from '../../../core/services/notification';
 import { toApiMessage } from '../../../core/utils/api-error';
 import { filterRows } from '../../../core/utils/filter-rows';
+import { HasPermission } from '../../../shared/directives/has-permission';
 import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { PageHeader } from '../../../shared/ui/page-header/page-header';
 import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
@@ -28,7 +29,7 @@ import { PackageForm } from '../package-form/package-form';
 @Component({
   host: { class: 'block' },
   selector: 'app-package-list',
-  imports: [ButtonModule, DialogModule, EmptyState, InputTextModule, MessageModule, PackageForm, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  imports: [ButtonModule, DialogModule, EmptyState, HasPermission, InputTextModule, MessageModule, PackageForm, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
   templateUrl: './package-list.html',
   styleUrl: './package-list.css',
 })

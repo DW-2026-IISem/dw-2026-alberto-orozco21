@@ -1,6 +1,6 @@
 <app-page-header title="Contactos" subtitle="Personas asociadas a una empresa. Una empresa puede tener un contacto principal.">
   <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
-  <button pButton type="button" (click)="openCreate()"><i pButtonIcon class="pi pi-plus"></i><span pButtonLabel>Nuevo contacto</span></button>
+  <button pButton type="button" *appHasPermission="'POST /api/contacts'" (click)="openCreate()"><i pButtonIcon class="pi pi-plus"></i><span pButtonLabel>Nuevo contacto</span></button>
 </app-page-header>
 
 @if (error()) { <p-message severity="error" styleClass="mb-4 w-full">{{ error() }}</p-message> }
@@ -31,9 +31,9 @@
       <td>@if (row.is_principal) { <p-tag value="Principal" severity="info" [rounded]="true" /> } @else { <span class="text-slate-400">—</span> }</td>
       <td><app-status-tag [isActive]="row.is_active" /></td>
       <td><div class="flex justify-end gap-1">
-        <button pButton type="button" text rounded severity="secondary" aria-label="Editar contacto" pTooltip="Editar" (click)="openEdit(row)"><i pButtonIcon class="pi pi-pencil"></i></button>
-        <button pButton type="button" text rounded severity="warn" aria-label="Dar de baja" pTooltip="Baja lógica" (click)="deactivate(row)"><i pButtonIcon class="pi pi-ban"></i></button>
-        <button pButton type="button" text rounded severity="danger" aria-label="Eliminar contacto" pTooltip="Eliminar" (click)="remove(row)"><i pButtonIcon class="pi pi-trash"></i></button>
+        <button pButton type="button" text rounded severity="secondary" aria-label="Editar contacto" pTooltip="Editar" *appHasPermission="'PATCH /api/contacts/:id'" (click)="openEdit(row)"><i pButtonIcon class="pi pi-pencil"></i></button>
+        <button pButton type="button" text rounded severity="warn" aria-label="Dar de baja" pTooltip="Baja lógica" *appHasPermission="'PATCH /api/contacts/:id/deactivate'" (click)="deactivate(row)"><i pButtonIcon class="pi pi-ban"></i></button>
+        <button pButton type="button" text rounded severity="danger" aria-label="Eliminar contacto" pTooltip="Eliminar" *appHasPermission="'DELETE /api/contacts/:id'" (click)="remove(row)"><i pButtonIcon class="pi pi-trash"></i></button>
       </div></td>
     </tr></ng-template>
     <ng-template #emptymessage><tr><td colspan="6">

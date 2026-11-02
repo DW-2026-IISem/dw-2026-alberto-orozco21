@@ -14,6 +14,7 @@ import { NotificationService } from '../../../core/services/notification';
 import { toApiMessage } from '../../../core/utils/api-error';
 import { filterRows } from '../../../core/utils/filter-rows';
 import { humanize } from '../../../core/utils/labels';
+import { HasPermission } from '../../../shared/directives/has-permission';
 import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { PageHeader } from '../../../shared/ui/page-header/page-header';
 import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
@@ -30,7 +31,7 @@ import { InvoiceForm } from '../invoice-form/invoice-form';
 @Component({
   host: { class: 'block' },
   selector: 'app-invoice-list',
-  imports: [ButtonModule, CurrencyPipe, DatePipe, DialogModule, EmptyState, InputTextModule, InvoiceForm, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
+  imports: [ButtonModule, CurrencyPipe, DatePipe, DialogModule, EmptyState, HasPermission, InputTextModule, InvoiceForm, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule],
   templateUrl: './invoice-list.html',
   styleUrl: './invoice-list.css',
 })

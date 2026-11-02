@@ -15,6 +15,7 @@ import { NotificationService } from '../../../core/services/notification';
 import { toApiMessage } from '../../../core/utils/api-error';
 import { filterRows } from '../../../core/utils/filter-rows';
 import { humanize } from '../../../core/utils/labels';
+import { HasPermission } from '../../../shared/directives/has-permission';
 import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { PageHeader } from '../../../shared/ui/page-header/page-header';
 import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
@@ -32,7 +33,7 @@ import { TrackingEventForm } from '../tracking-event-form/tracking-event-form';
 @Component({
   host: { class: 'block' },
   selector: 'app-tracking-event-list',
-  imports: [ButtonModule, DatePipe, DialogModule, EmptyState, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule, TrackingEventForm],
+  imports: [ButtonModule, DatePipe, DialogModule, EmptyState, HasPermission, InputTextModule, MessageModule, PageHeader, StatusTag, TableModule, TagModule, TooltipModule, TrackingEventForm],
   templateUrl: './tracking-event-list.html',
   styleUrl: './tracking-event-list.css',
 })

@@ -1,6 +1,6 @@
 <app-page-header title="Empresas" subtitle="Clientes de la operación logística: NIT, razón social, contacto principal y dirección de facturación.">
   <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
-  <button pButton type="button" (click)="openCreate()"><i pButtonIcon class="pi pi-plus"></i><span pButtonLabel>Nueva empresa</span></button>
+  <button pButton type="button" *appHasPermission="'POST /api/companies'" (click)="openCreate()"><i pButtonIcon class="pi pi-plus"></i><span pButtonLabel>Nueva empresa</span></button>
 </app-page-header>
 
 @if (error()) { <p-message severity="error" styleClass="mb-4 w-full">{{ error() }}</p-message> }
@@ -24,9 +24,9 @@
       <td><span class="text-sm text-slate-600">{{ addressName()(row.direccion_facturacion_id) }}</span></td>
       <td><app-status-tag [isActive]="row.is_active" /></td>
       <td><div class="flex justify-end gap-1">
-        <button pButton type="button" text rounded severity="secondary" aria-label="Editar empresa" pTooltip="Editar" (click)="openEdit(row)"><i pButtonIcon class="pi pi-pencil"></i></button>
-        <button pButton type="button" text rounded severity="warn" aria-label="Dar de baja" pTooltip="Baja lógica" (click)="deactivate(row)"><i pButtonIcon class="pi pi-ban"></i></button>
-        <button pButton type="button" text rounded severity="danger" aria-label="Eliminar empresa" pTooltip="Eliminar" (click)="remove(row)"><i pButtonIcon class="pi pi-trash"></i></button>
+        <button pButton type="button" text rounded severity="secondary" aria-label="Editar empresa" pTooltip="Editar" *appHasPermission="'PATCH /api/companies/:id'" (click)="openEdit(row)"><i pButtonIcon class="pi pi-pencil"></i></button>
+        <button pButton type="button" text rounded severity="warn" aria-label="Dar de baja" pTooltip="Baja lógica" *appHasPermission="'PATCH /api/companies/:id/deactivate'" (click)="deactivate(row)"><i pButtonIcon class="pi pi-ban"></i></button>
+        <button pButton type="button" text rounded severity="danger" aria-label="Eliminar empresa" pTooltip="Eliminar" *appHasPermission="'DELETE /api/companies/:id'" (click)="remove(row)"><i pButtonIcon class="pi pi-trash"></i></button>
       </div></td>
     </tr></ng-template>
     <ng-template #emptymessage><tr><td colspan="5">

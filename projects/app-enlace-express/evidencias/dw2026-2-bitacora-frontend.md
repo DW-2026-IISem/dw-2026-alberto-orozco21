@@ -12782,3 +12782,277 @@ import { guestGuard } from './core/guards/guest-guard';
 ![alt text](img-express/login_ui.png)
 
 ![alt text](img-express/admin_perfil.png)
+
+## Fase II: Auth con RBAC — ISS-15 — Guards y RBAC en las pantallas Business
+
+Antes de construir: Autorización por capas
+Comprueba authGuard, luego permissionGuard, después menú filtrado y botones. NAV y computed permanecen en Shell; Aside solo presenta items.
+
+**Objetivo**
+
+Convertir la autenticación en autorización visible:
+
+> Fase II · bloque 2 de 3 — Protección del Business. Esta ISS no reescribe las pantallas de Fase I (clientes, tipos, productos, ventas, detalle). Solo añade canActivate/data a sus rutas, envuelve sus botones con *appHasPermission y filtra el menú. Los formularios de administración RBAC llegan en ISS-10.
+
+- authGuard: sin sesión → /login.
+- guestGuard: con sesión → no volver al login.
+- permissionGuard: sin la concesión de la ruta → /forbidden.
+- *appHasPermission: oculta botones de escritura.
+- Menú lateral calculado con computed() según SessionStore.
+
+> Principio: todo esto es UX, no seguridad. El backend vuelve a validar con authenticate + authorize. Un usuario puede forzar la URL o el DOM; el backend responde 401/403 y el errorInterceptor muestra el toast.
+
+La fuente de verdad en el cliente es `SessionStore.permissions()`, cargada desde `GET /api/permisos`. No hay permisos hardcodeados por rol.
+
+> Modo laboratorio. authGuard, guestGuard y permissionGuard consultan environment.requireAuth; con false dejan pasar. authOnlyGuard consulta SessionStore.authEnabled (su copia) y hace lo contrario: cierra /perfil y /admin/*. Solo tiene sentido junto con AUTH_ENABLED=false en el .env del backend, que abre las 5 rutas de negocio. Con las banderas desemparejadas la UI no se bloquea pero la API responde 401
+
+### 15.0 Generar guards y directiva
+
+```bash
+ng generate guard core/guards/auth --functional --implements=CanActivate --skip-tests --defaults
+ng generate guard core/guards/guest --functional --implements=CanActivate --skip-tests --defaults
+ng generate guard core/guards/permission --functional --implements=CanActivate --skip-tests --defaults
+ng generate directive shared/directives/has-permission --skip-tests --defaults
+```
+
+El separador de guard genera auth-guard.ts, guest-guard.ts y permission-guard.ts, que coinciden con sus imports. Si los creaste al conectar las rutas de ISS-08, completa sus cuerpos sin volver a generarlos. La directiva se genera antes de añadir sus imports a los componentes. El CLI crea la estructura; el comportamiento de permisos se implementa después.
+
+### 15.1 authGuard
+
+```bash
+mkdir -p src/app/core/guards
+cat > src/app/core/guards/auth-guard.ts <<'EOF'
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
+import { SessionStore } from '../services/session-store';
+
+/** ¿Quién eres? Si no hay access token, a /login con returnUrl. */
+export const authGuard: CanActivateFn = (_route, state) => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+
+  if (!environment.requireAuth || session.isAuthenticated()) {
+    return true;
+  }
+
+  return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
+};
+EOF
+```
+
+createUrlTree es preferible a router.navigate dentro de un guard: el Router evalúa la redirección antes de activar el componente, sin parpadeos.
+
+### 15.2 guestGuard
+
+```bash
+cat > src/app/core/guards/guest-guard.ts <<'EOF'
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
+import { SessionStore } from '../services/session-store';
+
+/** Un usuario ya autenticado no necesita volver a /login. */
+export const guestGuard: CanActivateFn = () => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+
+  if (!environment.requireAuth || !session.isAuthenticated()) {
+    return true;
+  }
+
+  return router.createUrlTree(['/dashboard']);
+};
+EOF
+```
+
+### 15.3 permissionGuard
+
+```bash
+cat > src/app/core/guards/permission-guard.ts <<'EOF'
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
+import { SessionStore } from '../services/session-store';
+
+/**
+ * ¿Qué puedes hacer? Se declara en la ruta:
+ *   data: { permission: 'GET /api/clientes' }
+ * Es una ayuda visual; Express vuelve a validar con Auth.authorize.
+ */
+export const permissionGuard: CanActivateFn = (route) => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+
+  if (!environment.requireAuth) {
+    return true;
+  }
+
+  const permission = route.data?.['permission'] as string | undefined;
+  if (!permission || session.canPermission(permission)) {
+    return true;
+  }
+
+  return router.createUrlTree(['/forbidden'], {
+    queryParams: { permission },
+  });
+};
+EOF
+```
+
+Cómo se evalúa canPermission
+
+```
+canPermission('GET /api/clientes/7')
+```
+
+- Separa verbo (GET) y ruta (/api/clientes/7).
+- Recorre permissions() (cada fila trae method y path patrón).
+- Casa /api/clientes/:id con /api/clientes/7 mediante regex anclada.
+- Deny by default: si ninguna fila coincide, devuelve false.
+
+`authOnlyGuard:` **pantallas que no existen en la Fase I**
+
+La administración RBAC y el perfil no tienen sentido sin sesión: el backend los mantiene con JWT aunque el frontend esté en modo laboratorio. Este guard evita ofrecer pantallas que responderían 401.
+
+```typescript
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { SessionStore } from '../services/session-store';
+
+export const authOnlyGuard: CanActivateFn = () => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+
+  if (session.authEnabled) {
+    return true;
+  }
+
+  return router.createUrlTree(['/dashboard']);
+};
+```
+
+Se aplica antes de permissionGuard en /perfil y en las cinco rutas /admin/*:
+
+```typescript
+{
+  path: 'admin/usuarios',
+  canActivate: [authOnlyGuard, permissionGuard],
+  data: { permission: 'GET /api/usuarios' },
+  loadComponent: () => import('./features/admin/users/user-list/user-list').then((m) => m.UserList),
+},
+```
+
+El Shell usa la misma condición para no pintar el grupo Seguridad del menú (authOnly: true en NAV). Así el modo laboratorio se ve como la Fase I real: Operación + Prototipo.
+
+authOnlyGuard lee SessionStore.authEnabled, que es la copia de environment.requireAuth que ya consume el Shell. Los otros guards leen el environment directamente; ambas fuentes valen lo mismo y el test lo verifica.
+
+### 15.4 Matriz de rutas de Fase II
+
+Encima de cada loadComponent de las rutas ya existentes (las de Fase I), añade canActivate y data:
+
+|Ruta	|Permiso|
+|-------|-------|
+|/clientes	|GET /api/clientes|
+|/tipos-producto|	GET /api/tipos-producto|
+|/productos|	GET /api/productos|
+|/ventas|	GET /api/ventas|
+|/ventas/nueva	|POST /api/ventas|
+|/detalle-ventas|	GET /api/detalle-ventas|
+|/dashboard	|GET /api/ventas|
+
+Las rutas /admin/* no se declaran aquí: sus componentes se crean en ISS-16. Al declararlas allí, se les pone el mismo permissionGuard y su data:
+
+|Ruta	|Permiso|	Se declara en|
+|-------|-----|---------------|
+|/admin/usuarios|GET /api/usuarios|	ISS-10|
+|/admin/roles|	GET /api/roles|	ISS-10|
+|/admin/recursos|	GET /api/recursos	|ISS-10|
+|/admin/asignaciones|	GET /api/asignaciones-rol	|ISS-10|
+|/admin/permisos|	GET /api/concesiones-rol	|ISS-10|
+
+Ejemplo completo (la ruta de clientes ya existe desde ISS-03):
+
+```
+{
+  path: 'clientes',
+  title: 'Clientes · StoreLab',
+  canActivate: [permissionGuard],
+  data: { permission: 'GET /api/clientes' },
+  loadComponent: () =>
+    import('./features/clients/client-list/client-list').then((m) => m.ClientList),
+},
+```
+
+`/perfil` y `/forbidden` no llevan `permissionGuard`: todo usuario autenticado debe poder ver su sesión y la pantalla de acceso denegado.
+
+### 15.5 Directiva *appHasPermission
+
+Conservada como ampliación en ISS-02; créala ahora si seguiste el recorrido básico. Su fuente es SessionStore.canPermission():
+
+```html
+<ng-container *appHasPermission="'POST /api/clientes'">
+  <button pButton label="Nuevo cliente" icon="pi pi-plus"></button>
+</ng-container>
+```
+
+Permisos exactos por acción (pantallas de Fase I)
+
+```html
+<ng-container *appHasPermission="'PATCH /api/clientes/:id'">…</ng-container>
+<ng-container *appHasPermission="'DELETE /api/clientes/:id'">…</ng-container>
+```
+
+### 15.6 Menú lateral con computed
+
+Catálogo de rutas y permisos en `src/app/layout/shell/nav.config.ts` (NAV). El Shell filtra cada grupo con `SessionStore.canPermission()` y oculta Seguridad cuando `authEnabled` es false (modo laboratorio).
+
+```typescript
+readonly navGroups = computed<MenuItem[]>(() =>
+  NAV.filter((group) => !group.authOnly || this.session.authEnabled)
+    .map((group) => ({
+    label: group.label,
+    items: group.items
+      .filter((item) => !item.permission || this.session.canPermission(item.permission))
+      .map<MenuItem>((item) => ({
+        label: item.label,
+        icon: item.icon,
+        routerLink: item.routerLink,
+        routerLinkActiveOptions: { exact: item.routerLink === '/ventas' },
+      })),
+  })).filter((group) => (group.items?.length ?? 0) > 0),
+);
+```
+
+computed se recalcula cuando cambia permissions(). Después de AuthService.me(), el menú se ajusta sin recargar la página.
+
+**Topbar y menú de usuario**
+
+- Avatar con iniciales (computed).
+- Tag con roles (roleLabel, derivado de roleNames()).
+- Menú popup: Mi sesión, Actualizar permisos, Cerrar sesión.
+- p-toast y p-confirmdialog globales en el shell.
+
+> Error clásico: `<p-menu #userMenu [model]="userMenu()">` hace que la referencia de plantilla #userMenu tape el método userMenu() y Angular reporte Type 'Menu' has no call signatures. Usa #userMenuPanel.
+
+### 15.7 /forbidden: explicar el 403
+
+Forbidden lee permission del query param y lo muestra:
+
+```typescript
+readonly permission = this.route.snapshot.queryParamMap.get('permission');
+```
+
+```html
+@if (permission) {
+  <div class="rounded-xl bg-slate-900 px-4 py-3">
+    <p class="text-[11px] uppercase text-slate-400">Permiso requerido</p>
+    <code class="text-sm text-emerald-300">{{ permission }}</code>
+  </div>
+}
+
+Esto convierte un “no puedo entrar” en una pista accionable: pide a un admin que cree la fila en resource_roles (pantalla /admin/permisos).
+
+![alt text](img-express/ISS-15.png)
+
+![alt text](img-express/permisos_alberto.png)

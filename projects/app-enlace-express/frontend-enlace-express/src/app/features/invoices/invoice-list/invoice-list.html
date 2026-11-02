@@ -3,7 +3,7 @@
   subtitle="Facturas emitidas a una empresa por un periodo."
 >
   <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
-  <button pButton type="button" (click)="openCreate()">
+  <button pButton type="button" *appHasPermission="'POST /api/invoices'" (click)="openCreate()">
     <i pButtonIcon class="pi pi-plus"></i>
     <span pButtonLabel>Nueva factura</span>
   </button>
@@ -91,6 +91,7 @@
               severity="secondary"
               aria-label="Editar factura"
               pTooltip="Editar"
+              *appHasPermission="'PATCH /api/invoices/:id'"
               (click)="openEdit(row)"
             ><i pButtonIcon class="pi pi-pencil"></i></button>
             <button
@@ -101,6 +102,7 @@
               severity="warn"
               aria-label="Dar de baja"
               pTooltip="Baja lógica"
+              *appHasPermission="'PATCH /api/invoices/:id/deactivate'"
               (click)="deactivate(row)"
             ><i pButtonIcon class="pi pi-ban"></i></button>
             <button
@@ -111,6 +113,7 @@
               severity="danger"
               aria-label="Eliminar factura"
               pTooltip="Eliminar"
+              *appHasPermission="'DELETE /api/invoices/:id'"
               (click)="remove(row)"
             ><i pButtonIcon class="pi pi-trash"></i></button>
           </div>

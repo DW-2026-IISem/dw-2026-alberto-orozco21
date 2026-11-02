@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 
@@ -10,6 +11,11 @@ import { ButtonModule } from 'primeng/button';
       <i class="pi pi-lock text-3xl text-amber-700" aria-hidden="true"></i>
       <h1 class="m-0 text-2xl font-semibold text-slate-900">Acceso no autorizado</h1>
       <p class="m-0 text-slate-600">Tu cuenta no tiene permiso para acceder a este recurso.</p>
+      @if (permission) {
+        <p class="m-0 rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-700">
+          Permiso requerido: <code>{{ permission }}</code>
+        </p>
+      }
       <a pButton routerLink="/construir" class="mt-2">
         <i class="pi pi-arrow-left" pButtonIcon></i>
         <span pButtonLabel>Volver a operaciones</span>
@@ -17,4 +23,7 @@ import { ButtonModule } from 'primeng/button';
     </main>
   `,
 })
-export class Forbidden {}
+export class Forbidden {
+  private readonly route = inject(ActivatedRoute);
+  readonly permission = this.route.snapshot.queryParamMap.get('permission');
+}
