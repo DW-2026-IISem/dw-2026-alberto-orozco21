@@ -1,0 +1,62 @@
+<app-page-header title="Concesiones de recursos" subtitle="Define qué capacidades HTTP concede cada rol.">
+  <p-tag [value]="rows().length + ' concesiones'" severity="info" [rounded]="true" />
+  @if (canGrant()) {
+    <button pButton type="button" *appHasPermission="'POST /api/concesiones-rol'" (click)="openCreate()">
+      <i pButtonIcon class="pi pi-plus"></i><span pButtonLabel>Conceder recurso</span>
+    </button>
+  }
+</app-page-header>
+
+@if (error()) { <p-message severity="error" styleClass="mb-4 w-full">{{ error() }}</p-message> }
+@if (referencesError()) { <p-message severity="warn" styleClass="mb-4 w-full">No se pudieron cargar algunos roles o recursos. {{ referencesError() }}</p-message> }
+
+<div class="rounded-lg border border-slate-200 bg-white">
+  <p-table [value]="visibleRows()" [loading]="loading()" [paginator]="visibleRows().length > 10" [rows]="10" dataKey="id">
+    <ng-template #caption>
+      <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_14rem]">
+        <input pInputText type="search" aria-label="Buscar concesiones" placeholder="Buscar por ruta, método o rol" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+        <p-select [fluid]="true" [options]="roles()" optionLabel="name" optionValue="id" placeholder="Todos los roles" [showClear]="true" [ngModel]="roleFilter()" (ngModelChange)="roleFilter.set($event)" [ngModelOptions]="{ standalone: true }" />
+        <p-select [fluid]="true" [options]="resources()" optionLabel="path" optionValue="id" placeholder="Todos los recursos" [showClear]="true" [filter]="true" filterBy="path,method" [ngModel]="resourceFilter()" (ngModelChange)="resourceFilter.set($event)" [ngModelOptions]="{ standalone: true }">
+          <ng-template #selectedItem let-resource><span class="flex items-center gap-2"><p-tag [value]="resource.method" [severity]="methodSeverity(resource.method)" [rounded]="true" /><code class="text-xs">{{ resource.path }}</code></span></ng-template>
+          <ng-template #item let-resource><span class="flex items-center gap-2"><p-tag [value]="resource.method" [severity]="methodSeverity(resource.method)" [rounded]="true" /><code class="text-xs">{{ resource.path }}</code></span></ng-template>
+        </p-select>
+      </div>
+    </ng-template>
+    <ng-template #header><tr><th>Rol</th><th>Método y ruta</th><th>Estado</th><th class="w-24 text-right">Acciones</th></tr></ng-template>
+    <ng-template #body let-row>
+      @let resource = resourceById().get(row.resource_id);
+      <tr>
+        <td>{{ roleNames().get(row.role_id) ?? 'Rol #' + row.role_id }}</td>
+        <td><span class="flex items-center gap-2"><p-tag [value]="resource?.method ?? '—'" [severity]="methodSeverity(resource?.method)" [rounded]="true" /><code>{{ resource?.path ?? 'Recurso #' + row.resource_id }}</code></span></td>
+        <td><app-status-tag [isActive]="row.status === 'active'" /></td>
+        <td><div class="flex justify-end">
+          @if (row.status === 'active') {
+            <button pButton type="button" text rounded severity="warn" aria-label="Retirar concesión" pTooltip="Retirar concesión" *appHasPermission="'PATCH /api/concesiones-rol/:id/deactivate'" (click)="deactivate(row)"><i pButtonIcon class="pi pi-lock"></i></button>
+          } @else {
+            <button pButton type="button" text rounded severity="success" aria-label="Reactivar concesión" pTooltip="Reactivar concesión" *appHasPermission="'PATCH /api/concesiones-rol/:id/reactivate'" (click)="reactivate(row)"><i pButtonIcon class="pi pi-lock-open"></i></button>
+          }
+        </div></td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage><tr><td colspan="4"><app-empty-state icon="pi pi-lock" title="Sin concesiones" message="No hay permisos de recursos que coincidan con los filtros." /></td></tr></ng-template>
+  </p-table>
+</div>
+
+<p-dialog [visible]="dialogVisible()" (visibleChange)="dialogVisible.set($event)" header="Conceder recurso a un rol" [modal]="true" [draggable]="false" [resizable]="false" [dismissableMask]="true" styleClass="w-full max-w-xl mx-4">
+  <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4">
+    <label class="block text-sm font-medium text-slate-700">Rol
+      <p-select [fluid]="true" formControlName="role_id" [options]="activeRoles()" optionLabel="name" optionValue="id" [filter]="true" filterBy="name" placeholder="Selecciona un rol activo" class="mt-1" />
+    </label>
+    <label class="block text-sm font-medium text-slate-700">Recurso HTTP
+      <p-select [fluid]="true" formControlName="resource_id" [options]="activeResources()" optionLabel="path" optionValue="id" [filter]="true" filterBy="path,method,description" placeholder="Selecciona un recurso activo" class="mt-1">
+        <ng-template #selectedItem let-resource><span class="flex items-center gap-2"><p-tag [value]="resource.method" [severity]="methodSeverity(resource.method)" [rounded]="true" /><code class="text-xs">{{ resource.path }}</code></span></ng-template>
+        <ng-template #item let-resource><span class="flex items-center gap-2"><p-tag [value]="resource.method" [severity]="methodSeverity(resource.method)" [rounded]="true" /><code class="text-xs">{{ resource.path }}</code><span class="text-xs text-slate-500">{{ resource.description }}</span></span></ng-template>
+      </p-select>
+    </label>
+    @if (form.touched && form.invalid) { <p-message severity="error" size="small" variant="simple">Selecciona un rol y un recurso.</p-message> }
+    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+      <button pButton type="button" severity="secondary" outlined (click)="dialogVisible.set(false)"><span pButtonLabel>Cancelar</span></button>
+      <button pButton type="submit" [loading]="saving()"><i pButtonIcon class="pi pi-check"></i><span pButtonLabel>Guardar concesión</span></button>
+    </div>
+  </form>
+</p-dialog>

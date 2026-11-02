@@ -1,0 +1,62 @@
+<app-page-header title="Recursos" subtitle="Catálogo de capacidades HTTP que pueden concederse a los roles.">
+  <p-tag [value]="rows().length + ' recursos'" severity="info" [rounded]="true" />
+  <button pButton type="button" *appHasPermission="'POST /api/recursos'" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i><span pButtonLabel>Nuevo recurso</span>
+  </button>
+</app-page-header>
+
+@if (error()) { <p-message severity="error" styleClass="mb-4 w-full">{{ error() }}</p-message> }
+
+<div class="mb-3 flex flex-wrap gap-2">
+  @for (method of methodCounts(); track method.method) {
+    <p-tag [value]="method.method + ' · ' + method.count" [severity]="methodSeverity(method.method)" [rounded]="true" />
+  }
+</div>
+
+<div class="rounded-lg border border-slate-200 bg-white">
+  <p-table [value]="visibleRows()" [loading]="loading()" [paginator]="visibleRows().length > 10" [rows]="10" dataKey="id">
+    <ng-template #caption>
+      <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem]">
+        <input pInputText type="search" aria-label="Buscar recursos" placeholder="Buscar por ruta o descripción" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+        <p-select [fluid]="true" [options]="methodOptions" optionLabel="label" optionValue="value" [ngModel]="methodFilter()" (ngModelChange)="methodFilter.set($event)" [ngModelOptions]="{ standalone: true }" aria-label="Filtrar por método" />
+      </div>
+    </ng-template>
+    <ng-template #header><tr><th>Método</th><th>Path</th><th>Descripción</th><th>Estado</th><th class="w-36 text-right">Acciones</th></tr></ng-template>
+    <ng-template #body let-resource><tr>
+      <td><p-tag [value]="resource.method" [severity]="methodSeverity(resource.method)" [rounded]="true" /></td>
+      <td><code>{{ resource.path }}</code></td>
+      <td>{{ resource.description || '—' }}</td>
+      <td><app-status-tag [isActive]="resource.status === 'active'" /></td>
+      <td><div class="flex justify-end gap-1">
+        <button pButton type="button" text rounded severity="secondary" aria-label="Editar recurso" pTooltip="Editar" *appHasPermission="'PATCH /api/recursos/:id'" (click)="openEdit(resource)"><i pButtonIcon class="pi pi-pencil"></i></button>
+        <button pButton type="button" text rounded severity="warn" aria-label="Desactivar recurso" pTooltip="Desactivar" *appHasPermission="'PATCH /api/recursos/:id/deactivate'" (click)="deactivate(resource)"><i pButtonIcon class="pi pi-ban"></i></button>
+        <button pButton type="button" text rounded severity="danger" aria-label="Eliminar recurso" pTooltip="Eliminar" *appHasPermission="'DELETE /api/recursos/:id'" (click)="remove(resource)"><i pButtonIcon class="pi pi-trash"></i></button>
+      </div></td>
+    </tr></ng-template>
+    <ng-template #emptymessage><tr><td colspan="5"><app-empty-state icon="pi pi-list" title="Sin recursos" message="No hay recursos que coincidan con los filtros." /></td></tr></ng-template>
+  </p-table>
+</div>
+
+<p-dialog [visible]="dialogVisible()" (visibleChange)="dialogVisible.set($event)" [header]="editing() ? 'Editar recurso' : 'Nuevo recurso'" [modal]="true" [draggable]="false" [resizable]="false" [dismissableMask]="true" styleClass="w-full max-w-xl mx-4">
+  <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4">
+    <label class="block text-sm font-medium text-slate-700">Método HTTP
+      <p-select [fluid]="true" formControlName="method" [options]="methodOptions.slice(1)" optionLabel="label" optionValue="value" class="mt-1" />
+    </label>
+    <label class="block text-sm font-medium text-slate-700">Path
+      <input pInputText formControlName="path" placeholder="/api/shipments/:id" class="mt-1 w-full font-mono" />
+    </label>
+    @if (form.controls.path.touched && form.controls.path.invalid) { <p-message severity="error" size="small" variant="simple">El path debe comenzar con / y no puede estar vacío.</p-message> }
+    <label class="block text-sm font-medium text-slate-700">Descripción
+      <input pInputText formControlName="description" class="mt-1 w-full" />
+    </label>
+    @if (!editing()) {
+      <label class="block text-sm font-medium text-slate-700">Estado inicial
+        <p-select [fluid]="true" formControlName="status" [options]="activeOptions" optionLabel="label" optionValue="value" class="mt-1" />
+      </label>
+    } @else { <p class="text-xs text-slate-500">El estado se cambia con la acción de desactivar.</p> }
+    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+      <button pButton type="button" severity="secondary" outlined (click)="dialogVisible.set(false)"><span pButtonLabel>Cancelar</span></button>
+      <button pButton type="submit" [loading]="saving()"><i pButtonIcon class="pi pi-check"></i><span pButtonLabel>Guardar</span></button>
+    </div>
+  </form>
+</p-dialog>

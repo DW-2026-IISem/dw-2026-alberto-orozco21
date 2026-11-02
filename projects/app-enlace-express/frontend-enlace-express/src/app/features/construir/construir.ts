@@ -19,6 +19,11 @@ import { RateList } from '../rates/rate-list/rate-list';
 import { RouteList } from '../routes/route-list/route-list';
 import { ShipmentList } from '../shipments/shipment-list/shipment-list';
 import { TrackingEventList } from '../tracking-events/tracking-event-list/tracking-event-list';
+import { UserList } from '../admin/users/user-list/user-list';
+import { RoleList } from '../admin/roles/role-list/role-list';
+import { ResourceList } from '../admin/resources/resource-list/resource-list';
+import { RoleUserList } from '../admin/role-users/role-user-list/role-user-list';
+import { ResourceRoleList } from '../admin/resource-roles/resource-role-list/resource-role-list';
 import { AuthService } from '../../core/services/auth-service';
 import { NotificationService } from '../../core/services/notification';
 import { SessionStore } from '../../core/services/session-store';
@@ -38,6 +43,14 @@ const BUSINESS_SECTIONS = [
   { label: 'Facturas', icon: 'pi pi-file', permission: 'GET /api/invoices' },
 ] as const;
 
+const ADMIN_SECTIONS = [
+  { label: 'Usuarios', icon: 'pi pi-users', permission: 'GET /api/usuarios' },
+  { label: 'Roles', icon: 'pi pi-key', permission: 'GET /api/roles' },
+  { label: 'Recursos', icon: 'pi pi-list', permission: 'GET /api/recursos' },
+  { label: 'Asignaciones de rol', icon: 'pi pi-user-plus', permission: 'GET /api/asignaciones-rol' },
+  { label: 'Concesiones de recursos', icon: 'pi pi-lock', permission: 'GET /api/concesiones-rol' },
+] as const;
+
 @Component({
   host: { class: 'block' },
   selector: 'app-construir',
@@ -45,6 +58,7 @@ const BUSINESS_SECTIONS = [
     AddressList, Aside, ButtonModule, CardModule, CompanyList, ContactList, Dashboard,
     DeliveryProofList, DrawerModule, Footer, Header, InvoiceList, MessengerList,
     PackageList, RateList, RouteList, ShipmentList, TrackingEventList,
+    UserList, RoleList, ResourceList, RoleUserList, ResourceRoleList,
   ],
   templateUrl: './construir.html',
   styleUrl: './construir.css',
@@ -82,6 +96,19 @@ export class Construir {
       items.push({ label: 'Operación', icon: 'pi pi-truck', items: operationItems });
     }
 
+    const securityItems = this.session.authEnabled
+      ? ADMIN_SECTIONS
+          .filter((section) => this.session.canPermission(section.permission))
+          .map<MenuItem>((section) => ({
+            label: section.label,
+            icon: section.icon,
+            command: () => this.seleccionar(section.label),
+          }))
+      : [];
+    if (securityItems.length > 0) {
+      items.push({ label: 'Seguridad', icon: 'pi pi-shield', items: securityItems });
+    }
+
     return items;
   });
 
@@ -98,6 +125,13 @@ export class Construir {
     if (section && !this.session.canPermission(section.permission)) {
       void this.router.navigate(['/forbidden'], {
         queryParams: { permission: section.permission },
+      });
+      return;
+    }
+    const adminSection = ADMIN_SECTIONS.find((item) => item.label === titulo);
+    if (adminSection && (!this.session.authEnabled || !this.session.canPermission(adminSection.permission))) {
+      void this.router.navigate(['/forbidden'], {
+        queryParams: { permission: adminSection.permission },
       });
       return;
     }

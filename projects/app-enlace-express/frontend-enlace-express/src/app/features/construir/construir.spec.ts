@@ -89,14 +89,14 @@ describe('Construir', () => {
     expect(compiled.querySelector('main h1')?.textContent).toContain('Resumen operativo');
   });
 
-  it('should show only permitted business sections and omit placeholder administration links', async () => {
-    grantReadPermissions('/api/companies', '/api/shipments');
+  it('should show only permitted business and security sections', async () => {
+    grantReadPermissions('/api/companies', '/api/shipments', '/api/usuarios', '/api/roles');
     const { fixture, compiled } = await createScreen();
 
     for (const label of ['Inicio', 'Operación']) {
       expect(compiled.textContent).toContain(label);
     }
-    expect(compiled.textContent).not.toContain('Administración');
+    expect(compiled.textContent).toContain('Seguridad');
 
     menuOption(compiled, 'Operación').click();
     fixture.detectChanges();
@@ -108,6 +108,13 @@ describe('Construir', () => {
       expect(compiled.textContent).toContain(label);
     }
     expect(compiled.textContent).not.toContain('Contactos');
+
+    menuOption(compiled, 'Seguridad').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(compiled.textContent).toContain('Usuarios');
+    expect(compiled.textContent).toContain('Roles');
+    expect(compiled.textContent).not.toContain('Recursos');
   });
 
   it('should always show the menu button', async () => {

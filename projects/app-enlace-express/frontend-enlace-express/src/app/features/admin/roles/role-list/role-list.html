@@ -1,0 +1,49 @@
+<app-page-header title="Roles" subtitle="Agrupa permisos para asignarlos a usuarios.">
+  <p-tag [value]="rows().length + ' roles'" severity="info" [rounded]="true" />
+  <button pButton type="button" *appHasPermission="'POST /api/roles'" (click)="openCreate()">
+    <i pButtonIcon class="pi pi-plus"></i><span pButtonLabel>Nuevo rol</span>
+  </button>
+</app-page-header>
+
+@if (error()) { <p-message severity="error" styleClass="mb-4 w-full">{{ error() }}</p-message> }
+
+<div class="rounded-lg border border-slate-200 bg-white">
+  <p-table [value]="visibleRows()" [loading]="loading()" [paginator]="visibleRows().length > 10" [rows]="10" dataKey="id">
+    <ng-template #caption><input pInputText type="search" aria-label="Buscar roles" placeholder="Buscar por nombre o descripción" [value]="filter()" (input)="filter.set($any($event.target).value)" class="w-full" /></ng-template>
+    <ng-template #header><tr><th>Rol</th><th>Descripción</th><th>Estado</th><th class="w-36 text-right">Acciones</th></tr></ng-template>
+    <ng-template #body let-role><tr>
+      <td><span class="font-semibold text-slate-800">{{ role.name }}</span><span class="ml-2 text-xs text-slate-400">#{{ role.id }}</span></td>
+      <td>{{ role.description || '—' }}</td>
+      <td><app-status-tag [isActive]="role.status === 'active'" /></td>
+      <td><div class="flex justify-end gap-1">
+        <button pButton type="button" text rounded severity="secondary" aria-label="Editar rol" pTooltip="Editar" *appHasPermission="'PATCH /api/roles/:id'" (click)="openEdit(role)"><i pButtonIcon class="pi pi-pencil"></i></button>
+        <button pButton type="button" text rounded severity="warn" aria-label="Desactivar rol" pTooltip="Desactivar" *appHasPermission="'PATCH /api/roles/:id/deactivate'" (click)="deactivate(role)"><i pButtonIcon class="pi pi-ban"></i></button>
+        <button pButton type="button" text rounded severity="danger" aria-label="Eliminar rol" pTooltip="Eliminar" *appHasPermission="'DELETE /api/roles/:id'" (click)="remove(role)"><i pButtonIcon class="pi pi-trash"></i></button>
+      </div></td>
+    </tr></ng-template>
+    <ng-template #emptymessage><tr><td colspan="4"><app-empty-state icon="pi pi-key" title="Sin roles" message="No hay roles que coincidan con la búsqueda." /></td></tr></ng-template>
+  </p-table>
+</div>
+
+<p-dialog [visible]="dialogVisible()" (visibleChange)="dialogVisible.set($event)" [header]="editing() ? 'Editar rol' : 'Nuevo rol'" [modal]="true" [draggable]="false" [resizable]="false" [dismissableMask]="true" styleClass="w-full max-w-xl mx-4">
+  <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4">
+    <label class="block text-sm font-medium text-slate-700">Nombre
+      <input pInputText formControlName="name" placeholder="OPERADOR" class="mt-1 w-full" />
+    </label>
+    <label class="block text-sm font-medium text-slate-700">Descripción
+      <input pInputText formControlName="description" class="mt-1 w-full" />
+    </label>
+    @if (!editing()) {
+      <label class="block text-sm font-medium text-slate-700">Estado inicial
+        <p-select [fluid]="true" formControlName="status" [options]="activeOptions" optionLabel="label" optionValue="value" class="mt-1" />
+      </label>
+    } @else {
+      <p class="text-xs text-slate-500">El estado se cambia con la acción de desactivar.</p>
+    }
+    @if (form.controls.name.touched && form.controls.name.invalid) { <p-message severity="error" size="small" variant="simple">El nombre es obligatorio y admite hasta 60 caracteres.</p-message> }
+    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+      <button pButton type="button" severity="secondary" outlined (click)="dialogVisible.set(false)"><span pButtonLabel>Cancelar</span></button>
+      <button pButton type="submit" [loading]="saving()"><i pButtonIcon class="pi pi-check"></i><span pButtonLabel>Guardar</span></button>
+    </div>
+  </form>
+</p-dialog>

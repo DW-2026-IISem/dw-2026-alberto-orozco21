@@ -13050,9 +13050,434 @@ readonly permission = this.route.snapshot.queryParamMap.get('permission');
     <code class="text-sm text-emerald-300">{{ permission }}</code>
   </div>
 }
+```
 
 Esto convierte un “no puedo entrar” en una pista accionable: pide a un admin que cree la fila en resource_roles (pantalla /admin/permisos).
 
 ![alt text](img-express/ISS-15.png)
 
 ![alt text](img-express/permisos_alberto.png)
+
+## Fase II: Auth con RBAC — ISS-16 — Formularios de las entidades Auth
+
+Convención visual: mantener PrimeNG Aura para controles y tablas, Tailwind para layout y los componentes compartidos `PageHeader`, `EmptyState` y `StatusTag`. Los formularios se presentan en diálogos, como en las listas de negocio. No añadir PrimeFlex ni estilos propios cuando las utilidades existentes resuelvan el layout.
+
+Antes de construir: completar el menú admin en el shell existente
+Las entidades comparten la ruta `/dashboard`: `Construir` conmuta la sección activa y `Aside` muestra el menú. Añade componentes standalone dentro de `features/admin`, registra cada sección en `Construir` y conserva `HasPermission` en cada acción.
+
+**Objetivo**
+Construir las pantallas que administran el modelo de autorización de EnlaceExpress:
+
+> Fase II · bloque 3 de 3 — Administración RBAC. El frontend ya tiene los modelos y servicios API para User, Role, Resource, RoleUser y ResourceRole; esta ISS añade sus vistas y formularios. No se crean rutas `/admin/*`: las secciones viven bajo el shell actual en `/dashboard`. `refresh_tokens` no tiene pantalla; las sesiones siguen siendo responsabilidad de la cuenta autenticada.
+
+```
+User ──< role_users >── Role ──< resource_roles >── Resource
+              (status active)          (status active)      (method + path)
+```
+
+**Cinco pantallas:**
+
+| Sección del menú | Entidad | Endpoint | Respuesta de lista | Permiso de lectura |
+| --- | --- | --- | --- | --- |
+| Usuarios | User | `/api/usuarios` | `{ users }` | `GET /api/usuarios` |
+| Roles | Role | `/api/roles` | `{ roles }` | `GET /api/roles` |
+| Recursos | Resource | `/api/recursos` | `{ resources }` | `GET /api/recursos` |
+| Asignaciones de rol | RoleUser | `/api/asignaciones-rol` | `{ assignments }` | `GET /api/asignaciones-rol` |
+| Concesiones de recursos | ResourceRole | `/api/concesiones-rol` | `{ grants }` | `GET /api/concesiones-rol` |
+
+### 16.1 Regla de oro del RBAC
+
+Un usuario puede ejecutar MÉTODO /ruta si y solo si existe la cadena:
+
+- role_users con user_id = usuario, status = active.
+- roles con status = active.
+- resource_roles con ese role_id, status = active.
+- resources con el path y method exactos, status = active.
+
+Si cualquier eslabón está inactivo, el backend responde 403 (deny by default). La UI replica esta lógica en SessionStore.canPermission() con los permisos efectivos que devuelve GET /api/permisos.
+
+### 16.2 Componentes
+
+Implementar las listas en `src/app/features/admin/users/user-list`, `roles/role-list`, `resources/resource-list`, `role-users/role-user-list` y `resource-roles/resource-role-list`. Cada lista contiene su formulario en un `p-dialog`, siguiendo el patrón existente de las pantallas de negocio. Los servicios `*-api.ts` ya existen y se reutilizan.
+
+### 16.3 Usuarios
+
+**Servicio**
+
+```typescript
+@Injectable({ providedIn: 'root' })
+export class UserApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/usuarios`;
+
+  list(): Observable<User[]> { /* GET { users } */ }
+  get(id: number): Observable<User> { /* GET { user } */ }
+  create(payload: CreateUserPayload): Observable<User> { /* POST { user } */ }
+  update(id: number, payload: PatchUserPayload): Observable<User> { /* PATCH */ }
+  permissions(id: number): Observable<EffectivePermission[]> { /* GET /:id/permisos */ }
+  changePassword(id: number, payload: { current_password: string; new_password: string }): Observable<unknown> {
+    /* PATCH /:id/password */
+  }
+  deactivate(id: number): Observable<unknown> { /* PATCH /:id/deactivate */ }
+  remove(id: number): Observable<unknown> { /* DELETE /:id */ }
+}
+```
+
+`GET /api/usuarios/:id/permisos`
+Devuelve la evaluación efectiva del usuario, con la misma consulta que usa authorize:
+
+```json
+{
+  "permissions": [
+    {
+      "resource_id": 1,
+      "method": "GET",
+      "path": "/api/companies",
+      "description": "Listar empresas",
+      "role_id": 2,
+      "role_name": "SELLER"
+    }
+  ]
+}
+```
+
+La lista de usuarios tiene un botón “Ver permisos” que abre un diálogo. Los roles se derivan en el cliente (role_id + role_name únicos); no hay endpoint /access en este backend.
+
+```typescript
+readonly access = signal<EffectivePermission[]>([]);
+readonly accessUser = signal<User | null>(null);
+
+readonly accessRoles = computed(() => {
+  const byId = new Map<number, string>();
+  for (const permission of this.access()) {
+    byId.set(permission.role_id, permission.role_name);
+  }
+  return [...byId.entries()].map(([id, name]) => ({ id, name }));
+});
+```
+
+Es la forma más rápida de diagnosticar un 403.
+
+**Formulario de usuario**
+
+```typescript
+readonly form = this.fb.group({
+  username: ['', [Validators.required, Validators.minLength(3)]],
+  email: ['', [Validators.required, Validators.email]],
+  password: ['', [Validators.required, Validators.minLength(8)]],
+  avatar: [''],
+  status: ['active' as Status, [Validators.required]],
+});
+```
+
+CreateUserDto acepta password y status; en cambio PATCH /api/usuarios/:id (`PatchUserDto = Partial<UpdateUserDto>`) solo acepta username, email y avatar. Por eso la UI muestra contraseña y estado solo al crear:
+
+```typescript
+if (current) {
+  password.clearValidators();
+  password.disable();
+  this.form.controls.status.disable();
+} else {
+  password.setValidators([Validators.required, Validators.minLength(8)]);
+  password.enable();
+  this.form.controls.status.enable();
+}
+```
+
+Y al emitir:
+
+```typescript
+const current = this.editing();
+const payload: PatchUserPayload = {
+  username: value.username.trim(),
+  email: value.email.trim(),
+  avatar: value.avatar.trim() || null,
+};
+
+// password + status solo existen en el alta
+if (current) {
+  this.api.update(current.id, payload);
+} else {
+  const createPayload: CreateUserPayload = { ...payload, status: value.status, password: value.password };
+  this.api.create(createPayload);
+}
+```
+
+> No envíes password ni status en el PATCH. El backend los ignora en el contrato, pero el repositorio recibiría el objeto crudo y podría rehashear la contraseña sin verificar la actual. El estado se cambia con /deactivate.
+
+**Cambio de contraseña**
+
+PATCH /api/usuarios/:id/password exige current_password del propio usuario (defensa en profundidad). No es una acción de “admin resetea a otro”: es la operación de autoservicio. El formulario de administración no la ofrece; si la expones, hazlo para el usuario autenticado (session.user()?.id).
+
+```typescript
+this.api.changePassword(user.id, {
+  current_password: 'Actual123!',
+  new_password: 'Nueva123!',
+});
+```
+
+Protección contra auto-bloqueo
+
+```typescript
+isSelf(user: User): boolean {
+  return this.session.user()?.id === user.id;
+}
+```
+
+En la plantilla:
+
+```html
+<button
+  pButton
+  text
+  rounded
+  severity="danger"
+  icon="pi pi-trash"
+  [disabled]="isSelf(user)"
+  pTooltip="No puedes eliminar tu propio usuario"
+></button>
+```
+
+### 16.4 Roles
+
+**Servicio RoleApi:**
+
+```
+list(): Observable<Role[]>          // GET { roles }
+create(payload: RolePayload)        // POST { role }
+update(id, payload)                 // PATCH { role }
+deactivate(id)                      // PATCH /:id/deactivate
+remove(id)                          // DELETE /:id
+```
+
+**Formulario:**
+
+```typescript
+readonly form = this.fb.group({
+  name: ['', [Validators.required, Validators.maxLength(60)]],
+  description: [''],
+  status: ['active' as Status, [Validators.required]],
+});
+```
+
+status solo se envía en el alta: PATCH /api/roles/:id no lo acepta y el estado se cambia con PATCH /:id/deactivate.
+
+El backend normaliza name a MAYÚSCULAS (ADMIN, SELLER, BUYER). El seeder crea ADMIN y SELLER; si creas roles nuevos, usa mayúsculas para que la UI y las concesiones coincidan. No renombres un rol con asignaciones activas sin revisar role_users.
+
+El nombre del rol no autoriza nada. Un ADMIN sin filas activas en resource_roles no puede ejecutar ninguna operación.
+
+### 16.5 Recursos HTTP
+
+Resource es el catálogo de capacidades. El par (path, method) es único.
+
+**Servicio**
+
+```typescript
+@Injectable({ providedIn: 'root' })
+export class ResourceApi {
+  private readonly base = `${environment.apiUrl}/recursos`;
+
+  list(): Observable<Resource[]> { /* GET { resources } */ }
+  get(id: number): Observable<Resource> { /* GET { resource } */ }
+  create(payload: ResourcePayload): Observable<Resource> { /* POST */ }
+  update(id: number, payload: Partial<ResourcePayload>): Observable<Resource> { /* PATCH */ }
+  deactivate(id: number): Observable<unknown> { /* PATCH /:id/deactivate */ }
+  remove(id: number): Observable<unknown> { /* DELETE /:id */ }
+}
+```
+
+El backend sí expone DELETE /api/recursos/:id. Úsalo con cuidado: rompe las filas históricas de resource_roles que apunten al resource. Para el día a día, prefiere PATCH /:id/deactivate.
+
+**Formulario y validación de path**
+
+```typescript
+readonly form = this.fb.group({
+  path: ['', [Validators.required, Validators.pattern(/^\/.*$/)]],
+  method: ['GET' as HttpMethod, [Validators.required]],
+  description: [''],
+  status: ['active' as Status, [Validators.required]],
+});
+```
+
+status solo se envía en el alta: PATCH /api/recursos/:id no lo acepta y el estado se cambia con PATCH /:id/deactivate.
+
+path debe empezar por /. Para rutas con parámetro usa :id:
+
+```
+/api/shipments
+/api/shipments/:id
+/api/shipments/:id/deactivate
+```
+
+El backend normaliza el verbo a mayúsculas y la ruta (sin barra final, sin //).
+
+El listado muestra contadores por método con un computed:
+
+```typescript
+readonly countsByMethod = computed(() => {
+  const counts = new Map<string, number>();
+  for (const row of this.rows()) {
+    counts.set(row.method, (counts.get(row.method) ?? 0) + 1);
+  }
+  return counts;
+});
+```
+
+**Filtro por método**
+
+p-select de PrimeNG 22 no tiene input value; se usa ngModel:
+
+```html
+<p-select [fluid]="true"
+  [options]="methods"
+  optionLabel="label"
+  optionValue="value"
+  [ngModel]="methodFilter()"
+  (onChange)="methodFilter.set($event.value)"
+/>
+```
+
+Y en el componente:
+
+```typescript
+readonly visibleRows = computed(() => {
+  const method = this.methodFilter();
+  const filtered = filterRows(this.rows(), this.filter(), (row) => [
+    row.path,
+    row.description,
+    row.method,
+  ]);
+  return method ? filtered.filter((row) => row.method === method) : filtered;
+});
+```
+
+### 16.6 Asignaciones usuario ↔ rol
+
+**RoleUserApi:**
+
+```
+list(): Observable<RoleUser[]>              // GET { assignments }
+create(payload): Observable<RoleUser>       // POST { assignment }
+deactivate(id): Observable<unknown>         // PATCH /:id/deactivate
+reactivate(id): Observable<unknown>         // PATCH /:id/reactivate
+```
+
+GET `/api/asignaciones-rol` lista asignaciones activas. No hay DELETE físico: retirar es baja lógica y reactivar, cuando se dispone de una fila inactiva, es `PATCH /:id/reactivate`. POST puede restaurar una asignación existente según el contrato del backend; la UI debe permitir volver a asignar el mismo par usuario-rol.
+
+**Pantalla**
+
+- Filtros por usuario y por rol (computed local).
+- Diálogo “Asignar rol” con dos p-select y [ngModel].
+- Tabla con avatar, username, email, rol y fecha.
+- Botón “Retirar rol” → PATCH /api/asignaciones-rol/:id/deactivate.
+
+```typescript
+readonly visibleRows = computed(() => {
+  const user = this.userFilter();
+  const role = this.roleFilter();
+  return this.rows().filter(
+    (row) => (!user || row.user_id === user.id) && (!role || row.role_id === role.id),
+  );
+});
+
+readonly canSave = computed(() => !!this.selectedUser() && !!this.selectedRole());
+```
+
+```html
+<p-select [fluid]="true"
+  [options]="users()"
+  optionLabel="username"
+  [filter]="true"
+  filterBy="username,email"
+  [ngModel]="selectedUser()"
+  (ngModelChange)="selectedUser.set($event)"
+/>
+```
+
+**Advertencia de bloqueo**
+
+
+Si quitas el último role_user de un administrador, nadie podrá administrar el RBAC. En el laboratorio:
+
+- Crea un segundo usuario admin.
+- Asígnale el rol ADMIN.
+- Verifica con Ver permisos que tiene GET /api/usuarios.
+- Solo entonces modifica el primero.
+
+### 16.7 Concesiones rol ↔ recurso
+
+**ResourceRoleApi:**
+
+```
+list(filters?: { role_id?: number; resource_id?: number }): Observable<ResourceRole[]>
+create(payload: ResourceRolePayload): Observable<ResourceRole>   // { grant }
+deactivate(id): Observable<unknown>                              // PATCH /:id/deactivate
+reactivate(id): Observable<unknown>                              // PATCH /:id/reactivate
+```
+
+GET /api/concesiones-rol acepta ?role_id= y ?resource_id=. La respuesta es { grants }; el POST responde { message, grant }.
+
+**Pantalla**
+
+Filtro por rol y búsqueda de path/método.
+Diálogo “Conceder permiso” con p-select de roles y de resources.
+El p-select de resources usa templates para mostrar método + path:
+
+```html
+<p-select [fluid]="true"
+  [options]="resources()"
+  [filter]="true"
+  filterBy="path,method"
+  [ngModel]="selectedResource()"
+  (ngModelChange)="selectedResource.set($event)"
+>
+  <ng-template #selectedItem let-resource>
+    <span class="flex items-center gap-2">
+      <p-tag [value]="resource.method" [severity]="methodSeverity(resource.method)" [rounded]="true" />
+      <code class="text-xs">{{ resource.path }}</code>
+    </span>
+  </ng-template>
+  <ng-template #item let-resource>
+    <span class="flex items-center gap-2">
+      <p-tag [value]="resource.method" [severity]="methodSeverity(resource.method)" [rounded]="true" />
+      <code class="text-xs">{{ resource.path }}</code>
+    </span>
+  </ng-template>
+</p-select>
+```
+
+selectedItem e item son templates de PrimeNG 22, pero se declaran como variables (#selectedItem, #item): Select los busca con contentChild("selectedItem"). Con pTemplate se ignoran y el select muestra [object Object] porque el resource no tiene un label plano. Es el mismo cambio que sufrió Table (PARCHE de ISS-03).
+
+**Semáforo de métodos**
+
+```typescript
+methodSeverity(method: HttpMethod | undefined) {
+  switch (method) {
+    case 'GET': return 'info';
+    case 'POST': return 'success';
+    case 'PUT':
+    case 'PATCH': return 'warn';
+    case 'DELETE': return 'danger';
+    default: return 'secondary';
+  }
+}
+```
+
+### 16.8 Integración del menú
+
+Las secciones se registran en el catálogo de navegación de `Construir` con su permiso `GET` correspondiente. El grupo Seguridad solo se muestra si `SessionStore.authEnabled` es true; cada opción se filtra con `SessionStore.canPermission()`. `seleccionar()` vuelve a comprobar ambos requisitos y dirige a `/forbidden` con el permiso requerido cuando no se cumple.
+
+Las acciones de escritura usan `HasPermission`:
+
+| Acción | Permiso |
+| --- | --- |
+| Crear usuario, rol, recurso, asignación o concesión | `POST` sobre su endpoint base |
+| Editar usuario, rol o recurso | `PATCH` sobre `/:id` |
+| Desactivar entidad | `PATCH` sobre `/:id/deactivate` |
+| Eliminar usuario, rol o recurso | `DELETE` sobre `/:id` |
+| Ver permisos efectivos de usuario | `GET /api/usuarios/:id/permisos` |
+| Reactivar asignación o concesión | `PATCH` sobre `/:id/reactivate` |
+
+Las comprobaciones de interfaz son UX; el backend sigue siendo la autoridad y responde 401/403. No se habilita el cambio de contraseña de otro usuario desde administración: el endpoint exige la contraseña actual y corresponde a autoservicio.
+
+![alt text](img-express/ISS_16.png)
