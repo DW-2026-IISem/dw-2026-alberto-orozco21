@@ -42,13 +42,13 @@
   </p-table>
 </div>
 
-<p-dialog [visible]="dialogVisible()" (visibleChange)="dialogVisible.set($event)" header="Conceder recurso a un rol" [modal]="true" [draggable]="false" [resizable]="false" [dismissableMask]="true" styleClass="w-full max-w-xl mx-4">
+<p-dialog [visible]="dialogVisible()" (visibleChange)="dialogVisible.set($event)" header="Conceder recurso a un rol" [modal]="true" [draggable]="false" [resizable]="false" [dismissableMask]="true" styleClass="w-full max-w-4xl mx-4">
   <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4">
     <label class="block text-sm font-medium text-slate-700">Rol
       <p-select [fluid]="true" formControlName="role_id" [options]="activeRoles()" optionLabel="name" optionValue="id" [filter]="true" filterBy="name" placeholder="Selecciona un rol activo" class="mt-1" />
     </label>
     <label class="block text-sm font-medium text-slate-700">Recurso HTTP
-      <p-select [fluid]="true" formControlName="resource_id" [options]="activeResources()" optionLabel="path" optionValue="id" [filter]="true" filterBy="path,method,description" placeholder="Selecciona un recurso activo" class="mt-1">
+      <p-select [fluid]="true" formControlName="resource_id" [options]="activeResources()" optionLabel="path" optionValue="id" [filter]="true" filterBy="path,method,description" scrollHeight="360px" appendTo="body" placeholder="Selecciona un recurso activo" class="mt-1">
         <ng-template #selectedItem let-resource><span class="flex items-center gap-2"><p-tag [value]="resource.method" [severity]="methodSeverity(resource.method)" [rounded]="true" /><code class="text-xs">{{ resource.path }}</code></span></ng-template>
         <ng-template #item let-resource><span class="flex items-center gap-2"><p-tag [value]="resource.method" [severity]="methodSeverity(resource.method)" [rounded]="true" /><code class="text-xs">{{ resource.path }}</code><span class="text-xs text-slate-500">{{ resource.description }}</span></span></ng-template>
       </p-select>

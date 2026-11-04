@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 
 /**
@@ -10,7 +11,7 @@ import { ToastModule } from 'primeng/toast';
 @Component({
   host: { class: 'block' },
   selector: 'app-root',
-  imports: [RouterOutlet, ToastModule],
+  imports: [RouterOutlet, ConfirmDialogModule, ToastModule],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

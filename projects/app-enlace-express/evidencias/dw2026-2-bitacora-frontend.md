@@ -266,6 +266,8 @@ export const appConfig: ApplicationConfig = {
 EOF
 ```
 
+![alt text](img-express/primeng.png)
+
 En ISS-02 se añade `provideHttpClient()`. Los interceptores se generan e incorporan en ISS-08, cuando sus servicios ya existen.
 
 ### 1.4.1 Licencia de PrimeNG 22 (obligatoria para la entrega limpia)
@@ -307,12 +309,14 @@ export const environment = {
 
 `app.config.ts` ya enlaza la licencia: `license: environment.primeUiLicense || undefined`. Los pasos detallados del campo están en ISS-02 §2.1.
 
+![alt text](img-express/primekey.png)
+
 ### 1.5 Pantalla de arranque: App compone el componente demo/ejemplo
 
 **Criterios de este sub-ítem**
 
 - [X] src/app/app.ts importa el componente Ejemplo y lo declara en imports
-- [X] src/app/app.html contiene <app-ejemplo /> dentro de un <main> con utilidades Tailwind
+- [X] src/app/app.html contiene `<app-ejemplo />` dentro de un `<main>` con utilidades Tailwind
 - [X] src/app/app.css queda vacío: el aspecto viene de Tailwind y del tema Aura
 - [X] src/app/app.spec.ts prueba que app-ejemplo se pinta, en lugar del `<h1>` por defecto
 - [X] src/app/app.routes.ts sigue vacío: en ISS-01 no hay rutas
@@ -353,6 +357,8 @@ import { Ejemplo } from './demo/ejemplo/ejemplo';
 export class App {}
 EOF
 ```
+
+![alt text](img-express/appts.png)
 
 `src/app/app.html`
 
@@ -11961,8 +11967,6 @@ El menú de `Construir` (ISS-01B) ya define la estructura: grupo **Operación** 
 
 ![alt text](img-express/crud_prueba_entrega.png)
 
-## Pruebas
-
 Las peticiones se simulan con `HttpTestingController`: se verifica el verbo, la URL y el cuerpo, sin backend ni base de datos. Se escribe el juego completo para **Empresas** (la entidad de referencia); en las otras diez se copian los mismos casos cambiando clase, URL y payload.
 
 | Archivo | Qué comprueba | Casos |
@@ -12492,6 +12496,8 @@ function pathMatches(pattern: string, path: string): boolean {
 EOF
 ```
 
+![alt text](img-express/auth_service.png)
+
 El archivo real incluye `restore()` y `persist()` completos. Lo esencial: persistimos permissions, no roles ni resources, porque los últimos se derivan con computed.
 
 ### 14.6 AuthService
@@ -12841,6 +12847,8 @@ export const authGuard: CanActivateFn = (_route, state) => {
 EOF
 ```
 
+![alt text](img-express/authguard.png)
+
 createUrlTree es preferible a router.navigate dentro de un guard: el Router evalúa la redirección antes de activar el componente, sin parpadeos.
 
 ### 15.2 guestGuard
@@ -12865,6 +12873,8 @@ export const guestGuard: CanActivateFn = () => {
 };
 EOF
 ```
+
+![alt text](img-express/guestguard.png)
 
 ### 15.3 permissionGuard
 
@@ -12899,6 +12909,8 @@ export const permissionGuard: CanActivateFn = (route) => {
 };
 EOF
 ```
+
+![alt text](img-express/permissionguard.png)
 
 Cómo se evalúa canPermission
 

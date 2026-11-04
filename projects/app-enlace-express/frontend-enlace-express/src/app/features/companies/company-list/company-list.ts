@@ -11,6 +11,7 @@ import { Address } from '../../../core/models/address.model';
 import { Company, CompanyPayload } from '../../../core/models/company.model';
 import { Contact } from '../../../core/models/contact.model';
 import { NotificationService } from '../../../core/services/notification';
+import { SessionStore } from '../../../core/services/session-store';
 import { toApiMessage } from '../../../core/utils/api-error';
 import { filterRows } from '../../../core/utils/filter-rows';
 import { HasPermission } from '../../../shared/directives/has-permission';
@@ -35,6 +36,7 @@ export class CompanyList {
   private readonly addressApi = inject(AddressApi);
   private readonly notify = inject(NotificationService);
   private readonly confirmation = inject(ConfirmationService);
+  private readonly session = inject(SessionStore);
 
   readonly rows = signal<Company[]>([]);
   readonly contacts = signal<Contact[]>([]);
@@ -88,10 +90,14 @@ export class CompanyList {
       error: () => this.contacts.set([]),
     });
 
-    this.addressApi.list().subscribe({
-      next: (addresses) => this.addresses.set(addresses),
-      error: () => this.addresses.set([]),
-    });
+    if (this.session.canPermission('GET /api/address')) {
+      this.addressApi.list().subscribe({
+        next: (addresses) => this.addresses.set(addresses),
+        error: () => this.addresses.set([]),
+      });
+    } else {
+      this.addresses.set([]);
+    }
   }
 
   openCreate(): void {

@@ -28,7 +28,7 @@ const ROWS = [
     "is_active": true
   }
 ];
-const REFERENCES: Array<[string, string]> = [["contacts", "contacts"], ["address", "addresses"]];
+const REFERENCES: Array<[string, string]> = [["contacts", "contacts"]];
 const CREATE_PAYLOAD = {"nit": "900111222", "razon_social": "Nueva SAS", "is_active": true};
 const UPDATE_PAYLOAD = {"razon_social": "Editada SAS"};
 
@@ -71,6 +71,7 @@ describe('CompanyList', () => {
     expect(list.rows()).toEqual(ROWS);
     expect(list.loading()).toBe(false);
     expect(list.error()).toBeNull();
+    http.expectNone(`${API}/address`);
   });
   it('shows the backend error when the primary list fails', async () => {
     const fixture = TestBed.createComponent(CompanyList);
